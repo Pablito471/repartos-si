@@ -32,11 +32,13 @@ npm run dev
 ## 🌐 Deploy en Vercel
 
 ### Opción 1: Deploy automático
+
 1. Conecta tu repositorio de GitHub a [Vercel](https://vercel.com)
 2. Vercel detectará automáticamente que es un proyecto Next.js
 3. Click en "Deploy"
 
 ### Opción 2: Deploy manual con CLI
+
 ```bash
 # Instalar Vercel CLI
 npm i -g vercel
@@ -53,12 +55,12 @@ vercel --prod
 
 ## 🔐 Usuarios de prueba
 
-| Tipo | Email | Contraseña |
-|------|-------|------------|
-| Cliente | cliente@test.com | 123456 |
-| Depósito | deposito@test.com | 123456 |
-| Flete | flete@test.com | 123456 |
-| Admin | admin@repartos.com | admin123 |
+| Tipo     | Email              | Contraseña |
+| -------- | ------------------ | ---------- |
+| Cliente  | cliente@test.com   | 123456     |
+| Depósito | deposito@test.com  | 123456     |
+| Flete    | flete@test.com     | 123456     |
+| Admin    | admin@repartos.com | admin123   |
 
 ## 📁 Estructura del proyecto
 
