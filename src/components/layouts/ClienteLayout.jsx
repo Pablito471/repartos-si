@@ -70,12 +70,12 @@ export default function ClienteLayout({ children }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-30 h-full w-64 bg-gradient-to-b from-primary-700 to-primary-900 dark:from-primary-800 dark:to-primary-950 shadow-lg transform transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-30 h-full w-64 bg-gradient-to-b from-primary-700 to-primary-900 dark:from-primary-800 dark:to-primary-950 shadow-lg transform transition-transform duration-300 lg:translate-x-0 flex flex-col ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Logo */}
-        <div className="h-24 flex items-center justify-center border-b border-primary-600 dark:border-primary-700 py-4">
+        <div className="h-20 flex-shrink-0 flex items-center justify-center border-b border-primary-600 dark:border-primary-700 py-3">
           <Link href="/">
             <Logo size="sm" />
           </Link>
@@ -84,10 +84,10 @@ export default function ClienteLayout({ children }) {
         {/* User info */}
         <Link
           href="/clientes/perfil"
-          className="block p-4 border-b border-primary-600 dark:border-primary-700 bg-primary-800/50 hover:bg-primary-700/50 transition-colors cursor-pointer"
+          className="flex-shrink-0 block p-3 border-b border-primary-600 dark:border-primary-700 bg-primary-800/50 hover:bg-primary-700/50 transition-colors cursor-pointer"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-primary-400 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
+            <div className="w-9 h-9 bg-primary-400 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden">
               {usuario?.foto ? (
                 <img
                   src={usuario.foto}
@@ -98,37 +98,37 @@ export default function ClienteLayout({ children }) {
                 usuario?.nombre?.charAt(0).toUpperCase() || "C"
               )}
             </div>
-            <div>
-              <p className="font-semibold text-white">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-white text-sm truncate">
                 {usuario?.nombre || "Cliente"}
               </p>
-              <p className="text-sm text-primary-200">
+              <p className="text-xs text-primary-200">
                 {usuario?.id || "Cliente"}
               </p>
             </div>
-            <span className="ml-auto text-primary-300">
+            <span className="flex-shrink-0 text-primary-300">
               <Icons.Pencil className="w-4 h-4" />
             </span>
           </div>
         </Link>
 
-        {/* Navigation */}
-        <nav className="p-4">
-          <ul className="space-y-2">
+        {/* Navigation - scrollable */}
+        <nav className="flex-1 overflow-y-auto p-3">
+          <ul className="space-y-1">
             {menuItems.map((item) => {
               const isActive = router.pathname === item.href;
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors ${
                       isActive
                         ? "bg-white text-primary-700"
                         : "text-primary-100 hover:bg-primary-600 hover:text-white"
                     }`}
                   >
                     {renderIcon(item.icon)}
-                    <span className="font-medium">{item.name}</span>
+                    <span className="font-medium text-sm">{item.name}</span>
                   </Link>
                 </li>
               );
@@ -137,47 +137,36 @@ export default function ClienteLayout({ children }) {
         </nav>
 
         {/* Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-primary-600 dark:border-primary-700">
+        <div className="flex-shrink-0 p-3 border-t border-primary-600 dark:border-primary-700">
           <button
             onClick={logout}
-            className="w-full flex items-center space-x-3 px-4 py-3 text-primary-100 hover:bg-primary-600 hover:text-white rounded-lg transition-colors"
+            className="w-full flex items-center space-x-3 px-3 py-2.5 text-primary-100 hover:bg-primary-600 hover:text-white rounded-lg transition-colors"
           >
             <Icons.Logout className="w-5 h-5" />
-            <span className="font-medium">Cerrar Sesión</span>
+            <span className="font-medium text-sm">Cerrar Sesión</span>
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 min-h-screen flex flex-col">
         {/* Top navbar */}
-        <header className="h-16 bg-white dark:bg-neutral-800 shadow-sm dark:shadow-neutral-900/30 flex items-center justify-between px-4 lg:px-8 transition-colors duration-300">
+        <header className="h-14 sm:h-16 bg-white dark:bg-neutral-800 shadow-sm dark:shadow-neutral-900/30 flex items-center justify-between px-3 sm:px-4 lg:px-8 transition-colors duration-300 sticky top-0 z-10">
           <button
-            className="lg:hidden p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+            className="lg:hidden p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 -ml-1"
             onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú"
           >
-            <svg
-              className="w-6 h-6 text-neutral-700 dark:text-neutral-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
+            <Icons.Menu className="w-6 h-6 text-neutral-700 dark:text-neutral-300" />
           </button>
 
           <div className="flex-1 lg:flex-none">
-            <h1 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 lg:hidden">
-              Panel de Cliente
+            <h1 className="text-base sm:text-lg font-semibold text-neutral-800 dark:text-neutral-100 lg:hidden truncate">
+              Panel Cliente
             </h1>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Theme Toggle */}
             <ThemeToggle />
 
@@ -185,35 +174,41 @@ export default function ClienteLayout({ children }) {
             {cantidadCarrito > 0 && (
               <Link
                 href="/clientes/pedidos/nuevo"
-                className="flex items-center space-x-2 px-3 py-2 bg-primary-100 dark:bg-primary-900/30 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg transition-colors"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-primary-100 dark:bg-primary-900/30 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg transition-colors"
               >
                 <div className="relative">
-                  <span className="text-xl">🛒</span>
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary-600 dark:bg-primary-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  <Icons.ShoppingCart className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                  <span className="absolute -top-2 -right-2 w-4 h-4 sm:w-5 sm:h-5 bg-primary-600 dark:bg-primary-500 text-white text-[10px] sm:text-xs font-bold rounded-full flex items-center justify-center">
                     {cantidadCarrito}
                   </span>
                 </div>
-                <span className="hidden md:inline text-primary-700 dark:text-primary-400 font-medium">
+                <span className="hidden sm:inline text-sm text-primary-700 dark:text-primary-400 font-medium">
                   ${formatNumber(totalCarrito)}
                 </span>
               </Link>
             )}
 
             {/* Notifications */}
-            <button className="relative p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700">
-              <span className="text-xl">🔔</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <button
+              className="relative p-1.5 sm:p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              aria-label="Notificaciones"
+            >
+              <Icons.Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+              <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
 
-            {/* Help */}
-            <button className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700">
-              <span className="text-xl">❓</span>
+            {/* Help - hidden on mobile */}
+            <button
+              className="hidden sm:block p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              aria-label="Ayuda"
+            >
+              <Icons.QuestionMarkCircle className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
             </button>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="p-4 lg:p-8">{children}</main>
+        <main className="flex-1 p-3 sm:p-4 lg:p-6 xl:p-8">{children}</main>
       </div>
     </div>
   );

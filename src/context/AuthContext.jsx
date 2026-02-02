@@ -260,7 +260,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUsuario(null);
     localStorage.removeItem("repartos_usuario_actual");
-    router.push("/auth/login");
+    router.push("/");
   };
 
   const actualizarPerfil = (datosActualizados) => {

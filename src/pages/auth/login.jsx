@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";
+import Icons from "@/components/Icons";
 import Swal from "sweetalert2";
 
 export default function Login() {
@@ -69,24 +70,25 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 flex items-center justify-center p-4 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 flex items-center justify-center p-3 sm:p-4 transition-colors duration-300">
       {/* Theme Toggle */}
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
         <ThemeToggle />
       </div>
 
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8 flex flex-col items-center">
-          <Logo size="xl" />
-          <p className="text-white/80 dark:text-neutral-400 mt-3">
+        <div className="text-center mb-6 sm:mb-8 flex flex-col items-center">
+          <Logo size="lg" className="sm:hidden" />
+          <Logo size="xl" className="hidden sm:inline-flex" />
+          <p className="text-sm sm:text-base text-white/80 dark:text-neutral-400 mt-2 sm:mt-3">
             Sistema de Gestión de Repartos
           </p>
         </div>
 
         {/* Card de Login */}
-        <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl dark:shadow-neutral-900/50 p-8 transition-colors duration-300">
-          <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 text-center mb-6">
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl dark:shadow-neutral-900/50 p-5 sm:p-8 transition-colors duration-300">
+          <h2 className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100 text-center mb-5 sm:mb-6">
             Iniciar Sesión
           </h2>
 
@@ -100,7 +102,7 @@ export default function Login() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+                className="input-field py-3"
                 placeholder="tu@email.com"
                 required
               />
@@ -115,7 +117,7 @@ export default function Login() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+                className="input-field py-3"
                 placeholder="••••••••"
                 required
               />
@@ -130,8 +132,8 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-neutral-600 dark:text-neutral-400">
+          <div className="mt-5 sm:mt-6 text-center">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
               ¿No tienes cuenta?{" "}
               <Link
                 href="/auth/registro"
@@ -143,31 +145,31 @@ export default function Login() {
           </div>
 
           {/* Login Rápido (para testing) */}
-          <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center mb-3">
+          <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-neutral-200 dark:border-neutral-700">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 text-center mb-3">
               Acceso rápido (demo):
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
                 onClick={() => loginRapido("cliente")}
-                className="flex-1 py-2 px-3 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg text-sm font-medium hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors"
+                className="flex-1 py-2.5 sm:py-2 px-3 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg text-sm font-medium hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors flex items-center justify-center gap-2"
               >
-                👤 Cliente
+                <Icons.User className="w-4 h-4" /> Cliente
               </button>
               <button
                 type="button"
                 onClick={() => loginRapido("deposito")}
-                className="flex-1 py-2 px-3 bg-secondary-100 dark:bg-secondary-900/30 text-secondary-700 dark:text-secondary-300 rounded-lg text-sm font-medium hover:bg-secondary-200 dark:hover:bg-secondary-900/50 transition-colors"
+                className="flex-1 py-2.5 sm:py-2 px-3 bg-secondary-100 dark:bg-secondary-900/30 text-secondary-700 dark:text-secondary-300 rounded-lg text-sm font-medium hover:bg-secondary-200 dark:hover:bg-secondary-900/50 transition-colors flex items-center justify-center gap-2"
               >
-                🏪 Depósito
+                <Icons.Building className="w-4 h-4" /> Depósito
               </button>
               <button
                 type="button"
                 onClick={() => loginRapido("flete")}
-                className="flex-1 py-2 px-3 bg-accent-100 dark:bg-accent-900/30 text-accent-700 dark:text-accent-400 rounded-lg text-sm font-medium hover:bg-accent-200 dark:hover:bg-accent-900/50 transition-colors"
+                className="flex-1 py-2.5 sm:py-2 px-3 bg-accent-100 dark:bg-accent-900/30 text-accent-700 dark:text-accent-400 rounded-lg text-sm font-medium hover:bg-accent-200 dark:hover:bg-accent-900/50 transition-colors flex items-center justify-center gap-2"
               >
-                🚚 Flete
+                <Icons.Truck className="w-4 h-4" /> Flete
               </button>
             </div>
 
@@ -187,15 +189,15 @@ export default function Login() {
                   window.location.reload();
                 });
               }}
-              className="w-full mt-3 py-2 px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded-lg text-sm hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors"
+              className="w-full mt-3 py-2 px-3 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded-lg text-xs sm:text-sm hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors flex items-center justify-center gap-2"
             >
-              🔄 Restaurar datos de prueba
+              <Icons.Refresh className="w-4 h-4" /> Restaurar datos de prueba
             </button>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/60 dark:text-neutral-500 mt-6 text-sm">
+        <p className="text-center text-white/60 dark:text-neutral-500 mt-4 sm:mt-6 text-xs sm:text-sm">
           © 2026 Repartos-SI. Todos los derechos reservados.
         </p>
       </div>

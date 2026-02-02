@@ -45,6 +45,9 @@ import {
   PlayIcon,
   BanknotesIcon,
   ReceiptPercentIcon,
+  QuestionMarkCircleIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
 } from "@heroicons/react/24/outline";
 
 import { StarIcon as StarFilledIcon } from "@heroicons/react/24/solid";
@@ -176,6 +179,15 @@ const Icons = {
 
   // Play
   Play: PlayIcon,
+
+  // Signo de interrogación
+  QuestionMarkCircle: QuestionMarkCircleIcon,
+
+  // Búsqueda/Lupa
+  Search: MagnifyingGlassIcon,
+
+  // Filtro
+  Filter: FunnelIcon,
 };
 
 export default Icons;

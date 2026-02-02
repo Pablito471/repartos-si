@@ -43,21 +43,20 @@ export default function FleteDashboard() {
 
   return (
     <FleteLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
+            <h1 className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100">
               Dashboard
             </h1>
-            <p className="text-neutral-600 dark:text-neutral-400">
-              Bienvenido, tienes {stats.enviosPendientesHoy} envíos pendientes
-              hoy
+            <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
+              Tienes {stats.enviosPendientesHoy} envíos pendientes hoy
             </p>
           </div>
           <Link
             href="/fletes/ruta"
-            className="mt-4 md:mt-0 bg-primary-600 dark:bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors inline-flex items-center space-x-2"
+            className="btn-primary inline-flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Icons.Map className="w-5 h-5" />
             <span>Ver Ruta del Día</span>
@@ -65,84 +64,92 @@ export default function FleteDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card bg-gradient-to-br from-yellow-500 to-yellow-600 text-white">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="card bg-gradient-to-br from-yellow-500 to-yellow-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-yellow-100 text-sm">Pendientes</p>
-                <p className="text-3xl font-bold">{stats.enviosPendientes}</p>
+                <p className="text-yellow-100 text-xs sm:text-sm">Pendientes</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.enviosPendientes}
+                </p>
               </div>
-              <Icons.Clock className="w-10 h-10 opacity-80" />
+              <Icons.Clock className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm">En Camino</p>
-                <p className="text-3xl font-bold">{stats.enviosEnCamino}</p>
+                <p className="text-blue-100 text-xs sm:text-sm">En Camino</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.enviosEnCamino}
+                </p>
               </div>
-              <Icons.Truck className="w-10 h-10 opacity-80" />
+              <Icons.Truck className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white">
+          <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm">Entregados</p>
-                <p className="text-3xl font-bold">{stats.enviosEntregados}</p>
+                <p className="text-green-100 text-xs sm:text-sm">Entregados</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.enviosEntregados}
+                </p>
               </div>
-              <Icons.CheckCircle className="w-10 h-10 opacity-80" />
+              <Icons.CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+          <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm">Tasa de Éxito</p>
-                <p className="text-3xl font-bold">{stats.tasaExito}%</p>
+                <p className="text-purple-100 text-xs sm:text-sm">Tasa Éxito</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.tasaExito}%
+                </p>
               </div>
-              <Icons.TrendingUp className="w-10 h-10 opacity-80" />
+              <Icons.TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card">
-            <h3 className="font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="card !p-4 sm:!p-6">
+            <h3 className="font-semibold text-sm sm:text-base text-neutral-700 dark:text-neutral-300 mb-1 sm:mb-2">
               Ingresos
             </h3>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+            <p className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
               ${formatNumber(stats.ingresos)}
             </p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
               Este mes
             </p>
           </div>
 
-          <div className="card">
-            <h3 className="font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+          <div className="card !p-4 sm:!p-6">
+            <h3 className="font-semibold text-sm sm:text-base text-neutral-700 dark:text-neutral-300 mb-1 sm:mb-2">
               Gastos
             </h3>
-            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+            <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400">
               ${formatNumber(stats.egresos)}
             </p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
               Este mes
             </p>
           </div>
 
-          <div className="card">
-            <h3 className="font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+          <div className="card !p-4 sm:!p-6">
+            <h3 className="font-semibold text-sm sm:text-base text-neutral-700 dark:text-neutral-300 mb-1 sm:mb-2">
               Balance
             </h3>
             <p
-              className={`text-2xl font-bold ${stats.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+              className={`text-xl sm:text-2xl font-bold ${stats.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
             >
               ${formatNumber(stats.balance)}
             </p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
               Este mes
             </p>
           </div>

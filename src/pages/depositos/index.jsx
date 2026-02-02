@@ -19,142 +19,148 @@ export default function DepositoDashboard() {
 
   return (
     <DepositoLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
+            <h1 className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100">
               Dashboard
             </h1>
-            <p className="text-neutral-600 dark:text-neutral-400">
+            <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
               Resumen de operaciones del depósito
             </p>
           </div>
-          <div className="mt-4 md:mt-0 flex space-x-3">
-            <Link
-              href="/depositos/pedidos"
-              className="btn-primary inline-flex items-center space-x-2"
-            >
-              <Icons.Package className="w-5 h-5" />
-              <span>Ver Pedidos</span>
-            </Link>
-          </div>
+          <Link
+            href="/depositos/pedidos"
+            className="btn-primary inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+          >
+            <Icons.Package className="w-5 h-5" />
+            <span>Ver Pedidos</span>
+          </Link>
         </div>
 
         {/* Stats Cards - Row 1 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="card bg-gradient-to-br from-yellow-500 to-yellow-600 text-white">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="card bg-gradient-to-br from-yellow-500 to-yellow-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-yellow-100 text-sm">Pendientes</p>
-                <p className="text-3xl font-bold">{stats.pedidosPendientes}</p>
+                <p className="text-yellow-100 text-xs sm:text-sm">Pendientes</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.pedidosPendientes}
+                </p>
               </div>
-              <Icons.Clock className="w-10 h-10 opacity-80" />
+              <Icons.Clock className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm">Preparando</p>
-                <p className="text-3xl font-bold">{stats.pedidosPreparando}</p>
+                <p className="text-blue-100 text-xs sm:text-sm">Preparando</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.pedidosPreparando}
+                </p>
               </div>
-              <Icons.ClipboardList className="w-10 h-10 opacity-80" />
+              <Icons.ClipboardList className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+          <div className="card bg-gradient-to-br from-purple-500 to-purple-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm">Listos</p>
-                <p className="text-3xl font-bold">{stats.pedidosListos}</p>
+                <p className="text-purple-100 text-xs sm:text-sm">Listos</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.pedidosListos}
+                </p>
               </div>
-              <Icons.CheckCircle className="w-10 h-10 opacity-80" />
+              <Icons.CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white">
+          <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm">En Camino</p>
-                <p className="text-3xl font-bold">{stats.pedidosEnviados}</p>
+                <p className="text-green-100 text-xs sm:text-sm">En Camino</p>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {stats.pedidosEnviados}
+                </p>
               </div>
-              <Icons.Truck className="w-10 h-10 opacity-80" />
+              <Icons.Truck className="w-8 h-8 sm:w-10 sm:h-10 opacity-80" />
             </div>
           </div>
         </div>
 
         {/* Stats Cards - Row 2 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="card">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="card !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+                <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">
                   Total Productos
                 </p>
-                <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
+                <p className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100">
                   {stats.totalProductos}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <Icons.Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <Icons.Package className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="card !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+                <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">
                   Stock Bajo
                 </p>
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400">
                   {stats.productosStockBajo}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-                <Icons.Alert className="w-6 h-6 text-red-600 dark:text-red-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                <Icons.Alert className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="card !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-                  Vehículos Disp.
+                <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">
+                  Vehículos
                 </p>
-                <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
+                <p className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100">
                   {stats.vehiculosDisponibles}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                <Icons.Truck className="w-6 h-6 text-green-600 dark:text-green-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <Icons.Truck className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="card !p-3 sm:!p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-                  Conductores Disp.
+                <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">
+                  Conductores
                 </p>
-                <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
+                <p className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100">
                   {stats.conductoresDisponibles}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                <Icons.User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <Icons.User className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Pending Orders */}
-          <div className="lg:col-span-2 card">
+          <div className="lg:col-span-2 card !p-4 sm:!p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">
                 Pedidos por Procesar
@@ -168,18 +174,18 @@ export default function DepositoDashboard() {
             </div>
 
             {pedidosPendientes.length === 0 ? (
-              <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
-                <span className="text-4xl block mb-2">✅</span>
+              <div className="text-center py-6 sm:py-8 text-neutral-500 dark:text-neutral-400">
+                <Icons.CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-500" />
                 No hay pedidos pendientes
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {pedidosPendientes.map((pedido) => (
                   <div
                     key={pedido.id}
-                    className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                    className="flex items-center justify-between p-2 sm:p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                       <div
                         className={`w-2 h-2 rounded-full ${
                           pedido.prioridad === "alta"

@@ -6,8 +6,13 @@ import Image from "next/image";
  * Logo de Repartos SI
  * @param {string} size - Tamaño: 'sm', 'md', 'lg', 'xl'
  * @param {string} variant - Variante: 'default', 'white', 'dark'
+ * @param {string} className - Clases CSS adicionales
  */
-export default function Logo({ size = "md", variant = "default" }) {
+export default function Logo({
+  size = "md",
+  variant = "default",
+  className = "",
+}) {
   const sizes = {
     sm: { width: 48, height: 48 },
     md: { width: 64, height: 64 },
@@ -18,7 +23,10 @@ export default function Logo({ size = "md", variant = "default" }) {
   const { width, height } = sizes[size] || sizes.md;
 
   return (
-    <span className="inline-flex items-center" suppressHydrationWarning>
+    <span
+      className={`inline-flex items-center ${className}`}
+      suppressHydrationWarning
+    >
       <Image
         src="/Gemini_Generated_Image_ch7oczch7oczch7o.png"
         alt="Repartos SI Logo"

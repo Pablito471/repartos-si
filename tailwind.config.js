@@ -8,6 +8,10 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      screens: {
+        xs: "475px",
+        "3xl": "1920px",
+      },
       colors: {
         // Paleta elegante y sobria
         primary: {
@@ -59,6 +63,17 @@ module.exports = {
           900: "#0f172a",
           950: "#020617",
         },
+      },
+      spacing: {
+        18: "4.5rem",
+        88: "22rem",
+      },
+      fontSize: {
+        "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
+      },
+      minHeight: {
+        "screen-safe":
+          "calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))",
       },
     },
   },
