@@ -12,7 +12,7 @@ const menuItems = [
     icon: "📊",
   },
   {
-    name: "Mis Envíos",
+    name: "Mis Entregas",
     href: "/fletes/envios",
     icon: "📦",
   },
@@ -30,11 +30,6 @@ const menuItems = [
     name: "Contabilidad",
     href: "/fletes/contabilidad",
     icon: "💰",
-  },
-  {
-    name: "Mi Vehículo",
-    href: "/fletes/vehiculo",
-    icon: "🚚",
   },
 ];
 

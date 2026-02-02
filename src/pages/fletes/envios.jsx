@@ -204,9 +204,9 @@ export default function FleteEnvios() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Mis Envíos</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Mis Entregas</h1>
           <p className="text-gray-600">
-            Gestiona todos los envíos asignados a ti
+            Gestiona y actualiza el estado de tus pedidos asignados
           </p>
         </div>
 

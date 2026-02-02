@@ -199,7 +199,7 @@ export default function FleteDashboard() {
 
           {/* Vehicle Status & Quick Actions */}
           <div className="space-y-6">
-            {/* Vehicle Status */}
+            {/* Vehicle Info */}
             <div className="card">
               <h3 className="font-semibold text-gray-800 mb-4">Mi Vehículo</h3>
               <div className="flex items-center space-x-4 mb-4">
@@ -232,22 +232,10 @@ export default function FleteDashboard() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Próximo service:</span>
-                  <span className="font-medium">
-                    {formatNumber(vehiculo.proximoService)} km
-                  </span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-gray-500">Capacidad:</span>
                   <span className="font-medium">{vehiculo.capacidad}</span>
                 </div>
               </div>
-              <Link
-                href="/fletes/vehiculo"
-                className="mt-4 block text-center text-orange-600 hover:underline text-sm"
-              >
-                Ver detalles →
-              </Link>
             </div>
 
             {/* Quick Actions */}
@@ -261,7 +249,7 @@ export default function FleteDashboard() {
                   className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <span className="text-2xl">📦</span>
-                  <span className="font-medium">Ver Envíos</span>
+                  <span className="font-medium">Mis Entregas</span>
                 </Link>
                 <Link
                   href="/fletes/ruta"
