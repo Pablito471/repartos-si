@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useState } from "react";
-import Logo from "@/components/Logo";
+import Logo from "@/components/logo";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

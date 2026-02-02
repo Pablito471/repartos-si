@@ -3,6 +3,8 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import Swal from "sweetalert2";
+import Logo from "@/components/logo";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Registro() {
   const router = useRouter();
@@ -123,35 +125,42 @@ export default function Registro() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-orange-500 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 flex items-center justify-center p-4 transition-colors duration-300">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">🚚 Repartos-SI</h1>
-          <p className="text-white/80">Crea tu cuenta</p>
+          <div className="flex justify-center mb-2">
+            <Logo size="xl" />
+          </div>
+          <p className="text-white/80 dark:text-neutral-400">Crea tu cuenta</p>
         </div>
 
         {/* Card de Registro */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl dark:shadow-neutral-900/50 p-8 transition-colors duration-300">
           {/* Indicador de pasos */}
           <div className="flex items-center justify-center mb-6">
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                 paso >= 1
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-gray-500"
+                  ? "bg-primary-600 dark:bg-primary-500 text-white"
+                  : "bg-neutral-200 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400"
               }`}
             >
               1
             </div>
             <div
-              className={`w-16 h-1 ${paso >= 2 ? "bg-blue-500" : "bg-gray-200"}`}
+              className={`w-16 h-1 ${paso >= 2 ? "bg-primary-600 dark:bg-primary-500" : "bg-neutral-200 dark:bg-neutral-700"}`}
             ></div>
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                 paso >= 2
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-gray-500"
+                  ? "bg-primary-600 dark:bg-primary-500 text-white"
+                  : "bg-neutral-200 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400"
               }`}
             >
               2
@@ -161,10 +170,10 @@ export default function Registro() {
           {/* Paso 1: Selección de tipo */}
           {paso === 1 && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">
+              <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 text-center mb-2">
                 ¿Qué tipo de usuario eres?
               </h2>
-              <p className="text-gray-500 text-center mb-6">
+              <p className="text-neutral-500 dark:text-neutral-400 text-center mb-6">
                 Selecciona el tipo de cuenta que deseas crear
               </p>
 
@@ -175,16 +184,16 @@ export default function Registro() {
                     onClick={() => seleccionarTipo(tipo.value)}
                     className={`w-full p-4 border-2 rounded-xl flex items-center gap-4 transition-all hover:shadow-md ${
                       formData.tipoUsuario === tipo.value
-                        ? `border-${tipo.color}-500 bg-${tipo.color}-50`
-                        : "border-gray-200 hover:border-gray-300"
+                        ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                        : "border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 dark:bg-neutral-800"
                     }`}
                   >
                     <span className="text-4xl">{tipo.icon}</span>
                     <div className="text-left">
-                      <p className="font-semibold text-gray-800">
+                      <p className="font-semibold text-neutral-800 dark:text-neutral-100">
                         {tipo.label}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
                         {tipo.descripcion}
                       </p>
                     </div>
@@ -201,19 +210,19 @@ export default function Registro() {
                 <button
                   type="button"
                   onClick={() => setPaso(1)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors text-neutral-700 dark:text-neutral-300"
                 >
                   ←
                 </button>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">
+                  <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
                     Registro como{" "}
                     {
                       tiposUsuario.find((t) => t.value === formData.tipoUsuario)
                         ?.label
                     }
                   </h2>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     Completa tus datos para crear tu cuenta
                   </p>
                 </div>
@@ -221,7 +230,7 @@ export default function Registro() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Nombre completo *
                   </label>
                   <input
@@ -229,7 +238,7 @@ export default function Registro() {
                     name="nombre"
                     value={formData.nombre}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                     placeholder={
                       formData.tipoUsuario === "deposito"
                         ? "Nombre del depósito"
@@ -240,7 +249,7 @@ export default function Registro() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Email *
                   </label>
                   <input
@@ -248,7 +257,7 @@ export default function Registro() {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                     placeholder="tu@email.com"
                     required
                   />
@@ -256,7 +265,7 @@ export default function Registro() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                       Contraseña *
                     </label>
                     <input
@@ -264,13 +273,13 @@ export default function Registro() {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                       placeholder="••••••"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                       Confirmar *
                     </label>
                     <input
@@ -278,7 +287,7 @@ export default function Registro() {
                       name="confirmarPassword"
                       value={formData.confirmarPassword}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                       placeholder="••••••"
                       required
                     />
@@ -286,7 +295,7 @@ export default function Registro() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Teléfono
                   </label>
                   <input
@@ -294,13 +303,13 @@ export default function Registro() {
                     name="telefono"
                     value={formData.telefono}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                     placeholder="11-1234-5678"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Dirección
                   </label>
                   <input
@@ -308,21 +317,21 @@ export default function Registro() {
                     name="direccion"
                     value={formData.direccion}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                     placeholder="Calle, número, ciudad"
                   />
                 </div>
 
                 {formData.tipoUsuario === "flete" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                       Tipo de Licencia
                     </label>
                     <select
                       name="licencia"
                       value={formData.licencia}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                     >
                       <option value="">Seleccionar...</option>
                       <option value="B1">B1 - Automóviles</option>
@@ -337,7 +346,7 @@ export default function Registro() {
                 <button
                   type="submit"
                   disabled={cargando}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-500 dark:to-primary-600 text-white py-3 rounded-lg font-semibold hover:from-primary-700 hover:to-primary-800 dark:hover:from-primary-600 dark:hover:to-primary-700 transition-all disabled:opacity-50"
                 >
                   {cargando ? "Registrando..." : "Crear Cuenta"}
                 </button>
@@ -346,11 +355,11 @@ export default function Registro() {
           )}
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            <p className="text-neutral-600 dark:text-neutral-400">
               ¿Ya tienes cuenta?{" "}
               <Link
                 href="/auth/login"
-                className="text-blue-600 hover:underline font-medium"
+                className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
               >
                 Inicia sesión
               </Link>
@@ -359,7 +368,7 @@ export default function Registro() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/60 mt-6 text-sm">
+        <p className="text-center text-white/60 dark:text-neutral-500 mt-6 text-sm">
           © 2026 Repartos-SI. Todos los derechos reservados.
         </p>
       </div>

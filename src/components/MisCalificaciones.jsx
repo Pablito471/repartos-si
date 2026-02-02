@@ -19,23 +19,37 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
     : calificaciones.slice(0, 5);
 
   const colorClasses = {
+    primary: {
+      header: "from-primary-600 to-primary-700",
+      badge:
+        "bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300",
+      button:
+        "text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300",
+      border: "border-primary-200 dark:border-primary-800",
+    },
     blue: {
-      header: "from-blue-500 to-blue-600",
-      badge: "bg-blue-100 text-blue-800",
-      button: "text-blue-600 hover:text-blue-700",
-      border: "border-blue-200",
+      header: "from-primary-600 to-primary-700",
+      badge:
+        "bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300",
+      button:
+        "text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300",
+      border: "border-primary-200 dark:border-primary-800",
     },
     green: {
-      header: "from-green-500 to-green-600",
-      badge: "bg-green-100 text-green-800",
-      button: "text-green-600 hover:text-green-700",
-      border: "border-green-200",
+      header: "from-primary-600 to-primary-700",
+      badge:
+        "bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300",
+      button:
+        "text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300",
+      border: "border-primary-200 dark:border-primary-800",
     },
     orange: {
-      header: "from-orange-500 to-orange-600",
-      badge: "bg-orange-100 text-orange-800",
-      button: "text-orange-600 hover:text-orange-700",
-      border: "border-orange-200",
+      header: "from-primary-600 to-primary-700",
+      badge:
+        "bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300",
+      button:
+        "text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300",
+      border: "border-primary-200 dark:border-primary-800",
     },
   };
 
@@ -73,11 +87,17 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
 
   const getTipoBadge = (tipo) => {
     const badges = {
-      cliente: "bg-blue-100 text-blue-800",
-      deposito: "bg-green-100 text-green-800",
-      flete: "bg-orange-100 text-orange-800",
+      cliente:
+        "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300",
+      deposito:
+        "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300",
+      flete:
+        "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300",
     };
-    return badges[tipo] || "bg-gray-100 text-gray-800";
+    return (
+      badges[tipo] ||
+      "bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-300"
+    );
   };
 
   if (calificaciones.length === 0) {
@@ -94,8 +114,10 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
 
         <div className="text-center py-8">
           <div className="text-5xl mb-4">⭐</div>
-          <p className="text-gray-500 text-lg">Aún no tienes calificaciones</p>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-neutral-500 dark:text-neutral-400 text-lg">
+            Aún no tienes calificaciones
+          </p>
+          <p className="text-neutral-400 dark:text-neutral-500 text-sm mt-2">
             Las calificaciones aparecerán aquí cuando otros usuarios te
             califiquen
           </p>
@@ -128,13 +150,13 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
       </div>
 
       {/* Distribución de estrellas */}
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+      <div className="mb-6 p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg">
         <RatingDistribution calificaciones={calificaciones} />
       </div>
 
       {/* Lista de comentarios */}
       <div>
-        <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+        <h4 className="font-semibold text-neutral-700 dark:text-neutral-300 mb-3 flex items-center gap-2">
           <span>💬</span>
           Comentarios recientes
         </h4>
@@ -144,7 +166,7 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
             {calificacionesMostrar.map((calificacion, index) => (
               <div
                 key={index}
-                className={`p-4 rounded-lg border ${colors.border} bg-white hover:shadow-md transition-shadow`}
+                className={`p-4 rounded-lg border ${colors.border} bg-white dark:bg-neutral-800 hover:shadow-md dark:hover:shadow-neutral-900/50 transition-shadow`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
@@ -155,8 +177,10 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
                       >
                         {getTipoTexto(calificacion.tipoCalificador)}
                       </span>
-                      <span className="text-gray-400">•</span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-neutral-400 dark:text-neutral-500">
+                        •
+                      </span>
+                      <span className="text-sm text-neutral-500 dark:text-neutral-400">
                         {formatearFecha(calificacion.fecha)}
                       </span>
                     </div>
@@ -172,11 +196,11 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
 
                     {/* Comentario */}
                     {calificacion.comentario ? (
-                      <p className="text-gray-700 text-sm leading-relaxed">
+                      <p className="text-neutral-700 dark:text-neutral-300 text-sm leading-relaxed">
                         "{calificacion.comentario}"
                       </p>
                     ) : (
-                      <p className="text-gray-400 text-sm italic">
+                      <p className="text-neutral-400 dark:text-neutral-500 text-sm italic">
                         Sin comentario
                       </p>
                     )}
@@ -186,10 +210,10 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
                   <div
                     className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
                       calificacion.puntuacion >= 4
-                        ? "bg-green-100 text-green-600"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
                         : calificacion.puntuacion >= 3
-                          ? "bg-yellow-100 text-yellow-600"
-                          : "bg-red-100 text-red-600"
+                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
+                          : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                     }`}
                   >
                     <span className="font-bold text-lg">
@@ -213,7 +237,7 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
             )}
           </div>
         ) : (
-          <div className="text-center py-6 text-gray-500">
+          <div className="text-center py-6 text-neutral-500 dark:text-neutral-400">
             <p>
               Has recibido {calificaciones.length} calificaciones pero ninguna
               incluye comentarios.
@@ -223,25 +247,31 @@ export default function MisCalificaciones({ colorPrimary = "blue" }) {
       </div>
 
       {/* Resumen rápido */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
+      <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-700">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
               {calificaciones.filter((c) => c.puntuacion >= 4).length}
             </p>
-            <p className="text-xs text-gray-500">Excelentes</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Excelentes
+            </p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-yellow-600">
+            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
               {calificaciones.filter((c) => c.puntuacion === 3).length}
             </p>
-            <p className="text-xs text-gray-500">Regulares</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Regulares
+            </p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-red-600">
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
               {calificaciones.filter((c) => c.puntuacion < 3).length}
             </p>
-            <p className="text-xs text-gray-500">Bajas</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Bajas
+            </p>
           </div>
         </div>
       </div>

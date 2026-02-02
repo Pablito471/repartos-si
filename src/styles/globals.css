@@ -3,8 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-rgb: 255, 255, 255;
+  --foreground-rgb: 15, 23, 42;
+  --background-rgb: 248, 250, 252;
+}
+
+.dark {
+  --foreground-rgb: 241, 245, 249;
+  --background-rgb: 15, 23, 42;
 }
 
 body {
@@ -17,23 +22,54 @@ body {
     "Segoe UI",
     Roboto,
     sans-serif;
+  @apply transition-colors duration-300;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200;
+    @apply bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors duration-200 dark:bg-primary-500 dark:hover:bg-primary-600;
   }
 
   .btn-secondary {
-    @apply bg-secondary text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors duration-200;
+    @apply bg-secondary-600 text-white px-4 py-2 rounded-lg hover:bg-secondary-700 transition-colors duration-200 dark:bg-secondary-500 dark:hover:bg-secondary-600;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow duration-200;
+    @apply bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-all duration-200 dark:bg-neutral-800 dark:shadow-neutral-900/30;
   }
 
   .input-field {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all duration-200;
+    @apply w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all duration-200 dark:bg-neutral-800 dark:border-neutral-600 dark:text-neutral-100 dark:placeholder-neutral-400;
+  }
+
+  /* Clases de texto con soporte dark mode */
+  .text-title {
+    @apply text-neutral-800 dark:text-neutral-100;
+  }
+
+  .text-subtitle {
+    @apply text-neutral-700 dark:text-neutral-300;
+  }
+
+  .text-body {
+    @apply text-neutral-600 dark:text-neutral-400;
+  }
+
+  .text-muted {
+    @apply text-neutral-500 dark:text-neutral-400;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1;
+  }
+
+  /* Tarjetas de contenido con dark mode */
+  .content-card {
+    @apply bg-white dark:bg-neutral-800 rounded-xl shadow-md dark:shadow-neutral-900/30 p-4 transition-colors duration-300;
+  }
+
+  .stat-card {
+    @apply bg-white dark:bg-neutral-800 rounded-xl shadow-md dark:shadow-neutral-900/30 p-4 text-center transition-colors duration-300;
   }
 
   /* Animación para el carrito flotante */

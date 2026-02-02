@@ -1,6 +1,7 @@
 import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useDeposito } from "@/context/DepositoContext";
 import MisCalificaciones from "@/components/MisCalificaciones";
+import Icons from "@/components/Icons";
 import { formatNumber } from "@/utils/formatters";
 import Link from "next/link";
 
@@ -22,15 +23,19 @@ export default function DepositoDashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-            <p className="text-gray-600">Resumen de operaciones del depósito</p>
+            <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
+              Dashboard
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400">
+              Resumen de operaciones del depósito
+            </p>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-3">
             <Link
               href="/depositos/pedidos"
               className="btn-primary inline-flex items-center space-x-2"
             >
-              <span>📦</span>
+              <Icons.Package className="w-5 h-5" />
               <span>Ver Pedidos</span>
             </Link>
           </div>
@@ -44,7 +49,7 @@ export default function DepositoDashboard() {
                 <p className="text-yellow-100 text-sm">Pendientes</p>
                 <p className="text-3xl font-bold">{stats.pedidosPendientes}</p>
               </div>
-              <span className="text-4xl opacity-80">⏳</span>
+              <Icons.Clock className="w-10 h-10 opacity-80" />
             </div>
           </div>
 
@@ -54,7 +59,7 @@ export default function DepositoDashboard() {
                 <p className="text-blue-100 text-sm">Preparando</p>
                 <p className="text-3xl font-bold">{stats.pedidosPreparando}</p>
               </div>
-              <span className="text-4xl opacity-80">📋</span>
+              <Icons.ClipboardList className="w-10 h-10 opacity-80" />
             </div>
           </div>
 
@@ -64,7 +69,7 @@ export default function DepositoDashboard() {
                 <p className="text-purple-100 text-sm">Listos</p>
                 <p className="text-3xl font-bold">{stats.pedidosListos}</p>
               </div>
-              <span className="text-4xl opacity-80">✅</span>
+              <Icons.CheckCircle className="w-10 h-10 opacity-80" />
             </div>
           </div>
 
@@ -74,7 +79,7 @@ export default function DepositoDashboard() {
                 <p className="text-green-100 text-sm">En Camino</p>
                 <p className="text-3xl font-bold">{stats.pedidosEnviados}</p>
               </div>
-              <span className="text-4xl opacity-80">🚚</span>
+              <Icons.Truck className="w-10 h-10 opacity-80" />
             </div>
           </div>
         </div>
@@ -84,13 +89,15 @@ export default function DepositoDashboard() {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Total Productos</p>
-                <p className="text-2xl font-bold text-gray-800">
+                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+                  Total Productos
+                </p>
+                <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
                   {stats.totalProductos}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">📦</span>
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <Icons.Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
@@ -98,13 +105,15 @@ export default function DepositoDashboard() {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Stock Bajo</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+                  Stock Bajo
+                </p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {stats.productosStockBajo}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">⚠️</span>
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                <Icons.Alert className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </div>
@@ -112,13 +121,15 @@ export default function DepositoDashboard() {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Vehículos Disp.</p>
-                <p className="text-2xl font-bold text-gray-800">
+                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+                  Vehículos Disp.
+                </p>
+                <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
                   {stats.vehiculosDisponibles}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">🚛</span>
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <Icons.Truck className="w-6 h-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
@@ -126,13 +137,15 @@ export default function DepositoDashboard() {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Conductores Disp.</p>
-                <p className="text-2xl font-bold text-gray-800">
+                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+                  Conductores Disp.
+                </p>
+                <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
                   {stats.conductoresDisponibles}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">👤</span>
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <Icons.User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
@@ -143,19 +156,19 @@ export default function DepositoDashboard() {
           {/* Pending Orders */}
           <div className="lg:col-span-2 card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800">
+              <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">
                 Pedidos por Procesar
               </h3>
               <Link
                 href="/depositos/pedidos"
-                className="text-primary hover:underline text-sm"
+                className="text-primary-600 dark:text-primary-400 hover:underline text-sm"
               >
                 Ver todos
               </Link>
             </div>
 
             {pedidosPendientes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
                 <span className="text-4xl block mb-2">✅</span>
                 No hay pedidos pendientes
               </div>
@@ -164,7 +177,7 @@ export default function DepositoDashboard() {
                 {pedidosPendientes.map((pedido) => (
                   <div
                     key={pedido.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
                       <div
@@ -177,10 +190,10 @@ export default function DepositoDashboard() {
                         }`}
                       />
                       <div>
-                        <p className="font-medium text-gray-800">
+                        <p className="font-medium text-neutral-800 dark:text-neutral-100">
                           #{pedido.id} - {pedido.cliente}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
                           {pedido.productos.length} productos •{" "}
                           {pedido.tipoEnvio === "envio"
                             ? "🚚 Envío"
@@ -194,7 +207,7 @@ export default function DepositoDashboard() {
                       <EstadoBadge estado={pedido.estado} />
                       <Link
                         href={`/depositos/pedidos/${pedido.id}`}
-                        className="text-primary hover:underline text-sm"
+                        className="text-primary-600 dark:text-primary-400 hover:underline text-sm"
                       >
                         Ver →
                       </Link>
@@ -209,47 +222,55 @@ export default function DepositoDashboard() {
           <div className="space-y-6">
             {/* Quick Actions */}
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-4">
+              <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 mb-4">
                 Acciones Rápidas
               </h3>
               <div className="space-y-2">
                 <Link
                   href="/depositos/pedidos"
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
                   <span className="text-xl">📦</span>
-                  <span className="font-medium">Procesar Pedidos</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    Procesar Pedidos
+                  </span>
                 </Link>
                 <Link
                   href="/depositos/inventario"
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
                   <span className="text-xl">📋</span>
-                  <span className="font-medium">Ver Inventario</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    Ver Inventario
+                  </span>
                 </Link>
                 <Link
                   href="/depositos/envios"
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
                   <span className="text-xl">🚚</span>
-                  <span className="font-medium">Gestionar Envíos</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    Gestionar Envíos
+                  </span>
                 </Link>
                 <Link
                   href="/depositos/contabilidad"
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
                   <span className="text-xl">💰</span>
-                  <span className="font-medium">Contabilidad</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    Contabilidad
+                  </span>
                 </Link>
               </div>
             </div>
 
             {/* Stock Alerts */}
             {productosStockBajo.length > 0 && (
-              <div className="card border-l-4 border-red-500">
+              <div className="card border-l-4 border-red-500 dark:border-red-400">
                 <div className="flex items-center space-x-2 mb-3">
                   <span className="text-xl">⚠️</span>
-                  <h3 className="font-semibold text-red-800">
+                  <h3 className="font-semibold text-red-800 dark:text-red-400">
                     Alertas de Stock
                   </h3>
                 </div>
@@ -259,8 +280,10 @@ export default function DepositoDashboard() {
                       key={producto.id}
                       className="flex items-center justify-between text-sm"
                     >
-                      <span className="text-gray-700">{producto.nombre}</span>
-                      <span className="text-red-600 font-medium">
+                      <span className="text-neutral-700 dark:text-neutral-300">
+                        {producto.nombre}
+                      </span>
+                      <span className="text-red-600 dark:text-red-400 font-medium">
                         {producto.stock} / {producto.stockMinimo}
                       </span>
                     </div>
@@ -268,7 +291,7 @@ export default function DepositoDashboard() {
                 </div>
                 <Link
                   href="/depositos/inventario"
-                  className="block mt-3 text-center text-red-600 hover:underline text-sm"
+                  className="block mt-3 text-center text-red-600 dark:text-red-400 hover:underline text-sm"
                 >
                   Ver todos
                 </Link>
@@ -281,26 +304,31 @@ export default function DepositoDashboard() {
         {enviosActivos.length > 0 && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800">Envíos Activos</h3>
+              <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">
+                Envíos Activos
+              </h3>
               <Link
                 href="/depositos/envios"
-                className="text-primary hover:underline text-sm"
+                className="text-primary-600 dark:text-primary-400 hover:underline text-sm"
               >
                 Ver todos
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {enviosActivos.map((envio) => (
-                <div key={envio.id} className="p-4 bg-gray-50 rounded-lg">
+                <div
+                  key={envio.id}
+                  className="p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg"
+                >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-800">
+                    <span className="font-medium text-neutral-800 dark:text-neutral-100">
                       {envio.cliente}
                     </span>
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         envio.estado === "en_transito"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-yellow-100 text-yellow-800"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
                       }`}
                     >
                       {envio.estado === "en_transito"
@@ -308,13 +336,15 @@ export default function DepositoDashboard() {
                         : "🏭 Esperando Retiro"}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500">📍 {envio.direccion}</p>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    📍 {envio.direccion}
+                  </p>
                   {envio.conductor && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
                       👤 {envio.conductor} • {envio.vehiculo}
                     </p>
                   )}
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     ⏰ Estimado: {envio.fechaEstimada}
                   </p>
                 </div>
@@ -325,11 +355,13 @@ export default function DepositoDashboard() {
 
         {/* Financial Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card bg-gradient-to-br from-green-50 to-green-100 border border-green-200">
+          <div className="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/30 border border-green-200 dark:border-green-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-600 text-sm font-medium">Ingresos</p>
-                <p className="text-2xl font-bold text-green-700">
+                <p className="text-green-600 dark:text-green-400 text-sm font-medium">
+                  Ingresos
+                </p>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                   ${formatNumber(stats.ingresos)}
                 </p>
               </div>
@@ -337,11 +369,13 @@ export default function DepositoDashboard() {
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-red-50 to-red-100 border border-red-200">
+          <div className="card bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-900/30 border border-red-200 dark:border-red-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-red-600 text-sm font-medium">Egresos</p>
-                <p className="text-2xl font-bold text-red-700">
+                <p className="text-red-600 dark:text-red-400 text-sm font-medium">
+                  Egresos
+                </p>
+                <p className="text-2xl font-bold text-red-700 dark:text-red-300">
                   ${formatNumber(stats.egresos)}
                 </p>
               </div>
@@ -350,17 +384,17 @@ export default function DepositoDashboard() {
           </div>
 
           <div
-            className={`card border ${stats.balance >= 0 ? "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200" : "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200"}`}
+            className={`card border ${stats.balance >= 0 ? "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/30 border-blue-200 dark:border-blue-800" : "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/30 border-orange-200 dark:border-orange-800"}`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p
-                  className={`text-sm font-medium ${stats.balance >= 0 ? "text-blue-600" : "text-orange-600"}`}
+                  className={`text-sm font-medium ${stats.balance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400"}`}
                 >
                   Balance
                 </p>
                 <p
-                  className={`text-2xl font-bold ${stats.balance >= 0 ? "text-blue-700" : "text-orange-700"}`}
+                  className={`text-2xl font-bold ${stats.balance >= 0 ? "text-blue-700 dark:text-blue-300" : "text-orange-700 dark:text-orange-300"}`}
                 >
                   {stats.balance >= 0 ? "+" : ""}${formatNumber(stats.balance)}
                 </p>
@@ -371,7 +405,7 @@ export default function DepositoDashboard() {
         </div>
 
         {/* Sección de Mis Calificaciones */}
-        <MisCalificaciones colorPrimary="green" />
+        <MisCalificaciones colorPrimary="primary" />
       </div>
     </DepositoLayout>
   );

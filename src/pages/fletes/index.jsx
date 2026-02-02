@@ -1,6 +1,7 @@
 import FleteLayout from "@/components/layouts/FleteLayout";
 import { useFlete } from "@/context/FleteContext";
 import MisCalificaciones from "@/components/MisCalificaciones";
+import Icons from "@/components/Icons";
 import { formatNumber } from "@/utils/formatters";
 import Link from "next/link";
 
@@ -46,17 +47,19 @@ export default function FleteDashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
+              Dashboard
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400">
               Bienvenido, tienes {stats.enviosPendientesHoy} envíos pendientes
               hoy
             </p>
           </div>
           <Link
             href="/fletes/ruta"
-            className="mt-4 md:mt-0 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors inline-flex items-center space-x-2"
+            className="mt-4 md:mt-0 bg-primary-600 dark:bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors inline-flex items-center space-x-2"
           >
-            <span>🗺️</span>
+            <Icons.Map className="w-5 h-5" />
             <span>Ver Ruta del Día</span>
           </Link>
         </div>
@@ -69,7 +72,7 @@ export default function FleteDashboard() {
                 <p className="text-yellow-100 text-sm">Pendientes</p>
                 <p className="text-3xl font-bold">{stats.enviosPendientes}</p>
               </div>
-              <span className="text-4xl opacity-80">⏳</span>
+              <Icons.Clock className="w-10 h-10 opacity-80" />
             </div>
           </div>
 
@@ -79,7 +82,7 @@ export default function FleteDashboard() {
                 <p className="text-blue-100 text-sm">En Camino</p>
                 <p className="text-3xl font-bold">{stats.enviosEnCamino}</p>
               </div>
-              <span className="text-4xl opacity-80">🚚</span>
+              <Icons.Truck className="w-10 h-10 opacity-80" />
             </div>
           </div>
 
@@ -89,7 +92,7 @@ export default function FleteDashboard() {
                 <p className="text-green-100 text-sm">Entregados</p>
                 <p className="text-3xl font-bold">{stats.enviosEntregados}</p>
               </div>
-              <span className="text-4xl opacity-80">✅</span>
+              <Icons.CheckCircle className="w-10 h-10 opacity-80" />
             </div>
           </div>
 
@@ -99,7 +102,7 @@ export default function FleteDashboard() {
                 <p className="text-purple-100 text-sm">Tasa de Éxito</p>
                 <p className="text-3xl font-bold">{stats.tasaExito}%</p>
               </div>
-              <span className="text-4xl opacity-80">📈</span>
+              <Icons.TrendingUp className="w-10 h-10 opacity-80" />
             </div>
           </div>
         </div>
@@ -107,29 +110,41 @@ export default function FleteDashboard() {
         {/* Quick Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-2">Ingresos</h3>
-            <p className="text-2xl font-bold text-green-600">
+            <h3 className="font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+              Ingresos
+            </h3>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
               ${formatNumber(stats.ingresos)}
             </p>
-            <p className="text-sm text-gray-500 mt-1">Este mes</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+              Este mes
+            </p>
           </div>
 
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-2">Gastos</h3>
-            <p className="text-2xl font-bold text-red-600">
+            <h3 className="font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+              Gastos
+            </h3>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
               ${formatNumber(stats.egresos)}
             </p>
-            <p className="text-sm text-gray-500 mt-1">Este mes</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+              Este mes
+            </p>
           </div>
 
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-2">Balance</h3>
+            <h3 className="font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
+              Balance
+            </h3>
             <p
-              className={`text-2xl font-bold ${stats.balance >= 0 ? "text-green-600" : "text-red-600"}`}
+              className={`text-2xl font-bold ${stats.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
             >
               ${formatNumber(stats.balance)}
             </p>
-            <p className="text-sm text-gray-500 mt-1">Este mes</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+              Este mes
+            </p>
           </div>
         </div>
 
@@ -138,10 +153,12 @@ export default function FleteDashboard() {
           {/* Today's Deliveries */}
           <div className="lg:col-span-2 card">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-800">Envíos de Hoy</h3>
+              <h3 className="font-semibold text-neutral-800 dark:text-neutral-100">
+                Envíos de Hoy
+              </h3>
               <Link
                 href="/fletes/envios"
-                className="text-orange-600 hover:underline text-sm"
+                className="text-primary-600 dark:text-primary-400 hover:underline text-sm"
               >
                 Ver todos
               </Link>
@@ -150,14 +167,16 @@ export default function FleteDashboard() {
             {enviosHoy.length === 0 ? (
               <div className="text-center py-8">
                 <span className="text-4xl block mb-2">🎉</span>
-                <p className="text-gray-500">No tienes envíos para hoy</p>
+                <p className="text-neutral-500 dark:text-neutral-400">
+                  No tienes envíos para hoy
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {enviosHoy.map((envio) => (
                   <div
                     key={envio.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3">
                       <div
@@ -170,13 +189,13 @@ export default function FleteDashboard() {
                         }`}
                       ></div>
                       <div>
-                        <p className="font-medium text-gray-800">
+                        <p className="font-medium text-neutral-800 dark:text-neutral-100">
                           {envio.cliente}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
                           {envio.direccion}
                         </p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-neutral-400 dark:text-neutral-500">
                           {envio.horarioEntrega}
                         </p>
                       </div>
@@ -187,7 +206,7 @@ export default function FleteDashboard() {
                       >
                         {getEstadoTexto(envio.estado)}
                       </span>
-                      <p className="text-sm font-medium text-gray-700 mt-1">
+                      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mt-1">
                         ${formatNumber(envio.total)}
                       </p>
                     </div>
@@ -201,21 +220,25 @@ export default function FleteDashboard() {
           <div className="space-y-6">
             {/* Vehicle Info */}
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-4">Mi Vehículo</h3>
+              <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 mb-4">
+                Mi Vehículo
+              </h3>
               <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-orange-100 rounded-lg flex items-center justify-center">
+                <div className="w-16 h-16 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
                   <span className="text-3xl">🚚</span>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800">
+                  <p className="font-medium text-neutral-800 dark:text-neutral-100">
                     {vehiculo.marca} {vehiculo.modelo}
                   </p>
-                  <p className="text-sm text-gray-500">{vehiculo.patente}</p>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    {vehiculo.patente}
+                  </p>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full ${
                       vehiculo.estado === "operativo"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                     }`}
                   >
                     {vehiculo.estado === "operativo"
@@ -226,44 +249,56 @@ export default function FleteDashboard() {
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Kilometraje:</span>
-                  <span className="font-medium">
+                  <span className="text-neutral-500 dark:text-neutral-400">
+                    Kilometraje:
+                  </span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
                     {formatNumber(vehiculo.kmActual)} km
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Capacidad:</span>
-                  <span className="font-medium">{vehiculo.capacidad}</span>
+                  <span className="text-neutral-500 dark:text-neutral-400">
+                    Capacidad:
+                  </span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    {vehiculo.capacidad}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions */}
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-4">
+              <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 mb-4">
                 Acciones Rápidas
               </h3>
               <div className="space-y-3">
                 <Link
                   href="/fletes/envios"
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
                   <span className="text-2xl">📦</span>
-                  <span className="font-medium">Mis Entregas</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    Mis Entregas
+                  </span>
                 </Link>
                 <Link
                   href="/fletes/ruta"
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
                   <span className="text-2xl">🗺️</span>
-                  <span className="font-medium">Mi Ruta</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    Mi Ruta
+                  </span>
                 </Link>
                 <Link
                   href="/fletes/contabilidad"
-                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                 >
                   <span className="text-2xl">💰</span>
-                  <span className="font-medium">Mis Ganancias</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    Mis Ganancias
+                  </span>
                 </Link>
               </div>
             </div>
@@ -271,7 +306,7 @@ export default function FleteDashboard() {
         </div>
 
         {/* Sección de Mis Calificaciones */}
-        <MisCalificaciones colorPrimary="orange" />
+        <MisCalificaciones colorPrimary="primary" />
       </div>
     </FleteLayout>
   );
