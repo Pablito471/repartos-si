@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
 import Swal from "sweetalert2";
 
 export default function Login() {
@@ -70,9 +71,9 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-orange-500 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">🚚 Repartos-SI</h1>
-          <p className="text-white/80">Sistema de Gestión de Repartos</p>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <Logo size="xl" variant="white" />
+          <p className="text-white/80 mt-3">Sistema de Gestión de Repartos</p>
         </div>
 
         {/* Card de Login */}

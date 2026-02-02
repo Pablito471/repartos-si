@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useState } from "react";
+import Logo from "@/components/Logo";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -9,9 +10,8 @@ export default function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl">🚚</span>
-            <span className="text-xl font-bold text-primary">Repartos SI</span>
+          <Link href="/">
+            <Logo size="md" />
           </Link>
 
           {/* Desktop Menu */}

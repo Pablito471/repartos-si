@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
 
 const menuItems = [
   {
@@ -68,10 +69,9 @@ export default function AdminLayout({ children }) {
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-center border-b border-red-800">
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl">🔐</span>
-            <span className="text-xl font-bold text-white">Admin Panel</span>
-          </div>
+          <Link href="/admin">
+            <Logo size="sm" variant="white" />
+          </Link>
         </div>
 
         {/* Admin info */}

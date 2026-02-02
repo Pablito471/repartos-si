@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCliente } from "@/context/ClienteContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatNumber } from "@/utils/formatters";
+import Logo from "@/components/Logo";
 
 const menuItems = [
   {
@@ -67,9 +68,8 @@ export default function ClienteLayout({ children }) {
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-center border-b">
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl">🚚</span>
-            <span className="text-xl font-bold text-primary">Repartos SI</span>
+          <Link href="/">
+            <Logo size="sm" />
           </Link>
         </div>
 

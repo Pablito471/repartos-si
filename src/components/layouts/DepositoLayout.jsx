@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { useDeposito } from "@/context/DepositoContext";
 import { useAuth } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
 
 const menuItems = [
   {
@@ -69,9 +70,8 @@ export default function DepositoLayout({ children }) {
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-center border-b border-gray-700">
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl">🏭</span>
-            <span className="text-xl font-bold text-white">Depósito</span>
+          <Link href="/">
+            <Logo size="sm" variant="white" />
           </Link>
         </div>
 

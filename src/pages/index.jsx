@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
+import Logo from "@/components/Logo";
 
 export default function Home() {
   const { estaAutenticado, usuario, getRutaInicio } = useAuth();
@@ -28,9 +29,8 @@ export default function Home() {
         {/* Navbar */}
         <nav className="bg-white/10 backdrop-blur-sm">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2">
-              <span className="text-3xl">🚚</span>
-              <span className="text-2xl font-bold text-white">Repartos-SI</span>
+            <Link href="/">
+              <Logo size="lg" variant="white" />
             </Link>
             <div className="flex items-center space-x-4">
               <Link

@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { useFlete } from "@/context/FleteContext";
 import { useAuth } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
 
 const menuItems = [
   {
@@ -64,9 +65,8 @@ export default function FleteLayout({ children }) {
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-center border-b border-orange-500">
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl">🚚</span>
-            <span className="text-xl font-bold text-white">Fletes</span>
+          <Link href="/">
+            <Logo size="sm" variant="white" />
           </Link>
         </div>
 
