@@ -1,0 +1,237 @@
+const { Producto, Usuario } = require("../models");
+const { AppError } = require("../middleware/errorHandler");
+const { Op } = require("sequelize");
+
+// GET /api/productos
+exports.getProductos = async (req, res, next) => {
+  try {
+    const { depositoId, categoria, buscar, activo } = req.query;
+
+    const where = {};
+
+    if (depositoId) {
+      where.depositoId = depositoId;
+    }
+
+    if (categoria) {
+      where.categoria = categoria;
+    }
+
+    if (activo !== undefined) {
+      where.activo = activo === "true";
+    } else {
+      where.activo = true;
+    }
+
+    if (buscar) {
+      where[Op.or] = [
+        { nombre: { [Op.iLike]: `%${buscar}%` } },
+        { codigo: { [Op.iLike]: `%${buscar}%` } },
+      ];
+    }
+
+    const productos = await Producto.findAll({
+      where,
+      include: [
+        {
+          model: Usuario,
+          as: "deposito",
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [["nombre", "ASC"]],
+    });
+
+    res.json({
+      success: true,
+      data: productos,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/productos/:id
+exports.getProducto = async (req, res, next) => {
+  try {
+    const producto = await Producto.findByPk(req.params.id, {
+      include: [
+        {
+          model: Usuario,
+          as: "deposito",
+          attributes: ["id", "nombre", "direccion"],
+        },
+      ],
+    });
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    res.json({
+      success: true,
+      data: producto,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/productos
+exports.crearProducto = async (req, res, next) => {
+  try {
+    console.log("=== CREAR PRODUCTO ===");
+    console.log("Body recibido:", req.body);
+    console.log("Usuario:", req.usuario?.id, req.usuario?.tipoUsuario);
+
+    // Solo depósitos pueden crear productos
+    if (
+      req.usuario.tipoUsuario !== "deposito" &&
+      req.usuario.tipoUsuario !== "admin"
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const depositoId =
+      req.usuario.tipoUsuario === "admin"
+        ? req.body.depositoId
+        : req.usuario.id;
+
+    const producto = await Producto.create({
+      ...req.body,
+      depositoId,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Producto creado",
+      data: producto,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/productos/:id
+exports.actualizarProducto = async (req, res, next) => {
+  try {
+    const producto = await Producto.findByPk(req.params.id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    await producto.update(req.body);
+
+    res.json({
+      success: true,
+      message: "Producto actualizado",
+      data: producto,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/productos/:id
+exports.eliminarProducto = async (req, res, next) => {
+  try {
+    const producto = await Producto.findByPk(req.params.id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    // Soft delete
+    await producto.update({ activo: false });
+
+    res.json({
+      success: true,
+      message: "Producto eliminado",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/productos/:id/stock
+exports.actualizarStock = async (req, res, next) => {
+  try {
+    const { cantidad, tipo } = req.body; // tipo: 'agregar' | 'restar' | 'establecer'
+    const producto = await Producto.findByPk(req.params.id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    let nuevoStock;
+    switch (tipo) {
+      case "agregar":
+        nuevoStock = producto.stock + cantidad;
+        break;
+      case "restar":
+        nuevoStock = Math.max(0, producto.stock - cantidad);
+        break;
+      case "establecer":
+      default:
+        nuevoStock = cantidad;
+    }
+
+    await producto.update({ stock: nuevoStock });
+
+    res.json({
+      success: true,
+      message: "Stock actualizado",
+      data: producto,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/productos/deposito/:depositoId
+exports.getProductosPorDeposito = async (req, res, next) => {
+  try {
+    const productos = await Producto.findAll({
+      where: {
+        depositoId: req.params.depositoId,
+        activo: true,
+      },
+      order: [
+        ["categoria", "ASC"],
+        ["nombre", "ASC"],
+      ],
+    });
+
+    res.json({
+      success: true,
+      data: productos,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
