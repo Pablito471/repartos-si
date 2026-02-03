@@ -9,6 +9,15 @@ router.get(
   "/deposito/:depositoId",
   productosController.getProductosPorDeposito,
 );
+
+// Ruta para productos inactivos (debe ir antes de /:id)
+router.get(
+  "/inactivos",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.getProductosInactivos,
+);
+
 router.get("/:id", productosController.getProducto);
 
 // Rutas protegidas (solo depósitos y admin)
@@ -30,11 +39,29 @@ router.put(
   requireRole("deposito", "admin"),
   productosController.actualizarStock,
 );
+
+// Reactivar producto (deshacer borrado lógico)
+router.put(
+  "/:id/reactivar",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.reactivarProducto,
+);
+
+// Borrado lógico (soft delete)
 router.delete(
   "/:id",
   auth,
   requireRole("deposito", "admin"),
   productosController.eliminarProducto,
+);
+
+// Borrado permanente (hard delete)
+router.delete(
+  "/:id/permanente",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.eliminarPermanente,
 );
 
 module.exports = router;

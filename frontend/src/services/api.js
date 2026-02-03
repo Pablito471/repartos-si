@@ -133,7 +133,17 @@ export const productosService = {
 
   actualizar: (id, productoData) => api.put(`/productos/${id}`, productoData),
 
+  // Borrado lógico (soft delete)
   eliminar: (id) => api.delete(`/productos/${id}`),
+
+  // Borrado permanente (hard delete)
+  eliminarPermanente: (id) => api.delete(`/productos/${id}/permanente`),
+
+  // Reactivar producto (deshacer borrado lógico)
+  reactivar: (id) => api.put(`/productos/${id}/reactivar`),
+
+  // Obtener productos inactivos
+  getInactivos: () => api.get("/productos/inactivos"),
 
   actualizarStock: (id, cantidad, tipo = "agregar") =>
     api.put(`/productos/${id}/stock`, { cantidad, tipo }),
@@ -292,6 +302,63 @@ export const chatService = {
   // Cerrar conversación (admin)
   cerrarConversacion: (conversacionId) =>
     api.put(`/chat/${conversacionId}/cerrar`),
+};
+
+// ============== MOVIMIENTOS CONTABLES ==============
+export const movimientosService = {
+  // Obtener todos los movimientos del usuario
+  listar: (params = {}) => api.get("/movimientos", { params }),
+
+  // Obtener totales y estadísticas
+  getTotales: (params = {}) => api.get("/movimientos/totales", { params }),
+
+  // Obtener movimiento por ID
+  getById: (id) => api.get(`/movimientos/${id}`),
+
+  // Crear nuevo movimiento
+  crear: (movimiento) => api.post("/movimientos", movimiento),
+
+  // Registrar movimiento desde pedido
+  registrarPedido: (pedidoId, tipo) =>
+    api.post("/movimientos/registrar-pedido", { pedidoId, tipo }),
+
+  // Actualizar movimiento
+  actualizar: (id, datos) => api.put(`/movimientos/${id}`, datos),
+
+  // Eliminar movimiento
+  eliminar: (id) => api.delete(`/movimientos/${id}`),
+};
+
+// ============== STOCK CLIENTE ==============
+export const stockService = {
+  // Obtener stock agrupado del cliente
+  obtenerStock: () => api.get("/stock"),
+
+  // Obtener stock detallado
+  obtenerDetallado: () => api.get("/stock/detallado"),
+
+  // Obtener totales del stock
+  obtenerTotales: () => api.get("/stock/totales"),
+
+  // Obtener historial de entregas
+  obtenerHistorial: () => api.get("/stock/historial"),
+
+  // Agregar producto manualmente
+  agregarProducto: (producto) => api.post("/stock/agregar", producto),
+
+  // Agregar desde pedido entregado
+  agregarDesdePedido: (pedidoId) =>
+    api.post(`/stock/agregar-desde-pedido/${pedidoId}`),
+
+  // Descontar stock (venta)
+  descontarStock: (nombre, cantidad, motivo, precioVenta) =>
+    api.post("/stock/descontar", { nombre, cantidad, motivo, precioVenta }),
+
+  // Actualizar producto
+  actualizar: (id, datos) => api.put(`/stock/${id}`, datos),
+
+  // Eliminar producto
+  eliminar: (id) => api.delete(`/stock/${id}`),
 };
 
 // ============== HEALTH CHECK ==============

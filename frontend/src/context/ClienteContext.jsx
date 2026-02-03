@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { io } from "socket.io-client";
 import {
   usuariosService,
   productosService,
   pedidosService,
+  movimientosService,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
 
@@ -370,10 +370,18 @@ export function ClienteProvider({ children }) {
   const { usuario } = useAuth();
   const [pedidos, setPedidos] = useState([]);
   const [depositos, setDepositos] = useState([]);
-  const [movimientos, setMovimientos] = useState(movimientosIniciales);
+  const [movimientos, setMovimientos] = useState([]);
+  const [totalesContables, setTotalesContables] = useState({
+    ingresos: 0,
+    egresos: 0,
+    balance: 0,
+    categorias: {},
+    porMes: {},
+  });
   const [productos] = useState(productosDisponibles);
   const [cargandoDepositos, setCargandoDepositos] = useState(true);
   const [cargandoPedidos, setCargandoPedidos] = useState(true);
+  const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
   const [carrito, setCarrito] = useState({
     productos: [], // Cada producto incluye depositoId
   });
@@ -518,41 +526,23 @@ export function ClienteProvider({ children }) {
     cargarPedidos();
   }, [usuario?.id]);
 
-  // Suscribirse a actualizaciones de pedidos en tiempo real
+  // Escuchar eventos del navegador desde NotificacionContext (socket centralizado)
   useEffect(() => {
     if (MODO_CONEXION !== "api" || !usuario?.id) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const socketUrl =
-      process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
-      "http://localhost:5000";
-
-    const socket = io(socketUrl, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
-
-    socket.on("connect", () => {
-      console.log(
-        "ClienteContext: Socket conectado para actualizaciones de pedidos",
-      );
-    });
-
-    // Escuchar actualizaciones de estado de pedidos
-    socket.on("pedido_actualizado", (data) => {
-      console.log("Pedido actualizado recibido:", data);
+    const handlePedidoActualizado = (event) => {
+      const data = event.detail;
+      console.log("ClienteContext: Recibido socket:pedido_actualizado", data);
       setPedidos((prevPedidos) =>
         prevPedidos.map((p) =>
           String(p.id) === String(data.id) ? { ...p, estado: data.estado } : p,
         ),
       );
-    });
+    };
 
-    // Escuchar cuando un envío está en camino
-    socket.on("envio_en_camino", (data) => {
-      console.log("Envío en camino recibido:", data);
+    const handleEnvioEnCamino = (event) => {
+      const data = event.detail;
+      console.log("ClienteContext: Recibido socket:envio_en_camino", data);
       setPedidos((prevPedidos) =>
         prevPedidos.map((p) =>
           String(p.id) === String(data.pedidoId)
@@ -560,11 +550,11 @@ export function ClienteProvider({ children }) {
             : p,
         ),
       );
-    });
+    };
 
-    // Escuchar cuando un pedido fue entregado
-    socket.on("envio_entregado", (data) => {
-      console.log("Envío entregado recibido:", data);
+    const handleEnvioEntregado = (event) => {
+      const data = event.detail;
+      console.log("ClienteContext: Recibido socket:envio_entregado", data);
       setPedidos((prevPedidos) =>
         prevPedidos.map((p) =>
           String(p.id) === String(data.pedidoId)
@@ -572,11 +562,73 @@ export function ClienteProvider({ children }) {
             : p,
         ),
       );
-    });
+    };
+
+    window.addEventListener(
+      "socket:pedido_actualizado",
+      handlePedidoActualizado,
+    );
+    window.addEventListener("socket:envio_en_camino", handleEnvioEnCamino);
+    window.addEventListener("socket:envio_entregado", handleEnvioEntregado);
 
     return () => {
-      socket.disconnect();
+      window.removeEventListener(
+        "socket:pedido_actualizado",
+        handlePedidoActualizado,
+      );
+      window.removeEventListener("socket:envio_en_camino", handleEnvioEnCamino);
+      window.removeEventListener(
+        "socket:envio_entregado",
+        handleEnvioEntregado,
+      );
     };
+  }, [usuario?.id]);
+
+  // Cargar movimientos contables desde el backend
+  useEffect(() => {
+    const cargarMovimientos = async () => {
+      if (MODO_CONEXION !== "api" || !usuario?.id) return;
+
+      setCargandoMovimientos(true);
+      try {
+        const [movimientosRes, totalesRes] = await Promise.all([
+          movimientosService.listar(),
+          movimientosService.getTotales(),
+        ]);
+
+        const movimientosData = movimientosRes.data || movimientosRes || [];
+        setMovimientos(
+          movimientosData.map((m) => ({
+            id: m.id,
+            fecha:
+              m.createdAt?.split("T")[0] ||
+              new Date().toISOString().split("T")[0],
+            tipo: m.tipo,
+            concepto: m.concepto,
+            monto: parseFloat(m.monto),
+            categoria: m.categoria,
+            pedidoId: m.pedidoId,
+            notas: m.notas,
+          })),
+        );
+
+        const totalesData = totalesRes.data || totalesRes || {};
+        setTotalesContables({
+          ingresos: totalesData.ingresos || 0,
+          egresos: totalesData.egresos || 0,
+          balance: totalesData.balance || 0,
+          categorias: totalesData.categorias || {},
+          porMes: totalesData.porMes || {},
+        });
+      } catch (error) {
+        console.error("Error al cargar movimientos:", error);
+        setMovimientos([]);
+      } finally {
+        setCargandoMovimientos(false);
+      }
+    };
+
+    cargarMovimientos();
   }, [usuario?.id]);
 
   // Funciones del carrito
@@ -819,18 +871,201 @@ export function ClienteProvider({ children }) {
   };
 
   // Agregar movimiento contable
-  const agregarMovimiento = (movimiento) => {
-    const nuevoMovimiento = {
-      ...movimiento,
-      id: movimientos.length + 1,
-      fecha: new Date().toISOString().split("T")[0],
-    };
-    setMovimientos([nuevoMovimiento, ...movimientos]);
-    return nuevoMovimiento;
+  const agregarMovimiento = async (movimiento) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await movimientosService.crear({
+          tipo: movimiento.tipo,
+          concepto: movimiento.concepto,
+          monto: parseFloat(movimiento.monto),
+          categoria: movimiento.categoria || "otros",
+          notas: movimiento.notas || null,
+        });
+
+        const nuevoMovimiento = response.data || response;
+        const movimientoFormateado = {
+          id: nuevoMovimiento.id,
+          fecha:
+            nuevoMovimiento.createdAt?.split("T")[0] ||
+            new Date().toISOString().split("T")[0],
+          tipo: nuevoMovimiento.tipo,
+          concepto: nuevoMovimiento.concepto,
+          monto: parseFloat(nuevoMovimiento.monto),
+          categoria: nuevoMovimiento.categoria,
+        };
+
+        setMovimientos((prev) => [movimientoFormateado, ...prev]);
+
+        // Actualizar totales
+        setTotalesContables((prev) => ({
+          ...prev,
+          ingresos:
+            movimiento.tipo === "ingreso"
+              ? prev.ingresos + parseFloat(movimiento.monto)
+              : prev.ingresos,
+          egresos:
+            movimiento.tipo === "egreso"
+              ? prev.egresos + parseFloat(movimiento.monto)
+              : prev.egresos,
+          balance:
+            movimiento.tipo === "ingreso"
+              ? prev.balance + parseFloat(movimiento.monto)
+              : prev.balance - parseFloat(movimiento.monto),
+        }));
+
+        return { success: true, data: movimientoFormateado };
+      } catch (error) {
+        console.error("Error al crear movimiento:", error);
+        return { success: false, error: error.message };
+      }
+    } else {
+      const nuevoMovimiento = {
+        ...movimiento,
+        id: movimientos.length + 1,
+        fecha: new Date().toISOString().split("T")[0],
+      };
+      setMovimientos([nuevoMovimiento, ...movimientos]);
+      return { success: true, data: nuevoMovimiento };
+    }
+  };
+
+  // Eliminar movimiento contable
+  const eliminarMovimiento = async (id) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await movimientosService.eliminar(id);
+        const movimientoEliminado = movimientos.find((m) => m.id === id);
+
+        setMovimientos((prev) => prev.filter((m) => m.id !== id));
+
+        // Actualizar totales
+        if (movimientoEliminado) {
+          setTotalesContables((prev) => ({
+            ...prev,
+            ingresos:
+              movimientoEliminado.tipo === "ingreso"
+                ? prev.ingresos - movimientoEliminado.monto
+                : prev.ingresos,
+            egresos:
+              movimientoEliminado.tipo === "egreso"
+                ? prev.egresos - movimientoEliminado.monto
+                : prev.egresos,
+            balance:
+              movimientoEliminado.tipo === "ingreso"
+                ? prev.balance - movimientoEliminado.monto
+                : prev.balance + movimientoEliminado.monto,
+          }));
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error("Error al eliminar movimiento:", error);
+        return { success: false, error: error.message };
+      }
+    } else {
+      setMovimientos((prev) => prev.filter((m) => m.id !== id));
+      return { success: true };
+    }
+  };
+
+  // Actualizar movimiento contable
+  const actualizarMovimiento = async (id, datos) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await movimientosService.actualizar(id, datos);
+        const movimientoActualizado = response.data || response;
+
+        setMovimientos((prev) =>
+          prev.map((m) =>
+            m.id === id
+              ? {
+                  ...m,
+                  tipo: movimientoActualizado.tipo,
+                  concepto: movimientoActualizado.concepto,
+                  monto: parseFloat(movimientoActualizado.monto),
+                  categoria: movimientoActualizado.categoria,
+                }
+              : m,
+          ),
+        );
+
+        // Recargar totales para mantener consistencia
+        const totalesRes = await movimientosService.getTotales();
+        const totalesData = totalesRes.data || totalesRes || {};
+        setTotalesContables({
+          ingresos: totalesData.ingresos || 0,
+          egresos: totalesData.egresos || 0,
+          balance: totalesData.balance || 0,
+          categorias: totalesData.categorias || {},
+          porMes: totalesData.porMes || {},
+        });
+
+        return { success: true, data: movimientoActualizado };
+      } catch (error) {
+        console.error("Error al actualizar movimiento:", error);
+        return { success: false, error: error.message };
+      }
+    } else {
+      setMovimientos((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, ...datos } : m)),
+      );
+      return { success: true };
+    }
+  };
+
+  // Recargar movimientos desde el backend
+  const recargarMovimientos = async () => {
+    if (MODO_CONEXION !== "api") return;
+
+    setCargandoMovimientos(true);
+    try {
+      const [movimientosRes, totalesRes] = await Promise.all([
+        movimientosService.listar(),
+        movimientosService.getTotales(),
+      ]);
+
+      const movimientosData = movimientosRes.data || movimientosRes || [];
+      setMovimientos(
+        movimientosData.map((m) => ({
+          id: m.id,
+          fecha:
+            m.createdAt?.split("T")[0] ||
+            new Date().toISOString().split("T")[0],
+          tipo: m.tipo,
+          concepto: m.concepto,
+          monto: parseFloat(m.monto),
+          categoria: m.categoria,
+          pedidoId: m.pedidoId,
+          notas: m.notas,
+        })),
+      );
+
+      const totalesData = totalesRes.data || totalesRes || {};
+      setTotalesContables({
+        ingresos: totalesData.ingresos || 0,
+        egresos: totalesData.egresos || 0,
+        balance: totalesData.balance || 0,
+        categorias: totalesData.categorias || {},
+        porMes: totalesData.porMes || {},
+      });
+    } catch (error) {
+      console.error("Error al recargar movimientos:", error);
+    } finally {
+      setCargandoMovimientos(false);
+    }
   };
 
   // Calcular totales de contabilidad
   const calcularTotales = () => {
+    // Si tenemos totales del backend, usarlos
+    if (
+      (MODO_CONEXION === "api" && totalesContables.ingresos > 0) ||
+      totalesContables.egresos > 0
+    ) {
+      return totalesContables;
+    }
+
+    // Calcular desde los movimientos locales
     const ingresos = movimientos
       .filter((m) => m.tipo === "ingreso")
       .reduce((sum, m) => sum + m.monto, 0);
@@ -841,6 +1076,8 @@ export function ClienteProvider({ children }) {
       ingresos,
       egresos,
       balance: ingresos - egresos,
+      categorias: totalesContables.categorias || {},
+      porMes: totalesContables.porMes || {},
     };
   };
 
@@ -871,6 +1108,7 @@ export function ClienteProvider({ children }) {
     pedidos,
     depositos,
     movimientos,
+    totalesContables,
     productos,
     carrito,
     agregarAlCarrito,
@@ -885,10 +1123,14 @@ export function ClienteProvider({ children }) {
     modificarPedido,
     cancelarPedido,
     agregarMovimiento,
+    eliminarMovimiento,
+    actualizarMovimiento,
+    recargarMovimientos,
     calcularTotales,
     getEstadisticas,
     cargandoDepositos,
     cargandoPedidos,
+    cargandoMovimientos,
   };
 
   return (

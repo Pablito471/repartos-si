@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
@@ -23,6 +24,59 @@ export function NotificacionProvider({ children }) {
     }
     return null;
   };
+
+  // Reproducir sonido de notificación
+  const playNotificationSound = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const audio = new Audio("/notification.mp3");
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch (e) {}
+    }
+  };
+
+  // Función para agregar notificación (definida antes del useEffect)
+  const agregarNotificacionFn = (notificacion) => {
+    console.log("agregarNotificacionFn llamada con:", notificacion);
+    const nuevaNotificacion = {
+      id: Date.now().toString(),
+      ...notificacion,
+      fecha: new Date().toISOString(),
+      leida: false,
+    };
+
+    console.log("Nueva notificación creada:", nuevaNotificacion);
+    setNotificaciones((prev) => {
+      console.log("Notificaciones previas:", prev.length, "Agregando nueva");
+      return [nuevaNotificacion, ...prev];
+    });
+    setNoLeidas((prev) => {
+      console.log("noLeidas previas:", prev, "Incrementando a:", prev + 1);
+      return prev + 1;
+    });
+
+    // Mostrar notificación del navegador si está permitido
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "granted") {
+        new Notification(notificacion.titulo, {
+          body: notificacion.mensaje,
+          icon: "/favicon.ico",
+        });
+      }
+    }
+
+    playNotificationSound();
+  };
+
+  // Ref para mantener la función actualizada
+  const agregarNotificacionRef = useRef(agregarNotificacionFn);
+  agregarNotificacionRef.current = agregarNotificacionFn;
+
+  // Wrapper estable para usar en el socket
+  const agregarNotificacion = useCallback((notificacion) => {
+    agregarNotificacionRef.current(notificacion);
+  }, []);
 
   // Cargar notificaciones desde localStorage
   useEffect(() => {
@@ -45,7 +99,7 @@ export function NotificacionProvider({ children }) {
     if (usuario && notificaciones.length > 0) {
       localStorage.setItem(
         `notificaciones_${usuario.id}`,
-        JSON.stringify(notificaciones.slice(0, 50)), // Mantener solo las últimas 50
+        JSON.stringify(notificaciones.slice(0, 50)),
       );
     }
   }, [notificaciones, usuario]);
@@ -53,11 +107,23 @@ export function NotificacionProvider({ children }) {
   // Inicializar socket para notificaciones
   useEffect(() => {
     const token = getToken();
-    if (!token || !usuario) return;
+    console.log(
+      "NotificacionContext: Iniciando socket, token:",
+      token ? "presente" : "ausente",
+      "usuario:",
+      usuario?.id || "ninguno",
+    );
+    if (!token || !usuario) {
+      console.log(
+        "NotificacionContext: No se conectará socket (falta token o usuario)",
+      );
+      return;
+    }
 
     const socketUrl =
       process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
       "http://localhost:5000";
+    console.log("NotificacionContext: Conectando a:", socketUrl);
 
     const newSocket = io(socketUrl, {
       auth: { token },
@@ -70,7 +136,7 @@ export function NotificacionProvider({ children }) {
 
     // Notificación de nuevo mensaje de chat
     newSocket.on("notificacion_mensaje", (data) => {
-      agregarNotificacion({
+      agregarNotificacionRef.current({
         tipo: "mensaje",
         titulo: "Nuevo mensaje",
         mensaje: `${data.remitente.nombre}: ${data.mensaje.contenido.substring(0, 50)}...`,
@@ -81,13 +147,21 @@ export function NotificacionProvider({ children }) {
 
     // Notificación de nuevo pedido (para depósitos y admin)
     newSocket.on("nuevo_pedido", (data) => {
-      agregarNotificacion({
+      console.log("NotificacionContext: nuevo_pedido recibido:", data);
+
+      // Agregar notificación
+      agregarNotificacionRef.current({
         tipo: "pedido",
         titulo: "Nuevo pedido",
         mensaje: `Pedido #${data.numero} recibido`,
         data: data,
         icono: "📦",
       });
+
+      // Disparar evento para que otros contextos actualicen sus datos
+      window.dispatchEvent(
+        new CustomEvent("socket:nuevo_pedido", { detail: data }),
+      );
     });
 
     // Notificación de cambio de estado de pedido
@@ -100,51 +174,89 @@ export function NotificacionProvider({ children }) {
         entregado: "ha sido entregado",
         cancelado: "fue cancelado",
       };
-      agregarNotificacion({
+      agregarNotificacionRef.current({
         tipo: "pedido",
         titulo: "Pedido actualizado",
         mensaje: `Pedido #${data.numero} ${estadosTexto[data.estado] || data.estado}`,
         data: data,
         icono: "📋",
       });
+
+      // Disparar evento para que otros contextos actualicen sus datos
+      window.dispatchEvent(
+        new CustomEvent("socket:pedido_actualizado", { detail: data }),
+      );
     });
 
     // Notificación de nuevo envío asignado (para fletes)
     newSocket.on("envio_asignado", (data) => {
-      agregarNotificacion({
+      console.log("NotificacionContext: envio_asignado recibido:", data);
+      agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "Nuevo envío asignado",
         mensaje: `Tienes un nuevo envío para entregar`,
         data: data,
         icono: "🚚",
       });
+
+      // Disparar evento para que FleteContext actualice sus datos
+      window.dispatchEvent(
+        new CustomEvent("socket:envio_asignado", { detail: data }),
+      );
     });
 
     // Notificación de envío en camino (para clientes)
     newSocket.on("envio_en_camino", (data) => {
-      agregarNotificacion({
+      agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "¡Tu pedido va en camino!",
         mensaje: `El pedido #${data.numero} está siendo entregado`,
         data: data,
         icono: "🚀",
       });
+
+      window.dispatchEvent(
+        new CustomEvent("socket:envio_en_camino", { detail: data }),
+      );
     });
 
     // Notificación de envío entregado
     newSocket.on("envio_entregado", (data) => {
-      agregarNotificacion({
+      agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "Pedido entregado",
         mensaje: `El pedido #${data.numero} ha sido entregado`,
         data: data,
         icono: "✅",
       });
+
+      window.dispatchEvent(
+        new CustomEvent("socket:envio_entregado", { detail: data }),
+      );
+    });
+
+    // Notificación de envío entregado (para depósitos)
+    newSocket.on("envio_entregado_deposito", (data) => {
+      console.log(
+        "NotificacionContext: envio_entregado_deposito recibido:",
+        data,
+      );
+      agregarNotificacionRef.current({
+        tipo: "envio",
+        titulo: "Envío completado",
+        mensaje: `El pedido #${data.numero} fue entregado exitosamente`,
+        data: data,
+        icono: "✅",
+      });
+
+      window.dispatchEvent(
+        new CustomEvent("socket:envio_entregado_deposito", { detail: data }),
+      );
     });
 
     // Notificación de cuenta activada/desactivada
     newSocket.on("cuenta_estado", (data) => {
-      agregarNotificacion({
+      agregarNotificacionRef.current({
         tipo: "cuenta",
         titulo: data.activo ? "Cuenta activada" : "Cuenta desactivada",
         mensaje: data.mensaje,
@@ -155,7 +267,7 @@ export function NotificacionProvider({ children }) {
 
     // Notificación de stock bajo (para depósitos)
     newSocket.on("stock_bajo", (data) => {
-      agregarNotificacion({
+      agregarNotificacionRef.current({
         tipo: "stock",
         titulo: "Stock bajo",
         mensaje: `${data.producto} tiene stock bajo (${data.cantidad} unidades)`,
@@ -166,7 +278,7 @@ export function NotificacionProvider({ children }) {
 
     // Notificación genérica
     newSocket.on("notificacion", (data) => {
-      agregarNotificacion(data);
+      agregarNotificacionRef.current(data);
     });
 
     setSocket(newSocket);
@@ -175,47 +287,6 @@ export function NotificacionProvider({ children }) {
       newSocket.disconnect();
     };
   }, [usuario]);
-
-  // Agregar nueva notificación
-  const agregarNotificacion = useCallback((notificacion) => {
-    const nuevaNotificacion = {
-      id: Date.now().toString(),
-      ...notificacion,
-      fecha: new Date().toISOString(),
-      leida: false,
-    };
-
-    setNotificaciones((prev) => [nuevaNotificacion, ...prev]);
-    setNoLeidas((prev) => prev + 1);
-
-    // Mostrar notificación del navegador si está permitido
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "granted") {
-        new Notification(notificacion.titulo, {
-          body: notificacion.mensaje,
-          icon: "/favicon.ico",
-        });
-      }
-    }
-
-    // Reproducir sonido de notificación
-    playNotificationSound();
-  }, []);
-
-  // Reproducir sonido de notificación
-  const playNotificationSound = () => {
-    if (typeof window !== "undefined") {
-      try {
-        const audio = new Audio("/notification.mp3");
-        audio.volume = 0.3;
-        audio.play().catch(() => {
-          // Silenciar error si el navegador bloquea el autoplay
-        });
-      } catch (e) {
-        // Silenciar error
-      }
-    }
-  };
 
   // Marcar notificación como leída
   const marcarComoLeida = useCallback((id) => {

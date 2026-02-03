@@ -244,48 +244,57 @@ export default function FleteDashboard() {
               <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 mb-4">
                 Mi Vehículo
               </h3>
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
-                  <span className="text-3xl">🚚</span>
+              {vehiculo ? (
+                <>
+                  <div className="flex items-center space-x-4 mb-4">
+                    <div className="w-16 h-16 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                      <span className="text-3xl">🚚</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                        {vehiculo.marca} {vehiculo.modelo}
+                      </p>
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                        {vehiculo.patente}
+                      </p>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          vehiculo.estado === "operativo"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}
+                      >
+                        {vehiculo.estado === "operativo"
+                          ? "Operativo"
+                          : "En mantenimiento"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500 dark:text-neutral-400">
+                        Kilometraje:
+                      </span>
+                      <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                        {formatNumber(vehiculo.kmActual)} km
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500 dark:text-neutral-400">
+                        Capacidad:
+                      </span>
+                      <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                        {vehiculo.capacidad}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-6 text-neutral-500 dark:text-neutral-400">
+                  <span className="text-4xl block mb-2">🚚</span>
+                  <p>No tienes un vehículo asignado</p>
                 </div>
-                <div>
-                  <p className="font-medium text-neutral-800 dark:text-neutral-100">
-                    {vehiculo.marca} {vehiculo.modelo}
-                  </p>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    {vehiculo.patente}
-                  </p>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      vehiculo.estado === "operativo"
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                    }`}
-                  >
-                    {vehiculo.estado === "operativo"
-                      ? "Operativo"
-                      : "En mantenimiento"}
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-neutral-500 dark:text-neutral-400">
-                    Kilometraje:
-                  </span>
-                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                    {formatNumber(vehiculo.kmActual)} km
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-500 dark:text-neutral-400">
-                    Capacidad:
-                  </span>
-                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                    {vehiculo.capacidad}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Quick Actions */}

@@ -6,10 +6,17 @@ import { formatNumber, formatDate } from "@/utils/formatters";
 import Swal from "sweetalert2";
 
 export default function FleteContabilidad() {
-  const { movimientos, agregarMovimiento, calcularTotales, cargandoEnvios } =
-    useFlete();
+  const {
+    movimientos,
+    agregarMovimiento,
+    actualizarMovimiento,
+    eliminarMovimiento,
+    calcularTotales,
+    cargandoMovimientos,
+  } = useFlete();
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [editandoMovimiento, setEditandoMovimiento] = useState(null);
   const [nuevoMovimiento, setNuevoMovimiento] = useState({
     tipo: "ingreso",
     concepto: "",
@@ -18,7 +25,7 @@ export default function FleteContabilidad() {
   });
 
   // Mostrar loading mientras se carga
-  if (cargandoEnvios) {
+  if (cargandoMovimientos) {
     return (
       <FleteLayout>
         <div className="flex justify-center items-center h-64">
@@ -60,7 +67,7 @@ export default function FleteContabilidad() {
     (a, b) => new Date(b.fecha) - new Date(a.fecha),
   );
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!nuevoMovimiento.concepto || !nuevoMovimiento.monto) {
@@ -73,20 +80,36 @@ export default function FleteContabilidad() {
     }
 
     const movimiento = {
-      ...nuevoMovimiento,
+      tipo: nuevoMovimiento.tipo,
+      concepto: nuevoMovimiento.concepto,
       monto: parseFloat(nuevoMovimiento.monto),
-      fecha: new Date().toISOString().split("T")[0],
+      notas: nuevoMovimiento.descripcion || null,
     };
 
-    agregarMovimiento(movimiento);
+    let resultado;
+    if (editandoMovimiento) {
+      resultado = await actualizarMovimiento(editandoMovimiento.id, movimiento);
+    } else {
+      resultado = await agregarMovimiento(movimiento);
+    }
 
-    Swal.fire({
-      icon: "success",
-      title: "Movimiento registrado",
-      text: `${nuevoMovimiento.tipo === "ingreso" ? "Ingreso" : "Egreso"} de $${formatNumber(movimiento.monto)} registrado correctamente`,
-      timer: 2000,
-      showConfirmButton: false,
-    });
+    if (resultado?.success) {
+      Swal.fire({
+        icon: "success",
+        title: editandoMovimiento
+          ? "Movimiento actualizado"
+          : "Movimiento registrado",
+        text: `${nuevoMovimiento.tipo === "ingreso" ? "Ingreso" : "Egreso"} de $${formatNumber(movimiento.monto)} ${editandoMovimiento ? "actualizado" : "registrado"} correctamente`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } else {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: resultado?.error || "No se pudo guardar el movimiento",
+      });
+    }
 
     setNuevoMovimiento({
       tipo: "ingreso",
@@ -95,6 +118,72 @@ export default function FleteContabilidad() {
       descripcion: "",
     });
     setMostrarFormulario(false);
+    setEditandoMovimiento(null);
+  };
+
+  const handleEditar = (mov) => {
+    setEditandoMovimiento(mov);
+    setNuevoMovimiento({
+      tipo: mov.tipo,
+      concepto: mov.concepto,
+      monto: mov.monto.toString(),
+      descripcion: mov.notas || mov.descripcion || "",
+    });
+    setMostrarFormulario(true);
+  };
+
+  const handleEliminar = async (mov) => {
+    const result = await Swal.fire({
+      title: "¿Eliminar movimiento?",
+      text: `Se eliminará el ${mov.tipo} de $${formatNumber(mov.monto)}`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (result.isConfirmed) {
+      const resultado = await eliminarMovimiento(mov.id);
+      if (resultado?.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Eliminado",
+          text: "Movimiento eliminado correctamente",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: resultado?.error || "No se pudo eliminar el movimiento",
+        });
+      }
+    }
+  };
+
+  const exportarCSV = () => {
+    const headers = ["Fecha", "Tipo", "Concepto", "Monto", "Notas"];
+    const rows = movimientos.map((m) => [
+      m.fecha,
+      m.tipo,
+      m.concepto,
+      m.monto.toString(),
+      m.notas || m.descripcion || "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `contabilidad_flete_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
   };
 
   return (
@@ -108,13 +197,33 @@ export default function FleteContabilidad() {
             </h1>
             <p className="text-gray-600">Gestiona tus ingresos y gastos</p>
           </div>
-          <button
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
-            className="mt-4 md:mt-0 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors inline-flex items-center space-x-2"
-          >
-            <span>{mostrarFormulario ? "✕" : "+"}</span>
-            <span>{mostrarFormulario ? "Cancelar" : "Nuevo Movimiento"}</span>
-          </button>
+          <div className="flex gap-2 mt-4 md:mt-0">
+            <button
+              onClick={exportarCSV}
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors inline-flex items-center space-x-2"
+            >
+              <span>📥</span>
+              <span>Exportar CSV</span>
+            </button>
+            <button
+              onClick={() => {
+                setMostrarFormulario(!mostrarFormulario);
+                if (!mostrarFormulario) {
+                  setEditandoMovimiento(null);
+                  setNuevoMovimiento({
+                    tipo: "ingreso",
+                    concepto: "",
+                    monto: "",
+                    descripcion: "",
+                  });
+                }
+              }}
+              className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors inline-flex items-center space-x-2"
+            >
+              <span>{mostrarFormulario ? "✕" : "+"}</span>
+              <span>{mostrarFormulario ? "Cancelar" : "Nuevo Movimiento"}</span>
+            </button>
+          </div>
         </div>
 
         {/* Balance Cards */}
@@ -178,7 +287,9 @@ export default function FleteContabilidad() {
         {mostrarFormulario && (
           <div className="card border-2 border-orange-200 bg-orange-50">
             <h3 className="font-semibold text-gray-800 mb-4">
-              Registrar Nuevo Movimiento
+              {editandoMovimiento
+                ? "Editar Movimiento"
+                : "Registrar Nuevo Movimiento"}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -301,7 +412,10 @@ export default function FleteContabilidad() {
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setMostrarFormulario(false)}
+                  onClick={() => {
+                    setMostrarFormulario(false);
+                    setEditandoMovimiento(null);
+                  }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Cancelar
@@ -310,7 +424,9 @@ export default function FleteContabilidad() {
                   type="submit"
                   className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                 >
-                  Registrar Movimiento
+                  {editandoMovimiento
+                    ? "Guardar Cambios"
+                    : "Registrar Movimiento"}
                 </button>
               </div>
             </form>
@@ -375,23 +491,45 @@ export default function FleteContabilidad() {
                   </div>
                   <div>
                     <p className="font-medium text-gray-800">{mov.concepto}</p>
-                    {mov.descripcion && (
-                      <p className="text-sm text-gray-500">{mov.descripcion}</p>
+                    {(mov.descripcion || mov.notas) && (
+                      <p className="text-sm text-gray-500">
+                        {mov.descripcion || mov.notas}
+                      </p>
                     )}
                     <p className="text-xs text-gray-400">
                       {formatDate(mov.fecha)}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p
-                    className={`text-xl font-bold ${
-                      mov.tipo === "ingreso" ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {mov.tipo === "ingreso" ? "+" : "-"}$
-                    {formatNumber(mov.monto)}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p
+                      className={`text-xl font-bold ${
+                        mov.tipo === "ingreso"
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {mov.tipo === "ingreso" ? "+" : "-"}$
+                      {formatNumber(mov.monto)}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleEditar(mov)}
+                      className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                      title="Editar"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleEliminar(mov)}
+                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Eliminar"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

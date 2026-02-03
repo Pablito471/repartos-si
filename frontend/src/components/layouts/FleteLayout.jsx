@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { useFlete } from "@/context/FleteContext";
 import { useAuth } from "@/context/AuthContext";
+import { useNotificaciones } from "@/context/NotificacionContext";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icons from "@/components/Icons";
@@ -40,9 +41,9 @@ export default function FleteLayout({ children }) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { usuario, logout } = useAuth();
-  const { getNotificacionesNoLeidas, getEstadisticas } = useFlete();
+  const { getEstadisticas } = useFlete();
+  const { noLeidas } = useNotificaciones();
 
-  const notificacionesNoLeidas = getNotificacionesNoLeidas();
   const stats = getEstadisticas();
 
   // Render icon component from name

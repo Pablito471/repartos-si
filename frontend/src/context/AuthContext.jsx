@@ -286,6 +286,7 @@ export const AuthProvider = ({ children }) => {
       telefono: usuarioBackend.telefono || "",
       direccion: usuarioBackend.direccion || "",
       foto: usuarioBackend.foto,
+      descripcion: usuarioBackend.descripcion || "",
       horarioApertura:
         usuarioBackend.horario_apertura || usuarioBackend.horarioApertura,
       horarioCierre:
@@ -293,6 +294,10 @@ export const AuthProvider = ({ children }) => {
       diasLaborales:
         usuarioBackend.dias_laborales || usuarioBackend.diasLaborales,
       tiposEnvio: usuarioBackend.tipos_envio || usuarioBackend.tiposEnvio,
+      capacidadMaxima:
+        usuarioBackend.capacidad_maxima || usuarioBackend.capacidadMaxima,
+      alertaStockMinimo:
+        usuarioBackend.alerta_stock_minimo || usuarioBackend.alertaStockMinimo,
       vehiculoTipo: usuarioBackend.vehiculo_tipo || usuarioBackend.vehiculoTipo,
       vehiculoPatente:
         usuarioBackend.vehiculo_patente || usuarioBackend.vehiculoPatente,
@@ -407,8 +412,9 @@ export const AuthProvider = ({ children }) => {
     if (MODO_CONEXION === "api") {
       try {
         const response = await authService.actualizarPerfil(datosActualizados);
-        if (response.usuario) {
-          const usuarioMapeado = mapearUsuarioBackend(response.usuario);
+        const usuarioData = response.data?.usuario || response.usuario;
+        if (usuarioData) {
+          const usuarioMapeado = mapearUsuarioBackend(usuarioData);
           setUsuario(usuarioMapeado);
           localStorage.setItem(
             "repartos_usuario_actual",
@@ -433,7 +439,30 @@ export const AuthProvider = ({ children }) => {
     return { success: true };
   };
 
-  const actualizarFoto = (fotoBase64) => {
+  const actualizarFoto = async (fotoBase64) => {
+    // Modo API
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await authService.actualizarPerfil({
+          foto: fotoBase64,
+        });
+        const usuarioData = response.data?.usuario || response.usuario;
+        if (usuarioData) {
+          const usuarioMapeado = mapearUsuarioBackend(usuarioData);
+          setUsuario(usuarioMapeado);
+          localStorage.setItem(
+            "repartos_usuario_actual",
+            JSON.stringify(usuarioMapeado),
+          );
+          return { success: true };
+        }
+        return { success: false, error: "Error al actualizar foto" };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
+
+    // Modo local
     const usuarioActualizado = { ...usuario, foto: fotoBase64 };
 
     setUsuario(usuarioActualizado);
@@ -444,7 +473,34 @@ export const AuthProvider = ({ children }) => {
     return { success: true };
   };
 
-  const actualizarDatosFiscales = (datosFiscales) => {
+  const actualizarDatosFiscales = async (datosFiscales) => {
+    // Modo API
+    if (MODO_CONEXION === "api") {
+      try {
+        const nuevosDatosFiscales = {
+          ...usuario.datosFiscales,
+          ...datosFiscales,
+        };
+        const response = await authService.actualizarPerfil({
+          datosFiscales: nuevosDatosFiscales,
+        });
+        const usuarioData = response.data?.usuario || response.usuario;
+        if (usuarioData) {
+          const usuarioMapeado = mapearUsuarioBackend(usuarioData);
+          setUsuario(usuarioMapeado);
+          localStorage.setItem(
+            "repartos_usuario_actual",
+            JSON.stringify(usuarioMapeado),
+          );
+          return { success: true };
+        }
+        return { success: false, error: "Error al actualizar datos fiscales" };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
+
+    // Modo local
     const usuarioActualizado = {
       ...usuario,
       datosFiscales: { ...usuario.datosFiscales, ...datosFiscales },

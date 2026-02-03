@@ -67,6 +67,18 @@ const Usuario = sequelize.define(
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
     },
+    descripcion: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    capacidadMaxima: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    alertaStockMinimo: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     // Campos específicos para fletes
     vehiculoTipo: {
       type: DataTypes.STRING,

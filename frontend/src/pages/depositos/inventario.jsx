@@ -1,7 +1,7 @@
 import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useDeposito } from "@/context/DepositoContext";
 import { formatNumber } from "@/utils/formatters";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { showSuccessAlert, showConfirmAlert, showToast } from "@/utils/alerts";
 
 export default function Inventario() {
@@ -10,6 +10,10 @@ export default function Inventario() {
     actualizarStock,
     agregarProducto,
     eliminarProducto,
+    eliminarProductoPermanente,
+    reactivarProducto,
+    productosInactivos,
+    cargarProductosInactivos,
     getProductosStockBajo,
     cargandoInventario,
   } = useDeposito();
@@ -18,6 +22,7 @@ export default function Inventario() {
   const [busqueda, setBusqueda] = useState("");
   const [mostrarModal, setMostrarModal] = useState(false);
   const [mostrarModalMovimiento, setMostrarModalMovimiento] = useState(false);
+  const [mostrarModalInactivos, setMostrarModalInactivos] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [nuevoProducto, setNuevoProducto] = useState({
     nombre: "",
@@ -159,18 +164,43 @@ export default function Inventario() {
     setMostrarModalMovimiento(true);
   };
 
+  // Borrado lógico (soft delete) - el producto se puede recuperar
   const handleEliminarProducto = async (producto) => {
     const confirmado = await showConfirmAlert(
-      "Eliminar producto",
-      `¿Estás seguro de eliminar "${producto.nombre}"? Esta acción no se puede deshacer.`,
+      "Desactivar producto",
+      `¿Desactivar "${producto.nombre}"? Podrás reactivarlo después desde "Productos Inactivos".`,
     );
 
     if (confirmado) {
       try {
         await eliminarProducto(producto.id);
         showSuccessAlert(
+          "¡Producto desactivado!",
+          "El producto fue desactivado. Puedes reactivarlo desde 'Productos Inactivos'.",
+        );
+      } catch (error) {
+        showToast(
+          "error",
+          "Error al desactivar producto: " +
+            (error.message || "Error desconocido"),
+        );
+      }
+    }
+  };
+
+  // Borrado permanente (hard delete)
+  const handleEliminarPermanente = async (producto) => {
+    const confirmado = await showConfirmAlert(
+      "⚠️ Eliminar PERMANENTEMENTE",
+      `¿Estás seguro de eliminar "${producto.nombre}" de forma PERMANENTE? Esta acción NO se puede deshacer.`,
+    );
+
+    if (confirmado) {
+      try {
+        await eliminarProductoPermanente(producto.id);
+        showSuccessAlert(
           "¡Producto eliminado!",
-          "El producto se eliminó correctamente",
+          "El producto se eliminó permanentemente",
         );
       } catch (error) {
         showToast(
@@ -180,6 +210,36 @@ export default function Inventario() {
         );
       }
     }
+  };
+
+  // Reactivar producto
+  const handleReactivarProducto = async (producto) => {
+    const confirmado = await showConfirmAlert(
+      "Reactivar producto",
+      `¿Reactivar "${producto.nombre}"? Volverá a aparecer en tu inventario.`,
+    );
+
+    if (confirmado) {
+      try {
+        await reactivarProducto(producto.id);
+        showSuccessAlert(
+          "¡Producto reactivado!",
+          "El producto volvió al inventario activo",
+        );
+      } catch (error) {
+        showToast(
+          "error",
+          "Error al reactivar producto: " +
+            (error.message || "Error desconocido"),
+        );
+      }
+    }
+  };
+
+  // Abrir modal de productos inactivos
+  const handleVerInactivos = async () => {
+    await cargarProductosInactivos();
+    setMostrarModalInactivos(true);
   };
 
   // Calcular estadísticas
@@ -196,18 +256,29 @@ export default function Inventario() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Inventario</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+              Inventario
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
               Control de stock y productos del depósito
             </p>
           </div>
-          <button
-            onClick={() => setMostrarModal(true)}
-            className="mt-4 md:mt-0 btn-primary inline-flex items-center space-x-2"
-          >
-            <span>➕</span>
-            <span>Agregar Producto</span>
-          </button>
+          <div className="flex gap-2 mt-4 md:mt-0">
+            <button
+              onClick={handleVerInactivos}
+              className="px-4 py-2 bg-gray-200 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-neutral-600 transition-colors inline-flex items-center space-x-2"
+            >
+              <span>📦</span>
+              <span>Inactivos</span>
+            </button>
+            <button
+              onClick={() => setMostrarModal(true)}
+              className="btn-primary inline-flex items-center space-x-2"
+            >
+              <span>➕</span>
+              <span>Agregar Producto</span>
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -864,6 +935,104 @@ export default function Inventario() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Productos Inactivos */}
+      {mostrarModalInactivos && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b dark:border-neutral-700 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+                  📦 Productos Inactivos
+                </h2>
+                <button
+                  onClick={() => setMostrarModalInactivos(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Productos desactivados que puedes reactivar o eliminar
+                permanentemente
+              </p>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              {productosInactivos.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <span className="text-5xl block mb-4">✅</span>
+                  <p className="text-lg">No hay productos inactivos</p>
+                  <p className="text-sm">Todos tus productos están activos</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {productosInactivos.map((producto) => (
+                    <div
+                      key={producto.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 dark:bg-neutral-700 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-4">
+                        {producto.imagen ? (
+                          <img
+                            src={producto.imagen}
+                            alt={producto.nombre}
+                            className="w-12 h-12 rounded-lg object-cover opacity-50"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-300 dark:bg-neutral-600 rounded-lg flex items-center justify-center">
+                            <span className="text-gray-400">📦</span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-800 dark:text-white">
+                            {producto.nombre}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {producto.codigo} • {producto.categoria} • Stock:{" "}
+                            {producto.stock}
+                          </p>
+                          {producto.fechaEliminacion && (
+                            <p className="text-xs text-gray-400">
+                              Desactivado:{" "}
+                              {new Date(
+                                producto.fechaEliminacion,
+                              ).toLocaleDateString("es-AR")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleReactivarProducto(producto)}
+                          className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
+                        >
+                          ✅ Reactivar
+                        </button>
+                        <button
+                          onClick={() => handleEliminarPermanente(producto)}
+                          className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t dark:border-neutral-700 flex-shrink-0">
+              <button
+                onClick={() => setMostrarModalInactivos(false)}
+                className="w-full px-4 py-2 bg-gray-200 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-neutral-600 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

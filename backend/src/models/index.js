@@ -10,6 +10,7 @@ const StockCliente = require("./StockCliente");
 const UsuarioRelacion = require("./UsuarioRelacion");
 const Mensaje = require("./Mensaje");
 const Conversacion = require("./Conversacion");
+const Movimiento = require("./Movimiento");
 
 // ============ RELACIONES ============
 
@@ -202,6 +203,24 @@ Conversacion.hasMany(Mensaje, {
   as: "mensajes",
 });
 
+// Movimientos contables
+Usuario.hasMany(Movimiento, {
+  foreignKey: "usuarioId",
+  as: "movimientos",
+});
+Movimiento.belongsTo(Usuario, {
+  foreignKey: "usuarioId",
+  as: "usuario",
+});
+Movimiento.belongsTo(Pedido, {
+  foreignKey: "pedidoId",
+  as: "pedido",
+});
+Pedido.hasMany(Movimiento, {
+  foreignKey: "pedidoId",
+  as: "movimientos",
+});
+
 module.exports = {
   sequelize,
   Usuario,
@@ -215,4 +234,5 @@ module.exports = {
   UsuarioRelacion,
   Mensaje,
   Conversacion,
+  Movimiento,
 };

@@ -148,30 +148,14 @@ export default function DepositoDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">
-                  Vehículos
+                  Fletes Vinculados
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                  {stats.vehiculosDisponibles}
+                  {stats.fletesVinculados}
                 </p>
               </div>
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                 <Icons.Truck className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="card !p-3 sm:!p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">
-                  Conductores
-                </p>
-                <p className="text-xl sm:text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                  {stats.conductoresDisponibles}
-                </p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                <Icons.User className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
@@ -363,15 +347,20 @@ export default function DepositoDashboard() {
                     </span>
                   </div>
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    📍 {envio.direccion}
+                    📍 {envio.direccionDestino || envio.direccion}
                   </p>
-                  {envio.conductor && (
+                  {envio.flete && (
                     <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                      👤 {envio.conductor} • {envio.vehiculo}
+                      🚚 Flete: {envio.flete}
                     </p>
                   )}
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    ⏰ Estimado: {envio.fechaEstimada}
+                    ⏰ Estimado:{" "}
+                    {envio.fechaEstimada
+                      ? new Date(envio.fechaEstimada).toLocaleDateString(
+                          "es-AR",
+                        )
+                      : "Sin definir"}
                   </p>
                 </div>
               ))}

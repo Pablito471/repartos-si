@@ -10,6 +10,8 @@ const calificacionesRoutes = require("./calificaciones");
 const entregasRoutes = require("./entregas");
 const relacionesRoutes = require("./relaciones");
 const chatRoutes = require("./chat");
+const movimientosRoutes = require("./movimientos");
+const stockRoutes = require("./stock");
 
 router.use("/auth", authRoutes);
 router.use("/usuarios", usuariosRoutes);
@@ -20,6 +22,8 @@ router.use("/calificaciones", calificacionesRoutes);
 router.use("/entregas", entregasRoutes);
 router.use("/relaciones", relacionesRoutes);
 router.use("/chat", chatRoutes);
+router.use("/movimientos", movimientosRoutes);
+router.use("/stock", stockRoutes);
 
 // Ruta de health check
 router.get("/health", (req, res) => {

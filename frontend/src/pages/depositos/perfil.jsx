@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate, DIAS_SEMANA } from "@/utils/formatters";
@@ -16,27 +16,50 @@ export default function PerfilDeposito() {
 
   const [seccionActiva, setSeccionActiva] = useState("perfil");
   const [editando, setEditando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const [formPerfil, setFormPerfil] = useState({
-    nombre: usuario?.nombre || "",
-    telefono: usuario?.telefono || "",
-    direccion: usuario?.direccion || "",
-    email: usuario?.email || "",
-    horarioApertura: usuario?.horarioApertura || "08:00",
-    horarioCierre: usuario?.horarioCierre || "18:00",
-    diasLaborales: usuario?.diasLaborales || [1, 2, 3, 4, 5], // Lun-Vie por defecto
-    descripcion: usuario?.descripcion || "",
+    nombre: "",
+    telefono: "",
+    direccion: "",
+    email: "",
+    horarioApertura: "08:00",
+    horarioCierre: "18:00",
+    diasLaborales: [1, 2, 3, 4, 5],
+    descripcion: "",
   });
   const [formFiscal, setFormFiscal] = useState({
-    cuit: usuario?.datosFiscales?.cuit || "",
-    condicionIva: usuario?.datosFiscales?.condicionIva || "",
-    razonSocial: usuario?.datosFiscales?.razonSocial || "",
-    domicilioFiscal: usuario?.datosFiscales?.domicilioFiscal || "",
+    cuit: "",
+    condicionIva: "",
+    razonSocial: "",
+    domicilioFiscal: "",
   });
   const [formPassword, setFormPassword] = useState({
     actual: "",
     nueva: "",
     confirmar: "",
   });
+
+  // Cargar datos del usuario cuando esté disponible
+  useEffect(() => {
+    if (usuario) {
+      setFormPerfil({
+        nombre: usuario.nombre ?? "",
+        telefono: usuario.telefono ?? "",
+        direccion: usuario.direccion ?? "",
+        email: usuario.email ?? "",
+        horarioApertura: usuario.horarioApertura ?? "08:00",
+        horarioCierre: usuario.horarioCierre ?? "18:00",
+        diasLaborales: usuario.diasLaborales ?? [1, 2, 3, 4, 5],
+        descripcion: usuario.descripcion ?? "",
+      });
+      setFormFiscal({
+        cuit: usuario.datosFiscales?.cuit ?? "",
+        condicionIva: usuario.datosFiscales?.condicionIva ?? "",
+        razonSocial: usuario.datosFiscales?.razonSocial ?? "",
+        domicilioFiscal: usuario.datosFiscales?.domicilioFiscal ?? "",
+      });
+    }
+  }, [usuario]);
 
   const fileInputRef = useRef(null);
 
@@ -50,7 +73,7 @@ export default function PerfilDeposito() {
 
   const condicionesIva = ["Responsable Inscripto", "Monotributista", "Exento"];
 
-  const handleFotoChange = (e) => {
+  const handleFotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
@@ -63,41 +86,99 @@ export default function PerfilDeposito() {
       }
 
       const reader = new FileReader();
-      reader.onloadend = () => {
-        actualizarFoto(reader.result);
-        Swal.fire({
-          icon: "success",
-          title: "Logo actualizado",
-          timer: 1500,
-          showConfirmButton: false,
-        });
+      reader.onloadend = async () => {
+        setGuardando(true);
+        try {
+          const resultado = await actualizarFoto(reader.result);
+          if (resultado.success) {
+            Swal.fire({
+              icon: "success",
+              title: "Logo actualizado",
+              timer: 1500,
+              showConfirmButton: false,
+            });
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: resultado.error || "No se pudo actualizar el logo",
+            });
+          }
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "No se pudo actualizar el logo",
+          });
+        } finally {
+          setGuardando(false);
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const guardarPerfil = () => {
-    actualizarPerfil(formPerfil);
-    setEditando(false);
-    Swal.fire({
-      icon: "success",
-      title: "Perfil actualizado",
-      timer: 1500,
-      showConfirmButton: false,
-    });
+  const guardarPerfil = async () => {
+    setGuardando(true);
+    try {
+      const resultado = await actualizarPerfil(formPerfil);
+      if (resultado.success) {
+        setEditando(false);
+        Swal.fire({
+          icon: "success",
+          title: "Perfil actualizado",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: resultado.error || "No se pudo actualizar el perfil",
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo actualizar el perfil",
+      });
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const guardarDatosFiscales = () => {
-    actualizarDatosFiscales(formFiscal);
-    Swal.fire({
-      icon: "success",
-      title: "Datos fiscales actualizados",
-      timer: 1500,
-      showConfirmButton: false,
-    });
+  const guardarDatosFiscales = async () => {
+    setGuardando(true);
+    try {
+      const resultado = await actualizarDatosFiscales(formFiscal);
+      if (resultado.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Datos fiscales actualizados",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text:
+            resultado.error || "No se pudieron actualizar los datos fiscales",
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudieron actualizar los datos fiscales",
+      });
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const handleCambiarPassword = (e) => {
+  const handleCambiarPassword = async (e) => {
     e.preventDefault();
 
     if (formPassword.nueva.length < 6) {
@@ -118,22 +199,36 @@ export default function PerfilDeposito() {
       return;
     }
 
-    const resultado = cambiarPassword(formPassword.actual, formPassword.nueva);
+    setGuardando(true);
+    try {
+      const resultado = await cambiarPassword(
+        formPassword.actual,
+        formPassword.nueva,
+      );
 
-    if (resultado.success) {
-      Swal.fire({
-        icon: "success",
-        title: "Contraseña actualizada",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-      setFormPassword({ actual: "", nueva: "", confirmar: "" });
-    } else {
+      if (resultado.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Contraseña actualizada",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        setFormPassword({ actual: "", nueva: "", confirmar: "" });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: resultado.error,
+        });
+      }
+    } catch (error) {
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: resultado.error,
+        text: "No se pudo cambiar la contraseña",
       });
+    } finally {
+      setGuardando(false);
     }
   };
 

@@ -105,15 +105,41 @@ exports.getMe = async (req, res, next) => {
 // PUT /api/auth/perfil
 exports.actualizarPerfil = async (req, res, next) => {
   try {
-    const { nombre, telefono, direccion, foto, datosFiscales } = req.body;
-
-    await req.usuario.update({
+    const {
       nombre,
       telefono,
       direccion,
       foto,
       datosFiscales,
-    });
+      horarioApertura,
+      horarioCierre,
+      diasLaborales,
+      capacidadMaxima,
+      alertaStockMinimo,
+      descripcion,
+    } = req.body;
+
+    // Construir objeto con solo los campos que vienen definidos
+    const datosActualizar = {};
+    if (nombre !== undefined) datosActualizar.nombre = nombre;
+    if (telefono !== undefined) datosActualizar.telefono = telefono;
+    if (direccion !== undefined) datosActualizar.direccion = direccion;
+    if (foto !== undefined) datosActualizar.foto = foto;
+    if (datosFiscales !== undefined)
+      datosActualizar.datosFiscales = datosFiscales;
+    if (horarioApertura !== undefined)
+      datosActualizar.horarioApertura = horarioApertura;
+    if (horarioCierre !== undefined)
+      datosActualizar.horarioCierre = horarioCierre;
+    if (diasLaborales !== undefined)
+      datosActualizar.diasLaborales = diasLaborales;
+    if (capacidadMaxima !== undefined)
+      datosActualizar.capacidadMaxima = capacidadMaxima;
+    if (alertaStockMinimo !== undefined)
+      datosActualizar.alertaStockMinimo = alertaStockMinimo;
+    if (descripcion !== undefined) datosActualizar.descripcion = descripcion;
+
+    await req.usuario.update(datosActualizar);
 
     res.json({
       success: true,

@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { useCliente } from "@/context/ClienteContext";
 import { useAuth } from "@/context/AuthContext";
+import { useNotificaciones } from "@/context/NotificacionContext";
 import { formatNumber } from "@/utils/formatters";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";

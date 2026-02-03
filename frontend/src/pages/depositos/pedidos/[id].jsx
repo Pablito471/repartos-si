@@ -216,8 +216,14 @@ export default function DetallePedido() {
 
     try {
       await crearEnvio(nuevoEnvio);
-      // Solo cambiar estado si no está ya en "enviado"
-      if (pedido.estado !== "enviado") {
+      // Cambiar estado a "enviado" si no está ya en ese estado
+      // El backend ahora permite: pendiente→preparando, preparando→enviado, listo→enviado
+      if (pedido.estado !== "enviado" && pedido.estado !== "entregado") {
+        // Si está en pendiente, primero pasar a preparando
+        if (pedido.estado === "pendiente") {
+          await cambiarEstadoPedido(pedido.id, "preparando");
+        }
+        // Luego pasar a enviado (desde preparando o listo)
         await cambiarEstadoPedido(pedido.id, "enviado");
       }
       setMostrarModalEnvio(false);

@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { io } from "socket.io-client";
-import { enviosService } from "../services/api";
+import { enviosService, movimientosService } from "../services/api";
 import { useAuth } from "./AuthContext";
 
 const FleteContext = createContext();
@@ -8,198 +7,70 @@ const FleteContext = createContext();
 // Configurar modo de conexión: 'api' o 'local'
 const MODO_CONEXION = process.env.NEXT_PUBLIC_MODE || "api";
 
-// Envíos asignados al transportista
-const enviosAsignadosIniciales = [
-  {
-    id: 1,
-    pedidoId: 1,
-    cliente: "Tienda La Esquina",
-    direccion: "Calle Principal 123",
-    telefono: "555-1234",
-    deposito: "Depósito Central",
-    depositoDireccion: "Av. Industrial 500",
-    productos: [
-      { nombre: "Producto A", cantidad: 10 },
-      { nombre: "Producto B", cantidad: 5 },
-    ],
-    fechaAsignacion: "2026-02-02",
-    fechaEntrega: "2026-02-02",
-    horarioEntrega: "09:00 - 12:00",
-    estado: "pendiente",
-    prioridad: "alta",
-    notas: "Tocar timbre 2 veces",
-    total: 2500,
-  },
-  {
-    id: 2,
-    pedidoId: 2,
-    cliente: "Minimercado Sol",
-    direccion: "Av. Libertad 456",
-    telefono: "555-5678",
-    deposito: "Depósito Central",
-    depositoDireccion: "Av. Industrial 500",
-    productos: [{ nombre: "Producto C", cantidad: 20 }],
-    fechaAsignacion: "2026-02-02",
-    fechaEntrega: "2026-02-02",
-    horarioEntrega: "14:00 - 17:00",
-    estado: "en_camino",
-    prioridad: "media",
-    notas: "",
-    total: 1600,
-  },
-  {
-    id: 3,
-    pedidoId: 5,
-    cliente: "Kiosco Central",
-    direccion: "Plaza Mayor 789",
-    telefono: "555-9012",
-    deposito: "Depósito Norte",
-    depositoDireccion: "Ruta 5 Km 12",
-    productos: [{ nombre: "Producto F", cantidad: 30 }],
-    fechaAsignacion: "2026-02-01",
-    fechaEntrega: "2026-02-01",
-    horarioEntrega: "10:00 - 13:00",
-    estado: "entregado",
-    prioridad: "baja",
-    notas: "Entregado sin problemas",
-    total: 3600,
-  },
-  {
-    id: 4,
-    pedidoId: 6,
-    cliente: "Supermercado Norte",
-    direccion: "Av. Norte 1234",
-    telefono: "555-3456",
-    deposito: "Depósito Central",
-    depositoDireccion: "Av. Industrial 500",
-    productos: [
-      { nombre: "Producto A", cantidad: 25 },
-      { nombre: "Producto B", cantidad: 15 },
-    ],
-    fechaAsignacion: "2026-01-31",
-    fechaEntrega: "2026-01-31",
-    horarioEntrega: "08:00 - 11:00",
-    estado: "entregado",
-    prioridad: "alta",
-    notas: "",
-    total: 6750,
-  },
-  {
-    id: 5,
-    pedidoId: 7,
-    cliente: "Almacén Don Pedro",
-    direccion: "Calle Sur 567",
-    telefono: "555-7890",
-    deposito: "Depósito Sur",
-    depositoDireccion: "Camino Rural 200",
-    productos: [{ nombre: "Producto D", cantidad: 8 }],
-    fechaAsignacion: "2026-01-30",
-    fechaEntrega: "2026-01-30",
-    horarioEntrega: "15:00 - 18:00",
-    estado: "cancelado",
-    prioridad: "media",
-    notas: "Cliente no se encontraba",
-    total: 2400,
-  },
-];
-
-// Movimientos contables del flete
-const movimientosFleteIniciales = [
-  {
-    id: 1,
-    fecha: "2026-02-02",
-    tipo: "ingreso",
-    concepto: "Pago envío #1",
-    monto: 500,
-    categoria: "envios",
-  },
-  {
-    id: 2,
-    fecha: "2026-02-02",
-    tipo: "egreso",
-    concepto: "Combustible",
-    monto: 200,
-    categoria: "combustible",
-  },
-  {
-    id: 3,
-    fecha: "2026-02-01",
-    tipo: "ingreso",
-    concepto: "Pago envío #3",
-    monto: 600,
-    categoria: "envios",
-  },
-  {
-    id: 4,
-    fecha: "2026-02-01",
-    tipo: "ingreso",
-    concepto: "Pago envío #4",
-    monto: 800,
-    categoria: "envios",
-  },
-  {
-    id: 5,
-    fecha: "2026-01-31",
-    tipo: "egreso",
-    concepto: "Mantenimiento vehículo",
-    monto: 1500,
-    categoria: "mantenimiento",
-  },
-  {
-    id: 6,
-    fecha: "2026-01-30",
-    tipo: "egreso",
-    concepto: "Peajes",
-    monto: 150,
-    categoria: "peajes",
-  },
-];
-
-// Notificaciones del flete
-const notificacionesFleteIniciales = [
-  {
-    id: 1,
-    tipo: "envio",
-    titulo: "Nuevo envío asignado",
-    mensaje: "Se te ha asignado un nuevo envío para Tienda La Esquina",
-    fecha: "2026-02-02T08:30:00",
-    leida: false,
-    datos: { envioId: 1 },
-  },
-  {
-    id: 2,
-    tipo: "urgente",
-    titulo: "Envío prioritario",
-    mensaje: "El envío #2 tiene prioridad alta, entregar antes de las 12:00",
-    fecha: "2026-02-02T07:00:00",
-    leida: true,
-    datos: { envioId: 2 },
-  },
-];
-
-// Información del vehículo
-const vehiculoInicial = {
-  id: 1,
-  tipo: "camioneta",
-  marca: "Ford",
-  modelo: "Ranger",
-  año: 2024,
-  patente: "ABC-123",
-  capacidad: "500kg",
-  estado: "operativo",
-  kmActual: 45000,
-  proximoService: 50000,
-};
-
 export function FleteProvider({ children }) {
   const { usuario } = useAuth();
   const [envios, setEnvios] = useState([]);
-  const [movimientos, setMovimientos] = useState(movimientosFleteIniciales);
-  const [notificaciones, setNotificaciones] = useState(
-    notificacionesFleteIniciales,
-  );
-  const [vehiculo, setVehiculo] = useState(vehiculoInicial);
+  const [movimientos, setMovimientos] = useState([]);
+  const [totalesContables, setTotalesContables] = useState({
+    ingresos: 0,
+    egresos: 0,
+    balance: 0,
+    categorias: {},
+    porMes: {},
+  });
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [vehiculo, setVehiculo] = useState(null);
   const [cargandoEnvios, setCargandoEnvios] = useState(true);
+  const [cargandoMovimientos, setCargandoMovimientos] = useState(true);
+
+  // Cargar movimientos contables del flete desde el backend
+  useEffect(() => {
+    const cargarMovimientos = async () => {
+      if (MODO_CONEXION === "api" && usuario?.id) {
+        try {
+          setCargandoMovimientos(true);
+          const [movimientosRes, totalesRes] = await Promise.all([
+            movimientosService.listar({ limite: 100 }),
+            movimientosService.getTotales(),
+          ]);
+
+          const movimientosData = movimientosRes.data || movimientosRes || [];
+          const totalesData = totalesRes.data || totalesRes || {};
+
+          // Formatear movimientos
+          const movimientosFormateados = movimientosData.map((m) => ({
+            id: m.id,
+            fecha:
+              m.createdAt?.split("T")[0] ||
+              new Date().toISOString().split("T")[0],
+            tipo: m.tipo,
+            concepto: m.concepto,
+            monto: parseFloat(m.monto),
+            categoria: m.categoria,
+            notas: m.notas,
+          }));
+
+          setMovimientos(movimientosFormateados);
+          setTotalesContables({
+            ingresos: totalesData.ingresos || 0,
+            egresos: totalesData.egresos || 0,
+            balance: totalesData.balance || 0,
+            categorias: totalesData.categorias || {},
+            porMes: totalesData.porMes || {},
+          });
+        } catch (error) {
+          console.error("Error al cargar movimientos del flete:", error);
+          setMovimientos([]);
+        } finally {
+          setCargandoMovimientos(false);
+        }
+      } else {
+        setCargandoMovimientos(false);
+      }
+    };
+
+    cargarMovimientos();
+  }, [usuario?.id]);
 
   // Cargar envíos del flete desde el backend
   useEffect(() => {
@@ -251,10 +122,9 @@ export function FleteProvider({ children }) {
         } finally {
           setCargandoEnvios(false);
         }
-      } else if (MODO_CONEXION !== "api") {
-        setEnvios(enviosAsignadosIniciales);
-        setCargandoEnvios(false);
       } else {
+        // Sin API, lista vacía
+        setEnvios([]);
         setCargandoEnvios(false);
       }
     };
@@ -262,29 +132,12 @@ export function FleteProvider({ children }) {
     cargarEnvios();
   }, [usuario?.id]);
 
-  // Suscribirse a nuevos envíos asignados en tiempo real
+  // Escuchar eventos del navegador desde NotificacionContext (socket centralizado)
   useEffect(() => {
     if (MODO_CONEXION !== "api" || !usuario?.id) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const socketUrl =
-      process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
-      "http://localhost:5000";
-
-    const socket = io(socketUrl, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
-
-    socket.on("connect", () => {
-      console.log("FleteContext: Socket conectado para envíos");
-    });
-
-    // Escuchar nuevos envíos asignados
-    socket.on("envio_asignado", async (data) => {
-      console.log("Nuevo envío asignado recibido:", data);
+    const handleEnvioAsignado = async (event) => {
+      console.log("FleteContext: Recibido socket:envio_asignado", event.detail);
 
       // Recargar los envíos desde el backend para tener la info completa
       try {
@@ -328,10 +181,12 @@ export function FleteProvider({ children }) {
       } catch (error) {
         console.error("Error al recargar envíos:", error);
       }
-    });
+    };
+
+    window.addEventListener("socket:envio_asignado", handleEnvioAsignado);
 
     return () => {
-      socket.disconnect();
+      window.removeEventListener("socket:envio_asignado", handleEnvioAsignado);
     };
   }, [usuario?.id]);
 
@@ -430,27 +285,176 @@ export function FleteProvider({ children }) {
 
   // ============ CONTABILIDAD ============
 
-  const agregarMovimiento = (movimiento) => {
-    const nuevoMovimiento = {
-      ...movimiento,
-      id: movimientos.length + 1,
-      fecha: new Date().toISOString().split("T")[0],
-    };
-    setMovimientos([nuevoMovimiento, ...movimientos]);
-    return nuevoMovimiento;
+  // ============ CONTABILIDAD (Backend) ============
+
+  const agregarMovimiento = async (movimiento) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await movimientosService.crear({
+          tipo: movimiento.tipo,
+          concepto: movimiento.concepto,
+          monto: parseFloat(movimiento.monto),
+          categoria: movimiento.categoria || "otros",
+          notas: movimiento.notas || movimiento.descripcion || null,
+        });
+
+        const nuevoMovimiento = response.data || response;
+        const movimientoFormateado = {
+          id: nuevoMovimiento.id,
+          fecha:
+            nuevoMovimiento.createdAt?.split("T")[0] ||
+            new Date().toISOString().split("T")[0],
+          tipo: nuevoMovimiento.tipo,
+          concepto: nuevoMovimiento.concepto,
+          monto: parseFloat(nuevoMovimiento.monto),
+          categoria: nuevoMovimiento.categoria,
+        };
+
+        setMovimientos((prev) => [movimientoFormateado, ...prev]);
+
+        // Actualizar totales
+        setTotalesContables((prev) => ({
+          ...prev,
+          ingresos:
+            movimiento.tipo === "ingreso"
+              ? prev.ingresos + parseFloat(movimiento.monto)
+              : prev.ingresos,
+          egresos:
+            movimiento.tipo === "egreso"
+              ? prev.egresos + parseFloat(movimiento.monto)
+              : prev.egresos,
+          balance:
+            movimiento.tipo === "ingreso"
+              ? prev.balance + parseFloat(movimiento.monto)
+              : prev.balance - parseFloat(movimiento.monto),
+        }));
+
+        return { success: true, data: movimientoFormateado };
+      } catch (error) {
+        console.error("Error al crear movimiento:", error);
+        return { success: false, error: error.message };
+      }
+    } else {
+      // Modo local
+      const nuevoMovimiento = {
+        ...movimiento,
+        id: Date.now(),
+        fecha: new Date().toISOString().split("T")[0],
+      };
+      setMovimientos((prev) => [nuevoMovimiento, ...prev]);
+      return { success: true, data: nuevoMovimiento };
+    }
+  };
+
+  const actualizarMovimiento = async (id, datos) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await movimientosService.actualizar(id, datos);
+        const movimientoActualizado = response.data || response;
+
+        setMovimientos((prev) =>
+          prev.map((m) =>
+            m.id === id
+              ? {
+                  ...m,
+                  ...datos,
+                  monto: parseFloat(datos.monto || m.monto),
+                }
+              : m,
+          ),
+        );
+
+        // Recargar totales
+        await recargarMovimientos();
+
+        return { success: true, data: movimientoActualizado };
+      } catch (error) {
+        console.error("Error al actualizar movimiento:", error);
+        return { success: false, error: error.message };
+      }
+    }
+    return { success: false, error: "Modo local no soportado" };
+  };
+
+  const eliminarMovimiento = async (id) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await movimientosService.eliminar(id);
+
+        const movimientoEliminado = movimientos.find((m) => m.id === id);
+
+        setMovimientos((prev) => prev.filter((m) => m.id !== id));
+
+        // Actualizar totales
+        if (movimientoEliminado) {
+          setTotalesContables((prev) => ({
+            ...prev,
+            ingresos:
+              movimientoEliminado.tipo === "ingreso"
+                ? prev.ingresos - movimientoEliminado.monto
+                : prev.ingresos,
+            egresos:
+              movimientoEliminado.tipo === "egreso"
+                ? prev.egresos - movimientoEliminado.monto
+                : prev.egresos,
+            balance:
+              movimientoEliminado.tipo === "ingreso"
+                ? prev.balance - movimientoEliminado.monto
+                : prev.balance + movimientoEliminado.monto,
+          }));
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error("Error al eliminar movimiento:", error);
+        return { success: false, error: error.message };
+      }
+    }
+    return { success: false, error: "Modo local no soportado" };
+  };
+
+  const recargarMovimientos = async () => {
+    if (MODO_CONEXION === "api" && usuario?.id) {
+      try {
+        const [movimientosRes, totalesRes] = await Promise.all([
+          movimientosService.listar({ limite: 100 }),
+          movimientosService.getTotales(),
+        ]);
+
+        const movimientosData = movimientosRes.data || movimientosRes || [];
+        const totalesData = totalesRes.data || totalesRes || {};
+
+        const movimientosFormateados = movimientosData.map((m) => ({
+          id: m.id,
+          fecha:
+            m.createdAt?.split("T")[0] ||
+            new Date().toISOString().split("T")[0],
+          tipo: m.tipo,
+          concepto: m.concepto,
+          monto: parseFloat(m.monto),
+          categoria: m.categoria,
+          notas: m.notas,
+        }));
+
+        setMovimientos(movimientosFormateados);
+        setTotalesContables({
+          ingresos: totalesData.ingresos || 0,
+          egresos: totalesData.egresos || 0,
+          balance: totalesData.balance || 0,
+          categorias: totalesData.categorias || {},
+          porMes: totalesData.porMes || {},
+        });
+      } catch (error) {
+        console.error("Error al recargar movimientos:", error);
+      }
+    }
   };
 
   const calcularTotales = () => {
-    const ingresos = movimientos
-      .filter((m) => m.tipo === "ingreso")
-      .reduce((sum, m) => sum + m.monto, 0);
-    const egresos = movimientos
-      .filter((m) => m.tipo === "egreso")
-      .reduce((sum, m) => sum + m.monto, 0);
     return {
-      ingresos,
-      egresos,
-      balance: ingresos - egresos,
+      ingresos: totalesContables.ingresos,
+      egresos: totalesContables.egresos,
+      balance: totalesContables.balance,
     };
   };
 
@@ -529,9 +533,11 @@ export function FleteProvider({ children }) {
   const value = {
     envios,
     movimientos,
+    totalesContables,
     notificaciones,
     vehiculo,
     cargandoEnvios,
+    cargandoMovimientos,
     cambiarEstadoEnvio,
     getEnviosPorEstado,
     getEnviosDelDia,
@@ -540,6 +546,9 @@ export function FleteProvider({ children }) {
     marcarEntregado,
     reportarProblema,
     agregarMovimiento,
+    actualizarMovimiento,
+    eliminarMovimiento,
+    recargarMovimientos,
     calcularTotales,
     agregarNotificacion,
     marcarNotificacionLeida,

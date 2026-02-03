@@ -5,6 +5,8 @@ const {
   emitirEnvioAsignado,
   emitirEnvioEnCamino,
   emitirEnvioEntregado,
+  emitirNotificacion,
+  getIO,
 } = require("../socket");
 
 // GET /api/envios
@@ -248,6 +250,22 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
         id: envio.id,
         numero: envio.pedido.numero,
       });
+
+      // Emitir notificación al depósito
+      const io = getIO();
+      if (io) {
+        console.log(
+          `Emitiendo envio_entregado_deposito a user_${envio.pedido.depositoId}`,
+        );
+        io.to(`user_${envio.pedido.depositoId}`).emit(
+          "envio_entregado_deposito",
+          {
+            id: envio.id,
+            pedidoId: envio.pedido.id,
+            numero: envio.pedido.numero,
+          },
+        );
+      }
     }
 
     await envio.update(updates);

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import ClienteLayout from "@/components/layouts/ClienteLayout";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate } from "@/utils/formatters";
@@ -17,24 +17,43 @@ export default function PerfilCliente() {
   const [seccionActiva, setSeccionActiva] = useState("perfil");
   const [editando, setEditando] = useState(false);
   const [formPerfil, setFormPerfil] = useState({
-    nombre: usuario?.nombre || "",
-    telefono: usuario?.telefono || "",
-    direccion: usuario?.direccion || "",
-    email: usuario?.email || "",
+    nombre: "",
+    telefono: "",
+    direccion: "",
+    email: "",
   });
   const [formFiscal, setFormFiscal] = useState({
-    cuit: usuario?.datosFiscales?.cuit || "",
-    condicionIva: usuario?.datosFiscales?.condicionIva || "",
-    razonSocial: usuario?.datosFiscales?.razonSocial || "",
-    domicilioFiscal: usuario?.datosFiscales?.domicilioFiscal || "",
+    cuit: "",
+    condicionIva: "",
+    razonSocial: "",
+    domicilioFiscal: "",
   });
   const [formPassword, setFormPassword] = useState({
     actual: "",
     nueva: "",
     confirmar: "",
   });
+  const [guardando, setGuardando] = useState(false);
 
   const fileInputRef = useRef(null);
+
+  // Cargar datos del usuario cuando cambian
+  useEffect(() => {
+    if (usuario) {
+      setFormPerfil({
+        nombre: usuario.nombre || "",
+        telefono: usuario.telefono || "",
+        direccion: usuario.direccion || "",
+        email: usuario.email || "",
+      });
+      setFormFiscal({
+        cuit: usuario.datosFiscales?.cuit || "",
+        condicionIva: usuario.datosFiscales?.condicionIva || "",
+        razonSocial: usuario.datosFiscales?.razonSocial || "",
+        domicilioFiscal: usuario.datosFiscales?.domicilioFiscal || "",
+      });
+    }
+  }, [usuario]);
 
   const secciones = [
     { id: "perfil", label: "Datos Personales", icon: "👤" },
@@ -50,7 +69,7 @@ export default function PerfilCliente() {
     "Consumidor Final",
   ];
 
-  const handleFotoChange = (e) => {
+  const handleFotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
@@ -63,41 +82,71 @@ export default function PerfilCliente() {
       }
 
       const reader = new FileReader();
-      reader.onloadend = () => {
-        actualizarFoto(reader.result);
-        Swal.fire({
-          icon: "success",
-          title: "Foto actualizada",
-          timer: 1500,
-          showConfirmButton: false,
-        });
+      reader.onloadend = async () => {
+        try {
+          await actualizarFoto(reader.result);
+          Swal.fire({
+            icon: "success",
+            title: "Foto actualizada",
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "No se pudo actualizar la foto",
+          });
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const guardarPerfil = () => {
-    actualizarPerfil(formPerfil);
-    setEditando(false);
-    Swal.fire({
-      icon: "success",
-      title: "Perfil actualizado",
-      timer: 1500,
-      showConfirmButton: false,
-    });
+  const guardarPerfil = async () => {
+    setGuardando(true);
+    try {
+      await actualizarPerfil(formPerfil);
+      setEditando(false);
+      Swal.fire({
+        icon: "success",
+        title: "Perfil actualizado",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudo actualizar el perfil",
+      });
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const guardarDatosFiscales = () => {
-    actualizarDatosFiscales(formFiscal);
-    Swal.fire({
-      icon: "success",
-      title: "Datos fiscales actualizados",
-      timer: 1500,
-      showConfirmButton: false,
-    });
+  const guardarDatosFiscales = async () => {
+    setGuardando(true);
+    try {
+      await actualizarDatosFiscales(formFiscal);
+      Swal.fire({
+        icon: "success",
+        title: "Datos fiscales actualizados",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudieron actualizar los datos fiscales",
+      });
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const handleCambiarPassword = (e) => {
+  const handleCambiarPassword = async (e) => {
     e.preventDefault();
 
     if (formPassword.nueva.length < 6) {
@@ -118,22 +167,36 @@ export default function PerfilCliente() {
       return;
     }
 
-    const resultado = cambiarPassword(formPassword.actual, formPassword.nueva);
+    setGuardando(true);
+    try {
+      const resultado = await cambiarPassword(
+        formPassword.actual,
+        formPassword.nueva,
+      );
 
-    if (resultado.success) {
-      Swal.fire({
-        icon: "success",
-        title: "Contraseña actualizada",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-      setFormPassword({ actual: "", nueva: "", confirmar: "" });
-    } else {
+      if (resultado.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Contraseña actualizada",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        setFormPassword({ actual: "", nueva: "", confirmar: "" });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: resultado.error,
+        });
+      }
+    } catch (error) {
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: resultado.error,
+        text: "No se pudo cambiar la contraseña",
       });
+    } finally {
+      setGuardando(false);
     }
   };
 

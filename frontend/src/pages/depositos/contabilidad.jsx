@@ -3,37 +3,62 @@ import { useDeposito } from "@/context/DepositoContext";
 import CalendarioContabilidad from "@/components/CalendarioContabilidad";
 import { formatNumber } from "@/utils/formatters";
 import { useState } from "react";
-import { showSuccessAlert, showToast } from "@/utils/alerts";
+import { showSuccessAlert, showConfirmAlert, showToast } from "@/utils/alerts";
 
 export default function Contabilidad() {
-  const { movimientos, pedidos, envios } = useDeposito();
+  const {
+    movimientos,
+    pedidos,
+    envios,
+    agregarMovimiento,
+    actualizarMovimiento,
+    eliminarMovimiento,
+    calcularTotales,
+    cargandoMovimientos,
+  } = useDeposito();
+  const totales = calcularTotales();
+
   const [periodo, setPeriodo] = useState("mes");
   const [tipoMovimiento, setTipoMovimiento] = useState("todos");
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [busqueda, setBusqueda] = useState("");
   const [mostrarModalRegistro, setMostrarModalRegistro] = useState(false);
+  const [editandoMovimiento, setEditandoMovimiento] = useState(null);
+  const [guardando, setGuardando] = useState(false);
   const [nuevoMovimiento, setNuevoMovimiento] = useState({
     tipo: "ingreso",
-    categoria: "",
-    descripcion: "",
+    categoria: "ventas",
+    concepto: "",
     monto: "",
-    referencia: "",
+    notas: "",
   });
+
+  const categorias = {
+    ventas: { nombre: "Ventas", icono: "💵", color: "green" },
+    compras: { nombre: "Compras", icono: "🛒", color: "red" },
+    cobranzas: { nombre: "Cobranzas", icono: "📥", color: "blue" },
+    logistica: { nombre: "Logística", icono: "🚚", color: "yellow" },
+    servicios: { nombre: "Servicios", icono: "⚡", color: "purple" },
+    personal: { nombre: "Personal", icono: "👥", color: "orange" },
+    otros: { nombre: "Otros", icono: "📋", color: "gray" },
+  };
 
   // Filtrar movimientos
   const movimientosFiltrados = movimientos.filter((mov) => {
-    if (tipoMovimiento === "todos") return true;
-    return mov.tipo === tipoMovimiento;
+    const cumpleTipo =
+      tipoMovimiento === "todos" || mov.tipo === tipoMovimiento;
+    const cumpleCategoria =
+      filtroCategoria === "todas" || mov.categoria === filtroCategoria;
+    const cumpleBusqueda = mov.concepto
+      ?.toLowerCase()
+      .includes(busqueda.toLowerCase());
+    return cumpleTipo && cumpleCategoria && cumpleBusqueda;
   });
 
-  // Calcular totales
-  const totalIngresos = movimientos
-    .filter((m) => m.tipo === "ingreso")
-    .reduce((sum, m) => sum + m.monto, 0);
-
-  const totalEgresos = movimientos
-    .filter((m) => m.tipo === "egreso")
-    .reduce((sum, m) => sum + m.monto, 0);
-
-  const balance = totalIngresos - totalEgresos;
+  // Calcular totales locales (backup)
+  const totalIngresos = totales.ingresos || 0;
+  const totalEgresos = totales.egresos || 0;
+  const balance = totales.balance || 0;
 
   // Stats de operaciones
   const pedidosEntregados = pedidos.filter(
@@ -41,32 +66,186 @@ export default function Contabilidad() {
   ).length;
   const totalVentas = pedidos
     .filter((p) => p.estado !== "cancelado")
-    .reduce((sum, p) => sum + p.total, 0);
+    .reduce((sum, p) => sum + (parseFloat(p.total) || 0), 0);
   const enviosCompletados = envios.filter(
     (e) => e.estado === "entregado",
   ).length;
 
-  const handleRegistrarMovimiento = (e) => {
+  // Calcular totales por categoría
+  const totalesPorCategoria = Object.keys(categorias)
+    .map((cat) => {
+      const ingresos = movimientos
+        .filter((m) => m.categoria === cat && m.tipo === "ingreso")
+        .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+      const egresos = movimientos
+        .filter((m) => m.categoria === cat && m.tipo === "egreso")
+        .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+      return {
+        categoria: cat,
+        ingresos,
+        egresos,
+        balance: ingresos - egresos,
+      };
+    })
+    .filter((t) => t.ingresos > 0 || t.egresos > 0);
+
+  const handleRegistrarMovimiento = async (e) => {
     e.preventDefault();
 
-    if (!nuevoMovimiento.categoria || !nuevoMovimiento.monto) {
+    if (!nuevoMovimiento.concepto || !nuevoMovimiento.monto) {
       showToast("error", "Completa los campos requeridos");
       return;
     }
 
-    // Aquí normalmente se agregaría el movimiento a través del contexto
-    showSuccessAlert(
-      "¡Movimiento registrado!",
-      "El movimiento ha sido añadido correctamente",
+    const accion = editandoMovimiento ? "actualizar" : "registrar";
+    const confirmado = await showConfirmAlert(
+      editandoMovimiento ? "Actualizar movimiento" : "Registrar movimiento",
+      `¿Confirmas ${accion} el ${nuevoMovimiento.tipo} de $${parseFloat(nuevoMovimiento.monto).toLocaleString()}?`,
     );
-    setMostrarModalRegistro(false);
+
+    if (confirmado) {
+      setGuardando(true);
+      try {
+        let resultado;
+        if (editandoMovimiento) {
+          resultado = await actualizarMovimiento(editandoMovimiento.id, {
+            tipo: nuevoMovimiento.tipo,
+            concepto: nuevoMovimiento.concepto,
+            monto: parseFloat(nuevoMovimiento.monto),
+            categoria: nuevoMovimiento.categoria,
+            notas: nuevoMovimiento.notas,
+          });
+        } else {
+          resultado = await agregarMovimiento({
+            tipo: nuevoMovimiento.tipo,
+            concepto: nuevoMovimiento.concepto,
+            monto: parseFloat(nuevoMovimiento.monto),
+            categoria: nuevoMovimiento.categoria,
+            notas: nuevoMovimiento.notas,
+          });
+        }
+
+        if (resultado.success) {
+          setNuevoMovimiento({
+            tipo: "ingreso",
+            categoria: "ventas",
+            concepto: "",
+            monto: "",
+            notas: "",
+          });
+          setMostrarModalRegistro(false);
+          setEditandoMovimiento(null);
+          showSuccessAlert(
+            editandoMovimiento ? "¡Actualizado!" : "¡Registrado!",
+            `El movimiento ha sido ${editandoMovimiento ? "actualizado" : "añadido"} correctamente`,
+          );
+        } else {
+          showToast("error", resultado.error || `Error al ${accion}`);
+        }
+      } catch (error) {
+        showToast("error", `Error al ${accion} el movimiento`);
+      } finally {
+        setGuardando(false);
+      }
+    }
+  };
+
+  const handleEditar = (movimiento) => {
+    setEditandoMovimiento(movimiento);
     setNuevoMovimiento({
-      tipo: "ingreso",
-      categoria: "",
-      descripcion: "",
-      monto: "",
-      referencia: "",
+      tipo: movimiento.tipo,
+      categoria: movimiento.categoria,
+      concepto: movimiento.concepto,
+      monto: parseFloat(movimiento.monto).toString(),
+      notas: movimiento.notas || "",
     });
+    setMostrarModalRegistro(true);
+  };
+
+  const handleEliminar = async (movimiento) => {
+    const confirmado = await showConfirmAlert(
+      "Eliminar movimiento",
+      `¿Seguro que deseas eliminar "${movimiento.concepto}" por $${parseFloat(movimiento.monto).toLocaleString()}?`,
+    );
+
+    if (confirmado) {
+      const resultado = await eliminarMovimiento(movimiento.id);
+      if (resultado.success) {
+        showToast("success", "Movimiento eliminado");
+      } else {
+        showToast("error", resultado.error || "Error al eliminar");
+      }
+    }
+  };
+
+  const handleExportar = () => {
+    if (movimientosFiltrados.length === 0) {
+      showToast("error", "No hay movimientos para exportar");
+      return;
+    }
+
+    // Crear contenido CSV
+    const headers = [
+      "Fecha",
+      "Tipo",
+      "Categoría",
+      "Concepto",
+      "Monto",
+      "Notas",
+    ];
+    const rows = movimientosFiltrados.map((mov) => [
+      mov.fecha || new Date(mov.createdAt).toLocaleDateString("es-AR"),
+      mov.tipo === "ingreso" ? "Ingreso" : "Egreso",
+      categorias[mov.categoria]?.nombre || mov.categoria,
+      `"${(mov.concepto || "").replace(/"/g, '""')}"`,
+      mov.tipo === "ingreso" ? mov.monto : -mov.monto,
+      `"${(mov.notas || "").replace(/"/g, '""')}"`,
+    ]);
+
+    // Agregar totales al final
+    const totalIngresosFiltrado = movimientosFiltrados
+      .filter((m) => m.tipo === "ingreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+    const totalEgresosFiltrado = movimientosFiltrados
+      .filter((m) => m.tipo === "egreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+
+    rows.push([]);
+    rows.push(["RESUMEN", "", "", "", "", ""]);
+    rows.push(["Total Ingresos", "", "", "", totalIngresosFiltrado, ""]);
+    rows.push(["Total Egresos", "", "", "", -totalEgresosFiltrado, ""]);
+    rows.push([
+      "Balance",
+      "",
+      "",
+      "",
+      totalIngresosFiltrado - totalEgresosFiltrado,
+      "",
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.join(","))
+      .join("\n");
+
+    // Agregar BOM para UTF-8
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fecha = new Date().toISOString().split("T")[0];
+    link.href = url;
+    link.download = `contabilidad_deposito_${fecha}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast(
+      "success",
+      `Exportados ${movimientosFiltrados.length} movimientos`,
+    );
   };
 
   return (
@@ -90,7 +269,10 @@ export default function Contabilidad() {
               <span>➕</span>
               <span>Registrar Movimiento</span>
             </button>
-            <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+            <button
+              onClick={handleExportar}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
               📊 Exportar
             </button>
           </div>
@@ -285,57 +467,98 @@ export default function Contabilidad() {
 
           {/* Movements Table */}
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Concepto
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Categoría
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Referencia
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Monto
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {movimientosFiltrados.map((mov) => (
-                  <tr key={mov.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {mov.fecha}
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="text-sm font-medium text-gray-800">
-                        {mov.concepto}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
-                        {mov.categoria}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {mov.referencia || "-"}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-right">
-                      <span
-                        className={`text-sm font-bold ${mov.tipo === "ingreso" ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {mov.tipo === "ingreso" ? "+" : "-"}$
-                        {formatNumber(mov.monto)}
-                      </span>
-                    </td>
+            {cargandoMovimientos ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : movimientosFiltrados.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <span className="text-4xl mb-2 block">📋</span>
+                <p>No hay movimientos registrados</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-neutral-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Concepto
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Categoría
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Monto
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Acciones
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-neutral-600">
+                  {movimientosFiltrados.map((mov) => (
+                    <tr
+                      key={mov.id}
+                      className="hover:bg-gray-50 dark:hover:bg-neutral-700"
+                    >
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        {mov.createdAt
+                          ? new Date(mov.createdAt).toLocaleDateString("es-AR")
+                          : mov.fecha}
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm font-medium text-gray-800 dark:text-white">
+                          {mov.concepto}
+                        </p>
+                        {mov.notas && (
+                          <p className="text-xs text-gray-500">{mov.notas}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            categorias[mov.categoria]
+                              ? `bg-${categorias[mov.categoria].color}-100 text-${categorias[mov.categoria].color}-700`
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {categorias[mov.categoria]?.icono}{" "}
+                          {categorias[mov.categoria]?.nombre || mov.categoria}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-right">
+                        <span
+                          className={`text-sm font-bold ${mov.tipo === "ingreso" ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {mov.tipo === "ingreso" ? "+" : "-"}$
+                          {formatNumber(parseFloat(mov.monto) || 0)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center">
+                        <div className="flex justify-center gap-1">
+                          <button
+                            onClick={() => handleEditar(mov)}
+                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition-colors"
+                            title="Editar"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleEliminar(mov)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
+                            title="Eliminar"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -347,56 +570,81 @@ export default function Contabilidad() {
               <span>Ingresos por Categoría</span>
             </h3>
             <div className="space-y-3">
-              {[
-                { cat: "Ventas", monto: 45000, pct: 75 },
-                { cat: "Servicios de Envío", monto: 12000, pct: 20 },
-                { cat: "Otros", monto: 3000, pct: 5 },
-              ].map((item) => (
-                <div key={item.cat}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">{item.cat}</span>
-                    <span className="font-medium text-gray-800">
-                      ${formatNumber(item.monto)}
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full">
-                    <div
-                      className="h-2 bg-green-500 rounded-full transition-all"
-                      style={{ width: `${item.pct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+              {totalesPorCategoria
+                .filter((t) => t.ingresos > 0)
+                .sort((a, b) => b.ingresos - a.ingresos)
+                .map((item) => {
+                  const pct =
+                    totalIngresos > 0
+                      ? (item.ingresos / totalIngresos) * 100
+                      : 0;
+                  return (
+                    <div key={item.categoria}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-600 dark:text-gray-300">
+                          {categorias[item.categoria]?.icono}{" "}
+                          {categorias[item.categoria]?.nombre || item.categoria}
+                        </span>
+                        <span className="font-medium text-gray-800 dark:text-white">
+                          ${formatNumber(item.ingresos)}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 dark:bg-neutral-600 rounded-full">
+                        <div
+                          className="h-2 bg-green-500 rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              {totalesPorCategoria.filter((t) => t.ingresos > 0).length ===
+                0 && (
+                <p className="text-gray-500 text-sm text-center py-4">
+                  Sin ingresos registrados
+                </p>
+              )}
             </div>
           </div>
 
           <div className="card">
-            <h3 className="font-semibold text-gray-800 mb-4 flex items-center space-x-2">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center space-x-2">
               <span className="text-red-500">📉</span>
               <span>Egresos por Categoría</span>
             </h3>
             <div className="space-y-3">
-              {[
-                { cat: "Combustible", monto: 8500, pct: 45 },
-                { cat: "Mantenimiento", monto: 5000, pct: 26 },
-                { cat: "Salarios", monto: 4000, pct: 21 },
-                { cat: "Otros", monto: 1500, pct: 8 },
-              ].map((item) => (
-                <div key={item.cat}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">{item.cat}</span>
-                    <span className="font-medium text-gray-800">
-                      ${formatNumber(item.monto)}
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full">
-                    <div
-                      className="h-2 bg-red-500 rounded-full transition-all"
-                      style={{ width: `${item.pct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+              {totalesPorCategoria
+                .filter((t) => t.egresos > 0)
+                .sort((a, b) => b.egresos - a.egresos)
+                .map((item) => {
+                  const pct =
+                    totalEgresos > 0 ? (item.egresos / totalEgresos) * 100 : 0;
+                  return (
+                    <div key={item.categoria}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-600 dark:text-gray-300">
+                          {categorias[item.categoria]?.icono}{" "}
+                          {categorias[item.categoria]?.nombre || item.categoria}
+                        </span>
+                        <span className="font-medium text-gray-800 dark:text-white">
+                          ${formatNumber(item.egresos)}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 dark:bg-neutral-600 rounded-full">
+                        <div
+                          className="h-2 bg-red-500 rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              {totalesPorCategoria.filter((t) => t.egresos > 0).length ===
+                0 && (
+                <p className="text-gray-500 text-sm text-center py-4">
+                  Sin egresos registrados
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -405,15 +653,27 @@ export default function Contabilidad() {
       {/* Modal Registrar Movimiento */}
       {mostrarModalRegistro && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="p-6 border-b">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl w-full max-w-md">
+            <div className="p-6 border-b dark:border-neutral-700">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-800">
-                  Registrar Movimiento
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+                  {editandoMovimiento
+                    ? "Editar Movimiento"
+                    : "Registrar Movimiento"}
                 </h2>
                 <button
-                  onClick={() => setMostrarModalRegistro(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  onClick={() => {
+                    setMostrarModalRegistro(false);
+                    setEditandoMovimiento(null);
+                    setNuevoMovimiento({
+                      tipo: "ingreso",
+                      categoria: "ventas",
+                      concepto: "",
+                      monto: "",
+                      notas: "",
+                    });
+                  }}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
                   ✕
                 </button>
@@ -425,7 +685,7 @@ export default function Contabilidad() {
               className="p-6 space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Tipo de Movimiento
                 </label>
                 <div className="flex space-x-3">
@@ -440,7 +700,7 @@ export default function Contabilidad() {
                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
                       nuevoMovimiento.tipo === "ingreso"
                         ? "bg-green-500 text-white"
-                        : "bg-gray-100 text-gray-600"
+                        : "bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300"
                     }`}
                   >
                     📈 Ingreso
@@ -453,7 +713,7 @@ export default function Contabilidad() {
                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
                       nuevoMovimiento.tipo === "egreso"
                         ? "bg-red-500 text-white"
-                        : "bg-gray-100 text-gray-600"
+                        : "bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300"
                     }`}
                   >
                     📉 Egreso
@@ -462,7 +722,7 @@ export default function Contabilidad() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Categoría
                 </label>
                 <select
@@ -476,53 +736,43 @@ export default function Contabilidad() {
                   }
                   required
                 >
-                  <option value="">Seleccionar categoría...</option>
-                  {nuevoMovimiento.tipo === "ingreso" ? (
-                    <>
-                      <option value="Ventas">Ventas</option>
-                      <option value="Servicios de Envío">
-                        Servicios de Envío
-                      </option>
-                      <option value="Otros Ingresos">Otros Ingresos</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Combustible">Combustible</option>
-                      <option value="Mantenimiento">Mantenimiento</option>
-                      <option value="Salarios">Salarios</option>
-                      <option value="Servicios">Servicios</option>
-                      <option value="Otros Gastos">Otros Gastos</option>
-                    </>
-                  )}
+                  {Object.entries(categorias).map(([key, cat]) => (
+                    <option key={key} value={key}>
+                      {cat.icono} {cat.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descripción
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Concepto
                 </label>
                 <input
                   type="text"
                   className="input-field"
                   placeholder="Detalle del movimiento..."
-                  value={nuevoMovimiento.descripcion}
+                  value={nuevoMovimiento.concepto}
                   onChange={(e) =>
                     setNuevoMovimiento({
                       ...nuevoMovimiento,
-                      descripcion: e.target.value,
+                      concepto: e.target.value,
                     })
                   }
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Monto
                 </label>
                 <input
                   type="number"
                   className="input-field"
                   placeholder="0.00"
+                  step="0.01"
+                  min="0"
                   value={nuevoMovimiento.monto}
                   onChange={(e) =>
                     setNuevoMovimiento({
@@ -535,18 +785,18 @@ export default function Contabilidad() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Referencia (opcional)
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Notas (opcional)
                 </label>
-                <input
-                  type="text"
+                <textarea
                   className="input-field"
-                  placeholder="Ej: Factura #123"
-                  value={nuevoMovimiento.referencia}
+                  placeholder="Observaciones adicionales..."
+                  rows="2"
+                  value={nuevoMovimiento.notas}
                   onChange={(e) =>
                     setNuevoMovimiento({
                       ...nuevoMovimiento,
-                      referencia: e.target.value,
+                      notas: e.target.value,
                     })
                   }
                 />
@@ -555,13 +805,37 @@ export default function Contabilidad() {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setMostrarModalRegistro(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  onClick={() => {
+                    setMostrarModalRegistro(false);
+                    setEditandoMovimiento(null);
+                    setNuevoMovimiento({
+                      tipo: "ingreso",
+                      categoria: "ventas",
+                      concepto: "",
+                      monto: "",
+                      notas: "",
+                    });
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-neutral-600 transition-colors"
+                  disabled={guardando}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="flex-1 btn-primary">
-                  💾 Guardar
+                <button
+                  type="submit"
+                  className="flex-1 btn-primary disabled:opacity-50"
+                  disabled={guardando}
+                >
+                  {guardando ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Guardando...
+                    </span>
+                  ) : editandoMovimiento ? (
+                    "💾 Guardar Cambios"
+                  ) : (
+                    "💾 Registrar"
+                  )}
                 </button>
               </div>
             </form>

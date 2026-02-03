@@ -338,7 +338,7 @@ exports.cambiarEstado = async (req, res, next) => {
     // Validar transiciones de estado
     const transicionesValidas = {
       pendiente: ["preparando", "cancelado"],
-      preparando: ["listo", "cancelado"],
+      preparando: ["listo", "enviado", "cancelado"], // enviado si se crea envío directamente
       listo: ["enviado", "entregado", "cancelado"], // entregado si es retiro
       enviado: ["entregado"],
       entregado: [],

@@ -1,7 +1,8 @@
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { showSuccessAlert, showErrorAlert } from "@/utils/alerts";
+import { showSuccessAlert, showErrorAlert, showToast } from "@/utils/alerts";
+import { stockService } from "@/services/api";
 import Logo from "@/components/logo";
 import Link from "next/link";
 import Icons from "@/components/Icons";
@@ -119,8 +120,12 @@ export default function ConfirmarEntrega() {
           JSON.stringify(entregasPendientes),
         );
 
-        // Agregar productos al stock del cliente
-        agregarProductosAlStock(entregaConfirmada.productos, usuario.id);
+        // Agregar productos al stock del cliente usando la API
+        await agregarProductosAlStock(
+          entregaConfirmada.productos,
+          usuario.id,
+          entregaConfirmada.pedidoId,
+        );
 
         setEstado("success");
         setEntrega(entregaConfirmada);
@@ -137,38 +142,31 @@ export default function ConfirmarEntrega() {
     }
   };
 
-  const agregarProductosAlStock = (productos, clienteId) => {
-    // Obtener stock actual del cliente
-    const stockClientes = JSON.parse(
-      localStorage.getItem("repartos_stock_clientes") || "{}",
-    );
-
-    if (!stockClientes[clienteId]) {
-      stockClientes[clienteId] = [];
-    }
-
-    // Agregar o actualizar productos
-    productos.forEach((producto) => {
-      const productoExistente = stockClientes[clienteId].find(
-        (p) => p.nombre === producto.nombre,
-      );
-
-      if (productoExistente) {
-        productoExistente.cantidad += producto.cantidad;
-        productoExistente.ultimaActualizacion = new Date().toISOString();
-      } else {
-        stockClientes[clienteId].push({
-          ...producto,
-          fechaIngreso: new Date().toISOString(),
-          ultimaActualizacion: new Date().toISOString(),
-        });
+  const agregarProductosAlStock = async (productos, clienteId, pedidoId) => {
+    try {
+      // Intentar agregar desde el pedido usando la API
+      await stockService.agregarDesdePedido(pedidoId);
+      console.log("Productos agregados al stock vía API");
+    } catch (error) {
+      console.error("Error agregando productos al stock vía API:", error);
+      // Fallback: agregar productos manualmente si el método del pedido falla
+      try {
+        for (const producto of productos) {
+          await stockService.agregarProducto({
+            nombre: producto.nombre,
+            cantidad: producto.cantidad,
+            precio: producto.precioUnitario || producto.precio,
+          });
+        }
+        console.log("Productos agregados al stock manualmente");
+      } catch (fallbackError) {
+        console.error("Error en fallback:", fallbackError);
+        showToast(
+          "warning",
+          "Los productos podrían no haberse agregado al stock",
+        );
       }
-    });
-
-    localStorage.setItem(
-      "repartos_stock_clientes",
-      JSON.stringify(stockClientes),
-    );
+    }
   };
 
   // Estados de renderizado

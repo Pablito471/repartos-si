@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { useDeposito } from "@/context/DepositoContext";
 import { useAuth } from "@/context/AuthContext";
+import { useNotificaciones } from "@/context/NotificacionContext";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icons from "@/components/Icons";
@@ -27,7 +28,7 @@ const menuItems = [
   {
     name: "Envíos",
     href: "/depositos/envios",
-    icon: "Truck",
+    icon: "MapPin",
   },
   {
     name: "Fletes",
@@ -44,20 +45,15 @@ const menuItems = [
     href: "/depositos/notificaciones",
     icon: "Bell",
   },
-  {
-    name: "Configuración",
-    href: "/depositos/configuracion",
-    icon: "Cog",
-  },
 ];
 
 export default function DepositoLayout({ children }) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { usuario, logout } = useAuth();
-  const { getNotificacionesNoLeidas, getEstadisticas } = useDeposito();
+  const { getEstadisticas } = useDeposito();
+  const { noLeidas } = useNotificaciones();
 
-  const notificacionesNoLeidas = getNotificacionesNoLeidas();
   const stats = getEstadisticas();
 
   // Render icon component from name
@@ -132,6 +128,7 @@ export default function DepositoLayout({ children }) {
                 router.pathname === item.href ||
                 (item.href !== "/depositos" &&
                   router.pathname.startsWith(item.href));
+              const isNotificaciones = item.name === "Notificaciones";
               return (
                 <li key={item.href}>
                   <Link
@@ -143,7 +140,14 @@ export default function DepositoLayout({ children }) {
                     }`}
                   >
                     {renderIcon(item.icon)}
-                    <span className="font-medium text-sm">{item.name}</span>
+                    <span className="font-medium text-sm flex-1">
+                      {item.name}
+                    </span>
+                    {isNotificaciones && noLeidas > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+                        {noLeidas > 99 ? "99+" : noLeidas}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

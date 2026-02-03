@@ -4,6 +4,7 @@ import {
   productosService,
   enviosService,
   relacionesService,
+  movimientosService,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
 
@@ -173,34 +174,8 @@ const inventarioInicial = [
   },
 ];
 
-const enviosIniciales = [
-  {
-    id: 1,
-    pedidoId: 4,
-    cliente: "Tienda La Esquina",
-    tipo: "envio",
-    vehiculo: "Camioneta 01",
-    conductor: "Juan Pérez",
-    direccion: "Calle Principal 123",
-    estado: "en_transito",
-    fechaSalida: "2026-02-02 09:30",
-    fechaEstimada: "2026-02-02 11:00",
-    notas: "",
-  },
-  {
-    id: 2,
-    pedidoId: 3,
-    cliente: "Supermercado Norte",
-    tipo: "retiro",
-    vehiculo: null,
-    conductor: null,
-    direccion: "Retiro en depósito",
-    estado: "esperando_retiro",
-    fechaSalida: null,
-    fechaEstimada: "2026-02-02 14:00",
-    notas: "Cliente confirmó retiro para las 14hs",
-  },
-];
+// Ya no usamos datos demo para envíos - siempre desde backend
+const enviosIniciales = [];
 
 const movimientosDepositoIniciales = [
   {
@@ -269,38 +244,9 @@ const movimientosDepositoIniciales = [
   },
 ];
 
-const vehiculosIniciales = [
-  {
-    id: 1,
-    nombre: "Camioneta 01",
-    patente: "ABC-123",
-    tipo: "camioneta",
-    capacidad: "500kg",
-    estado: "en_uso",
-  },
-  {
-    id: 2,
-    nombre: "Camión 01",
-    patente: "XYZ-789",
-    tipo: "camion",
-    capacidad: "2000kg",
-    estado: "disponible",
-  },
-  {
-    id: 3,
-    nombre: "Moto 01",
-    patente: "MOT-001",
-    tipo: "moto",
-    capacidad: "20kg",
-    estado: "disponible",
-  },
-];
-
-const conductoresIniciales = [
-  { id: 1, nombre: "Juan Pérez", telefono: "555-1001", estado: "en_ruta" },
-  { id: 2, nombre: "María García", telefono: "555-1002", estado: "disponible" },
-  { id: 3, nombre: "Carlos López", telefono: "555-1003", estado: "disponible" },
-];
+// Ya no usamos vehículos/conductores separados - ahora usamos fletes vinculados
+const vehiculosIniciales = [];
+const conductoresIniciales = [];
 
 // Notificaciones iniciales
 const notificacionesIniciales = [
@@ -328,12 +274,17 @@ export function DepositoProvider({ children }) {
   const { usuario } = useAuth();
   const [pedidos, setPedidos] = useState([]);
   const [inventario, setInventario] = useState([]);
+  const [productosInactivos, setProductosInactivos] = useState([]);
   const [envios, setEnvios] = useState([]);
-  const [movimientos, setMovimientos] = useState(movimientosDepositoIniciales);
+  const [movimientos, setMovimientos] = useState(
+    MODO_CONEXION === "api" ? [] : movimientosDepositoIniciales,
+  );
+  const [totalesContables, setTotalesContables] = useState(null);
+  const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
   const [vehiculos, setVehiculos] = useState(vehiculosIniciales);
   const [conductores, setConductores] = useState(conductoresIniciales);
   const [fletes, setFletes] = useState([]);
-  const [notificaciones, setNotificaciones] = useState(notificacionesIniciales);
+  const [notificaciones, setNotificaciones] = useState([]);
   const [cargandoPedidos, setCargandoPedidos] = useState(true);
   const [cargandoInventario, setCargandoInventario] = useState(true);
   const [cargandoEnvios, setCargandoEnvios] = useState(true);
@@ -418,7 +369,7 @@ export function DepositoProvider({ children }) {
           setPedidos(pedidosMapeados);
         } catch (error) {
           console.error("Error al cargar pedidos del depósito:", error);
-          setPedidos(pedidosDepositoIniciales); // Fallback
+          setPedidos([]); // Array vacío en caso de error en modo API
         }
       } else {
         setPedidos(pedidosDepositoIniciales);
@@ -428,6 +379,103 @@ export function DepositoProvider({ children }) {
 
     cargarPedidos();
   }, []);
+
+  // Escuchar eventos del navegador desde NotificacionContext (socket centralizado)
+  useEffect(() => {
+    if (MODO_CONEXION !== "api" || !usuario?.id) return;
+
+    const handleNuevoPedido = async (event) => {
+      console.log(
+        "DepositoContext: Recibido socket:nuevo_pedido",
+        event.detail,
+      );
+
+      // Recargar pedidos desde el backend para tener datos completos
+      try {
+        const response = await pedidosService.getAll();
+        const pedidosBackend = response.data || response || [];
+        const pedidosMapeados = pedidosBackend.map((pedido) => ({
+          id: pedido.id,
+          clienteId: pedido.clienteId,
+          cliente: pedido.cliente?.nombre || "Cliente",
+          fecha: pedido.createdAt
+            ? pedido.createdAt.split("T")[0]
+            : pedido.fecha,
+          productos:
+            pedido.productos?.map((p) => ({
+              id: p.productoId || p.id,
+              nombre: p.nombre || p.producto?.nombre,
+              cantidad: p.cantidad,
+              precio: parseFloat(p.precioUnitario || p.precio) || 0,
+            })) || [],
+          tipoEnvio: pedido.tipoEnvio || "envio",
+          direccion: pedido.direccion || pedido.cliente?.direccion || "",
+          estado: pedido.estado || "pendiente",
+          total: parseFloat(pedido.total) || 0,
+          prioridad: pedido.prioridad || "media",
+          notas: pedido.notas || "",
+        }));
+        setPedidos(pedidosMapeados);
+      } catch (error) {
+        console.error("Error al recargar pedidos:", error);
+      }
+    };
+
+    const handleEnvioEntregado = async (event) => {
+      const data = event.detail;
+      console.log(
+        "DepositoContext: Recibido socket:envio_entregado_deposito",
+        data,
+      );
+
+      // Buscar el pedido para obtener el total
+      const pedido = pedidos.find(
+        (p) => String(p.id) === String(data.pedidoId),
+      );
+
+      // Actualizar el estado del pedido localmente
+      setPedidos((prev) =>
+        prev.map((p) =>
+          String(p.id) === String(data.pedidoId)
+            ? { ...p, estado: "entregado" }
+            : p,
+        ),
+      );
+
+      // Registrar ingreso contable por la venta
+      if (pedido && parseFloat(pedido.total) > 0) {
+        try {
+          await movimientosService.crear({
+            tipo: "ingreso",
+            concepto: `Venta - Pedido entregado a ${pedido.cliente || "cliente"}`,
+            monto: parseFloat(pedido.total),
+            categoria: "ventas",
+            notas: `Pedido ID: ${pedido.id}`,
+          });
+          console.log(
+            "Movimiento contable de venta registrado para pedido:",
+            pedido.id,
+          );
+        } catch (movError) {
+          console.error("Error al registrar movimiento de venta:", movError);
+        }
+      }
+    };
+
+    window.addEventListener("socket:nuevo_pedido", handleNuevoPedido);
+    window.addEventListener(
+      "socket:envio_entregado_deposito",
+      handleEnvioEntregado,
+    );
+
+    return () => {
+      window.removeEventListener("socket:nuevo_pedido", handleNuevoPedido);
+      window.removeEventListener(
+        "socket:envio_entregado_deposito",
+        handleEnvioEntregado,
+      );
+    };
+  }, [usuario?.id]);
 
   // Cargar inventario (productos) del depósito desde el backend
   useEffect(() => {
@@ -522,6 +570,33 @@ export function DepositoProvider({ children }) {
     cargarEnvios();
   }, [usuario?.id]);
 
+  // Cargar movimientos contables desde el backend
+  useEffect(() => {
+    const cargarMovimientos = async () => {
+      if (MODO_CONEXION === "api" && usuario?.id) {
+        setCargandoMovimientos(true);
+        try {
+          const [movimientosRes, totalesRes] = await Promise.all([
+            movimientosService.listar(),
+            movimientosService.getTotales(),
+          ]);
+
+          const movimientosBackend =
+            movimientosRes.data || movimientosRes || [];
+          setMovimientos(movimientosBackend);
+          setTotalesContables(totalesRes.data || totalesRes);
+        } catch (error) {
+          console.error("Error al cargar movimientos:", error);
+          setMovimientos([]);
+        } finally {
+          setCargandoMovimientos(false);
+        }
+      }
+    };
+
+    cargarMovimientos();
+  }, [usuario?.id]);
+
   // ============ PEDIDOS ============
 
   // Función para validar UUID
@@ -583,9 +658,19 @@ export function DepositoProvider({ children }) {
   // ============ INVENTARIO ============
 
   // Actualizar stock
-  const actualizarStock = async (productoId, cantidad, tipo) => {
+  const actualizarStock = async (
+    productoId,
+    cantidad,
+    tipo,
+    costoUnitario = null,
+  ) => {
     if (MODO_CONEXION === "api") {
       try {
+        // Obtener el producto para tener acceso a su información
+        const producto = inventario.find(
+          (p) => String(p.id) === String(productoId),
+        );
+
         // Llamar al backend para actualizar stock
         const tipoBackend = tipo === "entrada" ? "agregar" : "restar";
         await productosService.actualizarStock(
@@ -609,6 +694,32 @@ export function DepositoProvider({ children }) {
             return p;
           }),
         );
+
+        // Registrar movimiento contable para entradas de stock (compras)
+        if (tipo === "entrada" && producto) {
+          const costo = costoUnitario || producto.costo || 0;
+          const costoTotal = parseFloat(costo) * parseInt(cantidad);
+          if (costoTotal > 0) {
+            try {
+              await movimientosService.crear({
+                tipo: "egreso",
+                concepto: `Reposición stock: ${producto.nombre} (+${cantidad} unidades)`,
+                monto: costoTotal,
+                categoria: "compras",
+                notas: `Producto: ${producto.codigo} - Costo unitario: $${parseFloat(costo).toLocaleString()}`,
+              });
+              console.log(
+                "Movimiento contable registrado para reposición de stock:",
+                producto.nombre,
+              );
+            } catch (movError) {
+              console.error(
+                "Error al registrar movimiento contable:",
+                movError,
+              );
+            }
+          }
+        }
       } catch (error) {
         console.error("Error al actualizar stock:", error);
         throw error;
@@ -676,6 +787,29 @@ export function DepositoProvider({ children }) {
         };
 
         setInventario((prev) => [...prev, productoMapeado]);
+
+        // Registrar movimiento contable de egreso (compra/importación)
+        const costoTotal =
+          (parseFloat(producto.costo) || 0) * (parseInt(producto.stock) || 0);
+        if (costoTotal > 0) {
+          try {
+            await movimientosService.crear({
+              tipo: "egreso",
+              concepto: `Compra/Importación: ${producto.nombre} (${producto.stock} unidades)`,
+              monto: costoTotal,
+              categoria: "compras",
+              notas: `Producto: ${productoMapeado.codigo} - Costo unitario: $${parseFloat(producto.costo).toLocaleString()}`,
+            });
+            console.log(
+              "Movimiento contable registrado para producto:",
+              producto.nombre,
+            );
+          } catch (movError) {
+            console.error("Error al registrar movimiento contable:", movError);
+            // No lanzamos error para no interrumpir la creación del producto
+          }
+        }
+
         return productoMapeado;
       } catch (error) {
         console.error("Error al crear producto:", error);
@@ -695,7 +829,7 @@ export function DepositoProvider({ children }) {
     }
   };
 
-  // Eliminar producto del inventario
+  // Eliminar producto del inventario (borrado lógico)
   const eliminarProducto = async (productoId) => {
     if (MODO_CONEXION === "api") {
       try {
@@ -710,6 +844,95 @@ export function DepositoProvider({ children }) {
       setInventario((prev) => prev.filter((p) => p.id !== productoId));
       return true;
     }
+  };
+
+  // Eliminar producto permanentemente (borrado físico)
+  const eliminarProductoPermanente = async (productoId) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await productosService.eliminarPermanente(productoId);
+        setInventario((prev) => prev.filter((p) => p.id !== productoId));
+        setProductosInactivos((prev) =>
+          prev.filter((p) => p.id !== productoId),
+        );
+        return true;
+      } catch (error) {
+        console.error("Error al eliminar producto permanentemente:", error);
+        throw error;
+      }
+    } else {
+      setInventario((prev) => prev.filter((p) => p.id !== productoId));
+      return true;
+    }
+  };
+
+  // Reactivar producto (deshacer borrado lógico)
+  const reactivarProducto = async (productoId) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await productosService.reactivar(productoId);
+        const productoReactivado = response.data || response;
+
+        // Mapear al formato del inventario
+        const productoMapeado = {
+          id: productoReactivado.id,
+          codigo: productoReactivado.codigo,
+          nombre: productoReactivado.nombre,
+          categoria: productoReactivado.categoria || "Sin categoría",
+          stock: productoReactivado.stock || 0,
+          stockMinimo: productoReactivado.stockMinimo || 10,
+          stockMaximo: productoReactivado.stockMaximo || 100,
+          precio: parseFloat(productoReactivado.precio) || 0,
+          costo: parseFloat(productoReactivado.costo) || 0,
+          ubicacion: productoReactivado.ubicacion || "",
+          imagen: productoReactivado.imagen || "",
+          ultimaActualizacion: new Date().toISOString().split("T")[0],
+        };
+
+        // Agregar al inventario activo y quitar de inactivos
+        setInventario((prev) => [...prev, productoMapeado]);
+        setProductosInactivos((prev) =>
+          prev.filter((p) => p.id !== productoId),
+        );
+        return productoMapeado;
+      } catch (error) {
+        console.error("Error al reactivar producto:", error);
+        throw error;
+      }
+    }
+    return null;
+  };
+
+  // Cargar productos inactivos
+  const cargarProductosInactivos = async () => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await productosService.getInactivos();
+        const productosBackend = response.data || response || [];
+
+        const productosMapeados = productosBackend.map((p) => ({
+          id: p.id,
+          codigo: p.codigo,
+          nombre: p.nombre,
+          categoria: p.categoria || "Sin categoría",
+          stock: p.stock || 0,
+          stockMinimo: p.stockMinimo || 10,
+          stockMaximo: p.stockMaximo || 100,
+          precio: parseFloat(p.precio) || 0,
+          costo: parseFloat(p.costo) || 0,
+          ubicacion: p.ubicacion || "",
+          imagen: p.imagen || "",
+          fechaEliminacion: p.updatedAt,
+        }));
+
+        setProductosInactivos(productosMapeados);
+        return productosMapeados;
+      } catch (error) {
+        console.error("Error al cargar productos inactivos:", error);
+        return [];
+      }
+    }
+    return [];
   };
 
   // Productos con stock bajo
@@ -865,24 +1088,120 @@ export function DepositoProvider({ children }) {
   // ============ CONTABILIDAD ============
 
   // Agregar movimiento
-  const agregarMovimiento = (movimiento) => {
-    const nuevoMovimiento = {
-      ...movimiento,
-      id: movimientos.length + 1,
-      fecha: new Date().toISOString().split("T")[0],
-    };
-    setMovimientos([nuevoMovimiento, ...movimientos]);
-    return nuevoMovimiento;
+  const agregarMovimiento = async (movimiento) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await movimientosService.crear(movimiento);
+        const nuevoMovimiento = response.data || response;
+        setMovimientos([nuevoMovimiento, ...movimientos]);
+        // Recargar totales
+        const totalesRes = await movimientosService.getTotales();
+        setTotalesContables(totalesRes.data || totalesRes);
+        return { success: true, data: nuevoMovimiento };
+      } catch (error) {
+        console.error("Error al agregar movimiento:", error);
+        return {
+          success: false,
+          error: error.response?.data?.message || "Error al agregar movimiento",
+        };
+      }
+    } else {
+      const nuevoMovimiento = {
+        ...movimiento,
+        id: movimientos.length + 1,
+        fecha: new Date().toISOString().split("T")[0],
+      };
+      setMovimientos([nuevoMovimiento, ...movimientos]);
+      return { success: true, data: nuevoMovimiento };
+    }
+  };
+
+  // Eliminar movimiento
+  const eliminarMovimiento = async (id) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await movimientosService.eliminar(id);
+        setMovimientos(movimientos.filter((m) => m.id !== id));
+        // Recargar totales
+        const totalesRes = await movimientosService.getTotales();
+        setTotalesContables(totalesRes.data || totalesRes);
+        return { success: true };
+      } catch (error) {
+        console.error("Error al eliminar movimiento:", error);
+        return {
+          success: false,
+          error: error.response?.data?.message || "Error al eliminar",
+        };
+      }
+    } else {
+      setMovimientos(movimientos.filter((m) => m.id !== id));
+      return { success: true };
+    }
+  };
+
+  // Actualizar movimiento
+  const actualizarMovimiento = async (id, datos) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await movimientosService.actualizar(id, datos);
+        const movimientoActualizado = response.data || response;
+        setMovimientos(
+          movimientos.map((m) => (m.id === id ? movimientoActualizado : m)),
+        );
+        const totalesRes = await movimientosService.getTotales();
+        setTotalesContables(totalesRes.data || totalesRes);
+        return { success: true, data: movimientoActualizado };
+      } catch (error) {
+        console.error("Error al actualizar movimiento:", error);
+        return {
+          success: false,
+          error: error.response?.data?.message || "Error al actualizar",
+        };
+      }
+    } else {
+      setMovimientos(
+        movimientos.map((m) => (m.id === id ? { ...m, ...datos } : m)),
+      );
+      return { success: true };
+    }
+  };
+
+  // Recargar movimientos
+  const recargarMovimientos = async () => {
+    if (MODO_CONEXION === "api" && usuario?.id) {
+      setCargandoMovimientos(true);
+      try {
+        const [movimientosRes, totalesRes] = await Promise.all([
+          movimientosService.listar(),
+          movimientosService.getTotales(),
+        ]);
+        setMovimientos(movimientosRes.data || movimientosRes || []);
+        setTotalesContables(totalesRes.data || totalesRes);
+      } catch (error) {
+        console.error("Error al recargar movimientos:", error);
+      } finally {
+        setCargandoMovimientos(false);
+      }
+    }
   };
 
   // Calcular totales
   const calcularTotales = () => {
+    // Si tenemos totales del backend, usarlos
+    if (totalesContables) {
+      return {
+        ingresos: totalesContables.totalIngresos || 0,
+        egresos: totalesContables.totalEgresos || 0,
+        balance: totalesContables.balance || 0,
+      };
+    }
+    // Fallback a cálculo local
     const ingresos = movimientos
       .filter((m) => m.tipo === "ingreso")
-      .reduce((sum, m) => sum + m.monto, 0);
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
     const egresos = movimientos
       .filter((m) => m.tipo === "egreso")
-      .reduce((sum, m) => sum + m.monto, 0);
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
     return {
       ingresos,
       egresos,
@@ -922,11 +1241,7 @@ export function DepositoProvider({ children }) {
       totalProductos,
       productosStockBajo,
       enviosActivos,
-      vehiculosDisponibles: vehiculos.filter((v) => v.estado === "disponible")
-        .length,
-      conductoresDisponibles: conductores.filter(
-        (c) => c.estado === "disponible",
-      ).length,
+      fletesVinculados: fletes.length,
       ...totales,
     };
   };
@@ -944,15 +1259,23 @@ export function DepositoProvider({ children }) {
     cargandoInventario,
     cargandoEnvios,
     cargandoFletes,
+    cargandoMovimientos,
     cambiarEstadoPedido,
     getPedidosPorEstado,
     actualizarStock,
     agregarProducto,
     eliminarProducto,
+    eliminarProductoPermanente,
+    reactivarProducto,
+    productosInactivos,
+    cargarProductosInactivos,
     getProductosStockBajo,
     crearEnvio,
     actualizarEstadoEnvio,
     agregarMovimiento,
+    eliminarMovimiento,
+    actualizarMovimiento,
+    recargarMovimientos,
     calcularTotales,
     getEstadisticas,
     agregarNotificacion,

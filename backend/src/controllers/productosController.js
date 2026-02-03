@@ -235,3 +235,96 @@ exports.getProductosPorDeposito = async (req, res, next) => {
     next(error);
   }
 };
+
+// PUT /api/productos/:id/reactivar - Reactivar producto (deshacer borrado lógico)
+exports.reactivarProducto = async (req, res, next) => {
+  try {
+    const producto = await Producto.findByPk(req.params.id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    if (producto.activo) {
+      throw new AppError("El producto ya está activo", 400);
+    }
+
+    await producto.update({ activo: true });
+
+    res.json({
+      success: true,
+      message: "Producto reactivado",
+      data: producto,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/productos/:id/permanente - Eliminar producto permanentemente
+exports.eliminarPermanente = async (req, res, next) => {
+  try {
+    const producto = await Producto.findByPk(req.params.id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    // Eliminar permanentemente
+    await producto.destroy();
+
+    res.json({
+      success: true,
+      message: "Producto eliminado permanentemente",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/productos/inactivos - Obtener productos inactivos del depósito
+exports.getProductosInactivos = async (req, res, next) => {
+  try {
+    const where = { activo: false };
+
+    // Si no es admin, solo ver los propios
+    if (req.usuario.tipoUsuario !== "admin") {
+      where.depositoId = req.usuario.id;
+    }
+
+    const productos = await Producto.findAll({
+      where,
+      include: [
+        {
+          model: Usuario,
+          as: "deposito",
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [["updatedAt", "DESC"]],
+    });
+
+    res.json({
+      success: true,
+      data: productos,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

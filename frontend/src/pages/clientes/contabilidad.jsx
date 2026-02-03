@@ -2,16 +2,25 @@ import ClienteLayout from "@/components/layouts/ClienteLayout";
 import { useCliente } from "@/context/ClienteContext";
 import CalendarioContabilidad from "@/components/CalendarioContabilidad";
 import { useState } from "react";
-import { showSuccessAlert, showConfirmAlert } from "@/utils/alerts";
+import { showSuccessAlert, showConfirmAlert, showToast } from "@/utils/alerts";
 
 export default function Contabilidad() {
-  const { movimientos, agregarMovimiento, calcularTotales } = useCliente();
+  const {
+    movimientos,
+    agregarMovimiento,
+    actualizarMovimiento,
+    eliminarMovimiento,
+    calcularTotales,
+    cargandoMovimientos,
+  } = useCliente();
   const totales = calcularTotales();
 
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
   const [busqueda, setBusqueda] = useState("");
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [editandoMovimiento, setEditandoMovimiento] = useState(null);
+  const [guardando, setGuardando] = useState(false);
   const [nuevoMovimiento, setNuevoMovimiento] = useState({
     tipo: "ingreso",
     concepto: "",
@@ -42,34 +51,115 @@ export default function Contabilidad() {
     e.preventDefault();
 
     if (!nuevoMovimiento.concepto || !nuevoMovimiento.monto) {
+      showToast("error", "Completa todos los campos");
       return;
     }
 
+    const accion = editandoMovimiento ? "actualizar" : "registrar";
     const confirmado = await showConfirmAlert(
-      "Registrar movimiento",
-      `¿Confirmas el ${nuevoMovimiento.tipo} de $${parseFloat(nuevoMovimiento.monto).toLocaleString()}?`,
+      editandoMovimiento ? "Actualizar movimiento" : "Registrar movimiento",
+      `¿Confirmas ${accion} el ${nuevoMovimiento.tipo} de $${parseFloat(nuevoMovimiento.monto).toLocaleString()}?`,
     );
 
     if (confirmado) {
-      agregarMovimiento({
-        tipo: nuevoMovimiento.tipo,
-        concepto: nuevoMovimiento.concepto,
-        monto: parseFloat(nuevoMovimiento.monto),
-        categoria: nuevoMovimiento.categoria,
-      });
+      setGuardando(true);
+      try {
+        let resultado;
+        if (editandoMovimiento) {
+          resultado = await actualizarMovimiento(editandoMovimiento.id, {
+            tipo: nuevoMovimiento.tipo,
+            concepto: nuevoMovimiento.concepto,
+            monto: parseFloat(nuevoMovimiento.monto),
+            categoria: nuevoMovimiento.categoria,
+          });
+        } else {
+          resultado = await agregarMovimiento({
+            tipo: nuevoMovimiento.tipo,
+            concepto: nuevoMovimiento.concepto,
+            monto: parseFloat(nuevoMovimiento.monto),
+            categoria: nuevoMovimiento.categoria,
+          });
+        }
 
-      setNuevoMovimiento({
-        tipo: "ingreso",
-        concepto: "",
-        monto: "",
-        categoria: "ventas",
-      });
-      setMostrarModal(false);
-      showSuccessAlert(
-        "¡Registrado!",
-        "El movimiento ha sido registrado exitosamente",
-      );
+        if (resultado.success) {
+          setNuevoMovimiento({
+            tipo: "ingreso",
+            concepto: "",
+            monto: "",
+            categoria: "ventas",
+          });
+          setMostrarModal(false);
+          setEditandoMovimiento(null);
+          showSuccessAlert(
+            editandoMovimiento ? "¡Actualizado!" : "¡Registrado!",
+            `El movimiento ha sido ${editandoMovimiento ? "actualizado" : "registrado"} exitosamente`,
+          );
+        } else {
+          showToast("error", resultado.error || `Error al ${accion}`);
+        }
+      } catch (error) {
+        showToast("error", `Error al ${accion} el movimiento`);
+      } finally {
+        setGuardando(false);
+      }
     }
+  };
+
+  const handleEditar = (movimiento) => {
+    setEditandoMovimiento(movimiento);
+    setNuevoMovimiento({
+      tipo: movimiento.tipo,
+      concepto: movimiento.concepto,
+      monto: movimiento.monto.toString(),
+      categoria: movimiento.categoria,
+    });
+    setMostrarModal(true);
+  };
+
+  const handleEliminar = async (movimiento) => {
+    const confirmado = await showConfirmAlert(
+      "Eliminar movimiento",
+      `¿Seguro que deseas eliminar "${movimiento.concepto}" por $${movimiento.monto.toLocaleString()}?`,
+    );
+
+    if (confirmado) {
+      const resultado = await eliminarMovimiento(movimiento.id);
+      if (resultado.success) {
+        showToast("success", "Movimiento eliminado");
+      } else {
+        showToast("error", resultado.error || "Error al eliminar");
+      }
+    }
+  };
+
+  const exportarCSV = () => {
+    const headers = [
+      "Fecha",
+      "Tipo",
+      "Concepto",
+      "Monto",
+      "Categoría",
+      "Notas",
+    ];
+    const rows = movimientos.map((m) => [
+      m.fecha,
+      m.tipo,
+      m.concepto,
+      m.monto.toString(),
+      m.categoria,
+      m.notas || "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `contabilidad_cliente_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
   };
 
   // Calcular totales por categoría
@@ -99,13 +189,22 @@ export default function Contabilidad() {
             <h1 className="text-2xl font-bold text-gray-800">Contabilidad</h1>
             <p className="text-gray-600">Gestiona las finanzas de tu local</p>
           </div>
-          <button
-            onClick={() => setMostrarModal(true)}
-            className="mt-4 md:mt-0 btn-primary inline-flex items-center space-x-2"
-          >
-            <span>➕</span>
-            <span>Nuevo Movimiento</span>
-          </button>
+          <div className="flex gap-2 mt-4 md:mt-0">
+            <button
+              onClick={exportarCSV}
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors inline-flex items-center space-x-2"
+            >
+              <span>📥</span>
+              <span>Exportar CSV</span>
+            </button>
+            <button
+              onClick={() => setMostrarModal(true)}
+              className="btn-primary inline-flex items-center space-x-2"
+            >
+              <span>➕</span>
+              <span>Nuevo Movimiento</span>
+            </button>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -244,65 +343,94 @@ export default function Contabilidad() {
 
           {/* Movements Table */}
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-gray-500 text-sm border-b">
-                  <th className="pb-3">Fecha</th>
-                  <th className="pb-3">Concepto</th>
-                  <th className="pb-3">Categoría</th>
-                  <th className="pb-3">Tipo</th>
-                  <th className="pb-3 text-right">Monto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movimientosFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-500">
-                      No hay movimientos con los filtros aplicados
-                    </td>
+            {cargandoMovimientos ? (
+              <div className="py-12 text-center">
+                <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-2 text-gray-500">Cargando movimientos...</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-gray-500 text-sm border-b">
+                    <th className="pb-3">Fecha</th>
+                    <th className="pb-3">Concepto</th>
+                    <th className="pb-3">Categoría</th>
+                    <th className="pb-3">Tipo</th>
+                    <th className="pb-3 text-right">Monto</th>
+                    <th className="pb-3 text-center">Acciones</th>
                   </tr>
-                ) : (
-                  movimientosFiltrados.map((mov) => (
-                    <tr
-                      key={mov.id}
-                      className="border-b last:border-0 hover:bg-gray-50"
-                    >
-                      <td className="py-3 text-gray-600">{mov.fecha}</td>
-                      <td className="py-3 font-medium text-gray-800">
-                        {mov.concepto}
-                      </td>
-                      <td className="py-3">
-                        <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                          {categorias[mov.categoria]?.icono}{" "}
-                          {categorias[mov.categoria]?.nombre}
-                        </span>
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            mov.tipo === "ingreso"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {mov.tipo === "ingreso" ? "↑ Ingreso" : "↓ Egreso"}
-                        </span>
-                      </td>
+                </thead>
+                <tbody>
+                  {movimientosFiltrados.length === 0 ? (
+                    <tr>
                       <td
-                        className={`py-3 text-right font-bold ${
-                          mov.tipo === "ingreso"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
+                        colSpan={6}
+                        className="py-8 text-center text-gray-500"
                       >
-                        {mov.tipo === "ingreso" ? "+" : "-"}$
-                        {mov.monto.toLocaleString()}
+                        No hay movimientos con los filtros aplicados
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    movimientosFiltrados.map((mov) => (
+                      <tr
+                        key={mov.id}
+                        className="border-b last:border-0 hover:bg-gray-50"
+                      >
+                        <td className="py-3 text-gray-600">{mov.fecha}</td>
+                        <td className="py-3 font-medium text-gray-800">
+                          {mov.concepto}
+                        </td>
+                        <td className="py-3">
+                          <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+                            {categorias[mov.categoria]?.icono}{" "}
+                            {categorias[mov.categoria]?.nombre}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              mov.tipo === "ingreso"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {mov.tipo === "ingreso" ? "↑ Ingreso" : "↓ Egreso"}
+                          </span>
+                        </td>
+                        <td
+                          className={`py-3 text-right font-bold ${
+                            mov.tipo === "ingreso"
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {mov.tipo === "ingreso" ? "+" : "-"}$
+                          {mov.monto.toLocaleString()}
+                        </td>
+                        <td className="py-3 text-center">
+                          <div className="flex justify-center gap-1">
+                            <button
+                              onClick={() => handleEditar(mov)}
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                              title="Editar movimiento"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleEliminar(mov)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                              title="Eliminar movimiento"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -314,10 +442,21 @@ export default function Contabilidad() {
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-800">
-                  Nuevo Movimiento
+                  {editandoMovimiento
+                    ? "Editar Movimiento"
+                    : "Nuevo Movimiento"}
                 </h2>
                 <button
-                  onClick={() => setMostrarModal(false)}
+                  onClick={() => {
+                    setMostrarModal(false);
+                    setEditandoMovimiento(null);
+                    setNuevoMovimiento({
+                      tipo: "ingreso",
+                      concepto: "",
+                      monto: "",
+                      categoria: "ventas",
+                    });
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   ✕
@@ -440,13 +579,33 @@ export default function Contabilidad() {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setMostrarModal(false)}
+                  onClick={() => {
+                    setMostrarModal(false);
+                    setEditandoMovimiento(null);
+                    setNuevoMovimiento({
+                      tipo: "ingreso",
+                      concepto: "",
+                      monto: "",
+                      categoria: "ventas",
+                    });
+                  }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  disabled={guardando}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="flex-1 btn-primary">
-                  Registrar
+                <button
+                  type="submit"
+                  className="flex-1 btn-primary disabled:opacity-50"
+                  disabled={guardando}
+                >
+                  {guardando
+                    ? editandoMovimiento
+                      ? "Guardando..."
+                      : "Registrando..."
+                    : editandoMovimiento
+                      ? "Guardar Cambios"
+                      : "Registrar"}
                 </button>
               </div>
             </form>
