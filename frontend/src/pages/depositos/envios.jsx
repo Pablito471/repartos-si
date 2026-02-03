@@ -9,6 +9,7 @@ export default function Envios() {
     envios,
     vehiculos,
     conductores,
+    fletes,
     actualizarEstadoEnvio,
     pedidos,
     crearEnvio,
@@ -23,6 +24,7 @@ export default function Envios() {
     pedidoId: "",
     vehiculo: "",
     conductor: "",
+    fleteId: "",
     notas: "",
   });
 
@@ -90,6 +92,7 @@ export default function Envios() {
 
     const envioData = {
       pedidoId: pedido.id,
+      fleteId: nuevoEnvio.fleteId || null, // Importante: asignar el flete
       cliente: pedido.cliente,
       tipo: pedido.tipoEnvio,
       vehiculo: vehiculo.nombre,
@@ -105,7 +108,13 @@ export default function Envios() {
       await crearEnvio(envioData);
       await cambiarEstadoPedido(pedido.id, "enviado");
       setMostrarModalNuevo(false);
-      setNuevoEnvio({ pedidoId: "", vehiculo: "", conductor: "", notas: "" });
+      setNuevoEnvio({
+        pedidoId: "",
+        vehiculo: "",
+        conductor: "",
+        fleteId: "",
+        notas: "",
+      });
       showSuccessAlert("¡Envío creado!", "El envío ha sido despachado");
     } catch (error) {
       showToast(
@@ -457,6 +466,37 @@ export default function Envios() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Flete asignado{" "}
+                  {fletes && fletes.length > 0 && (
+                    <span className="text-orange-500">*</span>
+                  )}
+                </label>
+                <select
+                  className="input-field"
+                  value={nuevoEnvio.fleteId}
+                  onChange={(e) =>
+                    setNuevoEnvio({ ...nuevoEnvio, fleteId: e.target.value })
+                  }
+                  required={fletes && fletes.length > 0}
+                >
+                  <option value="">Seleccionar flete...</option>
+                  {fletes &&
+                    fletes.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        🚚 {f.nombre} {f.telefono && `- ${f.telefono}`}
+                      </option>
+                    ))}
+                </select>
+                {(!fletes || fletes.length === 0) && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No hay fletes relacionados. Puedes crear el envío sin
+                    asignar flete.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notas (opcional)
                 </label>
                 <textarea
@@ -495,6 +535,8 @@ function EnvioCard({ envio, onActualizarEstado }) {
     envio: { icon: "🚚", texto: "Envío" },
     flete: { icon: "🚛", texto: "Flete" },
     retiro: { icon: "🏭", texto: "Retiro" },
+    propio: { icon: "🚐", texto: "Propio" },
+    default: { icon: "📦", texto: "Envío" },
   };
 
   const estadoInfo = {
@@ -518,14 +560,23 @@ function EnvioCard({ envio, onActualizarEstado }) {
       texto: "Entregado",
       icon: "✅",
     },
+    default: {
+      estilo: "bg-gray-100 text-gray-800",
+      texto: "Desconocido",
+      icon: "❓",
+    },
   };
+
+  // Usar fallback si el tipo o estado no existe
+  const tipoActual = tipoInfo[envio.tipo] || tipoInfo.default;
+  const estadoActual = estadoInfo[envio.estado] || estadoInfo.default;
 
   return (
     <div className="card">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div className="flex items-start space-x-4">
           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <span className="text-2xl">{tipoInfo[envio.tipo].icon}</span>
+            <span className="text-2xl">{tipoActual.icon}</span>
           </div>
           <div>
             <div className="flex items-center space-x-2 flex-wrap gap-2">
@@ -533,9 +584,9 @@ function EnvioCard({ envio, onActualizarEstado }) {
                 Envío #{envio.id} - Pedido #{envio.pedidoId}
               </h3>
               <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${estadoInfo[envio.estado].estilo}`}
+                className={`px-2 py-1 rounded-full text-xs font-medium ${estadoActual.estilo}`}
               >
-                {estadoInfo[envio.estado].icon} {estadoInfo[envio.estado].texto}
+                {estadoActual.icon} {estadoActual.texto}
               </span>
             </div>
             <p className="text-lg text-gray-700 mt-1">{envio.cliente}</p>

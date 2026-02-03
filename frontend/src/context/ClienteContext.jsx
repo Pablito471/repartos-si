@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { io } from "socket.io-client";
 import {
   usuariosService,
   productosService,
@@ -377,6 +378,14 @@ export function ClienteProvider({ children }) {
     productos: [], // Cada producto incluye depositoId
   });
 
+  // Función para validar UUID
+  const isValidUUID = (str) => {
+    if (!str || typeof str !== "string") return false;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   // Cargar depósitos desde el backend
   useEffect(() => {
     const cargarDepositos = async () => {
@@ -507,6 +516,67 @@ export function ClienteProvider({ children }) {
     };
 
     cargarPedidos();
+  }, [usuario?.id]);
+
+  // Suscribirse a actualizaciones de pedidos en tiempo real
+  useEffect(() => {
+    if (MODO_CONEXION !== "api" || !usuario?.id) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const socketUrl =
+      process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
+      "http://localhost:5000";
+
+    const socket = io(socketUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
+
+    socket.on("connect", () => {
+      console.log(
+        "ClienteContext: Socket conectado para actualizaciones de pedidos",
+      );
+    });
+
+    // Escuchar actualizaciones de estado de pedidos
+    socket.on("pedido_actualizado", (data) => {
+      console.log("Pedido actualizado recibido:", data);
+      setPedidos((prevPedidos) =>
+        prevPedidos.map((p) =>
+          String(p.id) === String(data.id) ? { ...p, estado: data.estado } : p,
+        ),
+      );
+    });
+
+    // Escuchar cuando un envío está en camino
+    socket.on("envio_en_camino", (data) => {
+      console.log("Envío en camino recibido:", data);
+      setPedidos((prevPedidos) =>
+        prevPedidos.map((p) =>
+          String(p.id) === String(data.pedidoId)
+            ? { ...p, estado: "enviado" }
+            : p,
+        ),
+      );
+    });
+
+    // Escuchar cuando un pedido fue entregado
+    socket.on("envio_entregado", (data) => {
+      console.log("Envío entregado recibido:", data);
+      setPedidos((prevPedidos) =>
+        prevPedidos.map((p) =>
+          String(p.id) === String(data.pedidoId)
+            ? { ...p, estado: "entregado" }
+            : p,
+        ),
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [usuario?.id]);
 
   // Funciones del carrito
@@ -659,6 +729,17 @@ export function ClienteProvider({ children }) {
   // Modificar pedido
   const modificarPedido = async (id, datosActualizados) => {
     if (MODO_CONEXION === "api") {
+      // Verificar que el ID sea un UUID válido antes de llamar al API
+      if (!isValidUUID(String(id))) {
+        console.warn("ID de pedido inválido (no es UUID):", id);
+        setPedidos(
+          pedidos.map((p) =>
+            String(p.id) === String(id) ? { ...p, ...datosActualizados } : p,
+          ),
+        );
+        return { success: true };
+      }
+
       try {
         // Preparar datos para el backend
         const datosBackend = {
@@ -671,7 +752,7 @@ export function ClienteProvider({ children }) {
         // Si hay productos, incluirlos
         if (datosActualizados.productos) {
           datosBackend.productos = datosActualizados.productos.map((p) => ({
-            productoId: p.id || p.productoId,
+            productoId: p.productoId || p.id || null, // Solo UUID válido o null
             nombre: p.nombre,
             cantidad: p.cantidad,
             precio: p.precio,
@@ -704,6 +785,17 @@ export function ClienteProvider({ children }) {
   // Cancelar pedido
   const cancelarPedido = async (id) => {
     if (MODO_CONEXION === "api") {
+      // Verificar que el ID sea un UUID válido antes de llamar al API
+      if (!isValidUUID(String(id))) {
+        console.warn("ID de pedido inválido (no es UUID):", id);
+        setPedidos(
+          pedidos.map((p) =>
+            String(p.id) === String(id) ? { ...p, estado: "cancelado" } : p,
+          ),
+        );
+        return { success: true };
+      }
+
       try {
         await pedidosService.cambiarEstado(id, "cancelado");
         setPedidos(

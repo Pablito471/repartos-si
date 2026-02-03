@@ -111,7 +111,9 @@ export default function MisPedidos() {
               >
                 <option value="todos">Todos</option>
                 <option value="pendiente">Pendiente</option>
-                <option value="en_camino">En Camino</option>
+                <option value="preparando">Preparando</option>
+                <option value="listo">Listo</option>
+                <option value="enviado">Enviado</option>
                 <option value="entregado">Entregado</option>
                 <option value="cancelado">Cancelado</option>
               </select>
@@ -196,6 +198,9 @@ function PedidoCard({ pedido, onCancelar }) {
 
         {expandido && (
           <div className="mt-4 space-y-4">
+            {/* Seguimiento del pedido */}
+            <SeguimientoPedido estado={pedido.estado} />
+
             {/* Products */}
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Productos</h4>
@@ -270,23 +275,107 @@ function PedidoCard({ pedido, onCancelar }) {
 function EstadoBadge({ estado }) {
   const estilos = {
     pendiente: "bg-yellow-100 text-yellow-800",
-    en_camino: "bg-blue-100 text-blue-800",
+    preparando: "bg-orange-100 text-orange-800",
+    listo: "bg-purple-100 text-purple-800",
+    enviado: "bg-blue-100 text-blue-800",
     entregado: "bg-green-100 text-green-800",
     cancelado: "bg-red-100 text-red-800",
   };
 
   const textos = {
-    pendiente: "Pendiente",
-    en_camino: "En Camino",
-    entregado: "Entregado",
-    cancelado: "Cancelado",
+    pendiente: "⏳ Pendiente",
+    preparando: "👨‍🍳 Preparando",
+    listo: "✅ Listo para enviar",
+    enviado: "🚚 En camino",
+    entregado: "📦 Entregado",
+    cancelado: "❌ Cancelado",
   };
 
   return (
     <span
-      className={`px-2 py-1 rounded-full text-xs font-medium ${estilos[estado]}`}
+      className={`px-2 py-1 rounded-full text-xs font-medium ${estilos[estado] || "bg-gray-100 text-gray-800"}`}
     >
-      {textos[estado]}
+      {textos[estado] || estado}
     </span>
+  );
+}
+
+// Componente de seguimiento del pedido
+function SeguimientoPedido({ estado }) {
+  const estados = ["pendiente", "preparando", "listo", "enviado", "entregado"];
+  const estadosCancelado = estado === "cancelado";
+
+  if (estadosCancelado) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+        <span className="text-3xl">❌</span>
+        <p className="text-red-700 font-medium mt-2">Pedido Cancelado</p>
+      </div>
+    );
+  }
+
+  const indiceActual = estados.indexOf(estado);
+
+  return (
+    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+      <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-4">
+        📍 Seguimiento del pedido
+      </h4>
+      <div className="flex items-center justify-between relative">
+        {/* Línea de progreso */}
+        <div className="absolute left-0 right-0 top-5 h-1 bg-gray-200 dark:bg-gray-600 z-0">
+          <div
+            className="h-full bg-green-500 transition-all duration-500"
+            style={{
+              width: `${indiceActual >= 0 ? (indiceActual / (estados.length - 1)) * 100 : 0}%`,
+            }}
+          />
+        </div>
+
+        {estados.map((est, idx) => {
+          const esActivo = idx <= indiceActual;
+          const esActual = idx === indiceActual;
+          const iconos = {
+            pendiente: "📝",
+            preparando: "👨‍🍳",
+            listo: "✅",
+            enviado: "🚚",
+            entregado: "📦",
+          };
+          const nombres = {
+            pendiente: "Recibido",
+            preparando: "Preparando",
+            listo: "Listo",
+            enviado: "En camino",
+            entregado: "Entregado",
+          };
+
+          return (
+            <div key={est} className="flex flex-col items-center z-10">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all duration-300 ${
+                  esActivo
+                    ? esActual
+                      ? "bg-green-500 text-white ring-4 ring-green-200 dark:ring-green-800"
+                      : "bg-green-500 text-white"
+                    : "bg-gray-200 dark:bg-gray-600 text-gray-400"
+                }`}
+              >
+                {iconos[est]}
+              </div>
+              <span
+                className={`text-xs mt-2 font-medium ${
+                  esActivo
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-gray-400"
+                }`}
+              >
+                {nombres[est]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

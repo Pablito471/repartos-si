@@ -23,13 +23,14 @@ export default function EditarPedido() {
       if (pedidoEncontrado) {
         setPedido({
           ...pedidoEncontrado,
-          productos: pedidoEncontrado.productos.map((p) => {
+          productos: pedidoEncontrado.productos.map((p, index) => {
             const productoCompleto = productos.find(
               (prod) => prod.nombre === p.nombre,
             );
             return {
               ...p,
-              id: productoCompleto?.id || Math.random(),
+              id: productoCompleto?.id || null,
+              tempId: `temp_${index}_${Date.now()}`, // ID temporal para la UI
             };
           }),
         });
@@ -159,8 +160,8 @@ export default function EditarPedido() {
     if (confirmado) {
       const resultado = await modificarPedido(id, {
         productos: pedido.productos.map((p) => ({
-          id: p.id,
-          productoId: p.id,
+          id: p.id || null,
+          productoId: p.id || null, // Solo enviar UUID válido o null
           nombre: p.nombre,
           cantidad: p.cantidad,
           precio: p.precio,

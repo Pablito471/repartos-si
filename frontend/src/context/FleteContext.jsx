@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { io } from "socket.io-client";
 import { enviosService } from "../services/api";
 import { useAuth } from "./AuthContext";
 
@@ -259,6 +260,79 @@ export function FleteProvider({ children }) {
     };
 
     cargarEnvios();
+  }, [usuario?.id]);
+
+  // Suscribirse a nuevos envíos asignados en tiempo real
+  useEffect(() => {
+    if (MODO_CONEXION !== "api" || !usuario?.id) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const socketUrl =
+      process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
+      "http://localhost:5000";
+
+    const socket = io(socketUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
+
+    socket.on("connect", () => {
+      console.log("FleteContext: Socket conectado para envíos");
+    });
+
+    // Escuchar nuevos envíos asignados
+    socket.on("envio_asignado", async (data) => {
+      console.log("Nuevo envío asignado recibido:", data);
+
+      // Recargar los envíos desde el backend para tener la info completa
+      try {
+        const response = await enviosService.getAll();
+        const enviosData = response.data || response || [];
+
+        const enviosMapeados = enviosData.map((envio) => ({
+          id: envio.id,
+          pedidoId: envio.pedidoId,
+          numeroPedido: `PED-${String(envio.pedidoId).slice(-6).toUpperCase()}`,
+          cliente: envio.pedido?.cliente?.nombre || "Cliente",
+          direccion:
+            envio.pedido?.direccion || envio.pedido?.cliente?.direccion || "",
+          telefono: envio.pedido?.cliente?.telefono || "",
+          deposito: envio.pedido?.deposito?.nombre || "Depósito",
+          depositoDireccion: envio.pedido?.deposito?.direccion || "",
+          productos:
+            envio.pedido?.productos?.map((p) => ({
+              nombre: p.nombre,
+              cantidad: p.cantidad,
+            })) || [],
+          fechaAsignacion:
+            envio.createdAt?.split("T")[0] ||
+            new Date().toISOString().split("T")[0],
+          fechaEntrega:
+            envio.fechaEstimada?.split("T")[0] ||
+            new Date().toISOString().split("T")[0],
+          horarioEntrega: envio.fechaEstimada
+            ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "Sin horario",
+          estado: envio.estado || "pendiente",
+          prioridad: envio.pedido?.prioridad || "media",
+          notas: envio.notas || "",
+          total: envio.pedido?.total || 0,
+        }));
+
+        setEnvios(enviosMapeados);
+      } catch (error) {
+        console.error("Error al recargar envíos:", error);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [usuario?.id]);
 
   // ============ ENVÍOS ============

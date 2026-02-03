@@ -41,7 +41,9 @@ const initSocket = (server) => {
   const usuariosConectados = new Map();
 
   io.on("connection", (socket) => {
-    console.log(`Usuario conectado: ${socket.user.nombre} (${socket.user.id})`);
+    console.log(
+      `Usuario conectado: ${socket.user.nombre} (${socket.user.id}) - Tipo: ${socket.user.tipoUsuario}`,
+    );
 
     // Registrar usuario conectado
     usuariosConectados.set(socket.user.id, socket.id);
@@ -49,15 +51,26 @@ const initSocket = (server) => {
     // Unirse a sala personal
     socket.join(`user_${socket.user.id}`);
 
-    // Si es admin, unirse a sala de admins
+    // Unirse a salas según tipo de usuario
     if (socket.user.tipoUsuario === "admin") {
       socket.join("admins");
+      console.log(`${socket.user.nombre} se unió a sala admins`);
+    } else if (socket.user.tipoUsuario === "deposito") {
+      socket.join("depositos");
+      console.log(`${socket.user.nombre} se unió a sala depositos`);
+    } else if (socket.user.tipoUsuario === "flete") {
+      socket.join("fletes");
+      console.log(`${socket.user.nombre} se unió a sala fletes`);
+    } else if (socket.user.tipoUsuario === "cliente") {
+      socket.join("clientes");
+      console.log(`${socket.user.nombre} se unió a sala clientes`);
     }
 
     // Emitir estado de conexión
     io.emit("usuario_conectado", {
       userId: socket.user.id,
       nombre: socket.user.nombre,
+      tipoUsuario: socket.user.tipoUsuario,
     });
 
     // Unirse a una conversación
@@ -225,33 +238,57 @@ const emitirNotificacion = (usuarioId, notificacion) => {
 
 const emitirNuevoPedido = (depositoId, pedido) => {
   if (io) {
+    console.log(`Emitiendo nuevo_pedido a user_${depositoId}:`, pedido);
+    // Emitir al depósito específico
     io.to(`user_${depositoId}`).emit("nuevo_pedido", pedido);
     // También a los admins
     io.to("admins").emit("nuevo_pedido", pedido);
+  } else {
+    console.warn("Socket.io no inicializado, no se puede emitir nuevo_pedido");
   }
 };
 
 const emitirPedidoActualizado = (clienteId, pedido) => {
   if (io) {
+    console.log(`Emitiendo pedido_actualizado a user_${clienteId}:`, pedido);
     io.to(`user_${clienteId}`).emit("pedido_actualizado", pedido);
+  } else {
+    console.warn(
+      "Socket.io no inicializado, no se puede emitir pedido_actualizado",
+    );
   }
 };
 
 const emitirEnvioAsignado = (fleteId, envio) => {
   if (io) {
+    console.log(`Emitiendo envio_asignado a user_${fleteId}:`, envio);
     io.to(`user_${fleteId}`).emit("envio_asignado", envio);
+  } else {
+    console.warn(
+      "Socket.io no inicializado, no se puede emitir envio_asignado",
+    );
   }
 };
 
 const emitirEnvioEnCamino = (clienteId, envio) => {
   if (io) {
+    console.log(`Emitiendo envio_en_camino a user_${clienteId}:`, envio);
     io.to(`user_${clienteId}`).emit("envio_en_camino", envio);
+  } else {
+    console.warn(
+      "Socket.io no inicializado, no se puede emitir envio_en_camino",
+    );
   }
 };
 
 const emitirEnvioEntregado = (clienteId, envio) => {
   if (io) {
+    console.log(`Emitiendo envio_entregado a user_${clienteId}:`, envio);
     io.to(`user_${clienteId}`).emit("envio_entregado", envio);
+  } else {
+    console.warn(
+      "Socket.io no inicializado, no se puede emitir envio_entregado",
+    );
   }
 };
 

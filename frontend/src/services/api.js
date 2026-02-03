@@ -247,6 +247,18 @@ export const relacionesService = {
   getFletesDeposito: (depositoId) =>
     api.get(`/relaciones/deposito/${depositoId}/fletes`),
 
+  // Obtener fletes disponibles para vincular
+  getFletesDisponibles: () =>
+    api.get("/relaciones/deposito/fletes-disponibles"),
+
+  // Vincular un flete al depósito
+  vincularFlete: (fleteId) =>
+    api.post("/relaciones/deposito/vincular-flete", { fleteId }),
+
+  // Desvincular un flete del depósito
+  desvincularFlete: (fleteId) =>
+    api.delete(`/relaciones/deposito/desvincular-flete/${fleteId}`),
+
   // Obtener depósitos del flete actual
   getMisDepositosFlete: () => api.get("/relaciones/flete/depositos"),
 

@@ -36,6 +36,15 @@ router.get(
   "/deposito/:depositoId/fletes",
   relacionesController.getFletesDeposito,
 );
+router.get(
+  "/deposito/fletes-disponibles",
+  relacionesController.getFletesDisponibles,
+);
+router.post("/deposito/vincular-flete", relacionesController.vincularFlete);
+router.delete(
+  "/deposito/desvincular-flete/:fleteId",
+  relacionesController.desvincularFlete,
+);
 
 // Rutas específicas para fletes
 router.get("/flete/depositos", relacionesController.getDepositosFlete);

@@ -30,6 +30,11 @@ const menuItems = [
     icon: "Truck",
   },
   {
+    name: "Fletes",
+    href: "/depositos/fletes",
+    icon: "Truck",
+  },
+  {
     name: "Contabilidad",
     href: "/depositos/contabilidad",
     icon: "Wallet",

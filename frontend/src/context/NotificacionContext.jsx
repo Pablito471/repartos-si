@@ -92,10 +92,18 @@ export function NotificacionProvider({ children }) {
 
     // Notificación de cambio de estado de pedido
     newSocket.on("pedido_actualizado", (data) => {
+      const estadosTexto = {
+        pendiente: "está pendiente",
+        preparando: "se está preparando",
+        listo: "está listo para envío",
+        enviado: "va en camino",
+        entregado: "ha sido entregado",
+        cancelado: "fue cancelado",
+      };
       agregarNotificacion({
         tipo: "pedido",
         titulo: "Pedido actualizado",
-        mensaje: `Pedido #${data.numero} - ${data.estado}`,
+        mensaje: `Pedido #${data.numero} ${estadosTexto[data.estado] || data.estado}`,
         data: data,
         icono: "📋",
       });

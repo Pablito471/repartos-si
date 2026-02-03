@@ -3,6 +3,7 @@ import {
   pedidosService,
   productosService,
   enviosService,
+  relacionesService,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
 
@@ -331,10 +332,57 @@ export function DepositoProvider({ children }) {
   const [movimientos, setMovimientos] = useState(movimientosDepositoIniciales);
   const [vehiculos, setVehiculos] = useState(vehiculosIniciales);
   const [conductores, setConductores] = useState(conductoresIniciales);
+  const [fletes, setFletes] = useState([]);
   const [notificaciones, setNotificaciones] = useState(notificacionesIniciales);
   const [cargandoPedidos, setCargandoPedidos] = useState(true);
   const [cargandoInventario, setCargandoInventario] = useState(true);
   const [cargandoEnvios, setCargandoEnvios] = useState(true);
+  const [cargandoFletes, setCargandoFletes] = useState(true);
+
+  // Cargar fletes relacionados con el depósito
+  const cargarFletes = async () => {
+    if (MODO_CONEXION === "api" && usuario?.id) {
+      try {
+        setCargandoFletes(true);
+        const response = await relacionesService.getMisFletes();
+        // response ya es response.data por el interceptor, así que response.data es el array real
+        const fletesData = response?.data || response || [];
+
+        console.log("Response fletes:", response);
+        console.log("Fletes data:", fletesData);
+
+        const fletesMapeados = Array.isArray(fletesData)
+          ? fletesData.map((f) => ({
+              id: f.id,
+              nombre: f.nombre,
+              telefono: f.telefono || "",
+              email: f.email || "",
+              vehiculoTipo: f.vehiculoTipo || "",
+              vehiculoPatente: f.vehiculoPatente || "",
+              estado: "disponible",
+              foto: f.foto || null,
+            }))
+          : [];
+
+        setFletes(fletesMapeados);
+        console.log("Fletes cargados:", fletesMapeados.length);
+      } catch (error) {
+        console.error("Error al cargar fletes:", error);
+        setFletes([]);
+      } finally {
+        setCargandoFletes(false);
+      }
+    } else {
+      setCargandoFletes(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log("useEffect cargarFletes - usuario?.id:", usuario?.id);
+    if (usuario?.id) {
+      cargarFletes();
+    }
+  }, [usuario?.id]);
 
   // Cargar pedidos del depósito desde el backend
   useEffect(() => {
@@ -476,9 +524,36 @@ export function DepositoProvider({ children }) {
 
   // ============ PEDIDOS ============
 
+  // Función para validar UUID
+  const isValidUUID = (str) => {
+    if (!str || typeof str !== "string") return false;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   // Cambiar estado de pedido
   const cambiarEstadoPedido = async (id, nuevoEstado) => {
+    // Verificar que no sea el mismo estado
+    const pedidoActual = pedidos.find((p) => String(p.id) === String(id));
+    if (pedidoActual && pedidoActual.estado === nuevoEstado) {
+      console.log(`El pedido ya está en estado ${nuevoEstado}, ignorando`);
+      return true;
+    }
+
     if (MODO_CONEXION === "api") {
+      // Verificar que el ID sea un UUID válido antes de llamar al API
+      if (!isValidUUID(String(id))) {
+        console.warn("ID de pedido inválido (no es UUID):", id);
+        // Solo actualizar localmente si es un ID de demo
+        setPedidos(
+          pedidos.map((p) =>
+            String(p.id) === String(id) ? { ...p, estado: nuevoEstado } : p,
+          ),
+        );
+        return true;
+      }
+
       try {
         await pedidosService.cambiarEstado(id, nuevoEstado);
         setPedidos(
@@ -647,6 +722,19 @@ export function DepositoProvider({ children }) {
   // Crear envío
   const crearEnvio = async (envioData) => {
     if (MODO_CONEXION === "api") {
+      // Verificar que el pedidoId sea un UUID válido antes de llamar al API
+      if (!isValidUUID(String(envioData.pedidoId))) {
+        console.warn("ID de pedido inválido (no es UUID):", envioData.pedidoId);
+        // Crear envío local para datos demo
+        const nuevoEnvio = {
+          ...envioData,
+          id: `demo-${Date.now()}`,
+          estado: "pendiente",
+        };
+        setEnvios((prev) => [...prev, nuevoEnvio]);
+        return nuevoEnvio;
+      }
+
       try {
         const response = await enviosService.crear(envioData);
         const nuevoEnvio = response.data || response;
@@ -850,10 +938,12 @@ export function DepositoProvider({ children }) {
     movimientos,
     vehiculos,
     conductores,
+    fletes,
     notificaciones,
     cargandoPedidos,
     cargandoInventario,
     cargandoEnvios,
+    cargandoFletes,
     cambiarEstadoPedido,
     getPedidosPorEstado,
     actualizarStock,
@@ -871,6 +961,7 @@ export function DepositoProvider({ children }) {
     eliminarNotificacion,
     getNotificacionesNoLeidas,
     recibirPedidoCliente,
+    cargarFletes,
   };
 
   return (

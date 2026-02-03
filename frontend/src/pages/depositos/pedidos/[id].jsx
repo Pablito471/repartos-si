@@ -18,8 +18,14 @@ import Icons from "@/components/Icons";
 export default function DetallePedido() {
   const router = useRouter();
   const { id } = router.query;
-  const { pedidos, cambiarEstadoPedido, vehiculos, conductores, crearEnvio } =
-    useDeposito();
+  const {
+    pedidos,
+    cambiarEstadoPedido,
+    vehiculos,
+    conductores,
+    fletes,
+    crearEnvio,
+  } = useDeposito();
   const { usuarios, getPromedioCalificaciones, getCalificacionesUsuario } =
     useAuth();
 
@@ -29,6 +35,7 @@ export default function DetallePedido() {
   const [envioData, setEnvioData] = useState({
     vehiculo: "",
     conductor: "",
+    fleteId: "",
     notas: "",
   });
   const [promedioCliente, setPromedioCliente] = useState(0);
@@ -179,6 +186,14 @@ export default function DetallePedido() {
       return;
     }
 
+    // fleteId es opcional pero recomendado para notificaciones
+    if (!envioData.fleteId && fletes.length > 0) {
+      showToast(
+        "warning",
+        "Se recomienda asignar un flete para las notificaciones",
+      );
+    }
+
     const vehiculo = vehiculos.find(
       (v) => v.id === parseInt(envioData.vehiculo),
     );
@@ -188,6 +203,7 @@ export default function DetallePedido() {
 
     const nuevoEnvio = {
       pedidoId: pedido.id,
+      fleteId: envioData.fleteId || null, // Importante: asignar el flete
       cliente: pedido.cliente,
       tipo: pedido.tipoEnvio,
       vehiculo: vehiculo.nombre,
@@ -200,7 +216,10 @@ export default function DetallePedido() {
 
     try {
       await crearEnvio(nuevoEnvio);
-      await cambiarEstadoPedido(pedido.id, "enviado");
+      // Solo cambiar estado si no está ya en "enviado"
+      if (pedido.estado !== "enviado") {
+        await cambiarEstadoPedido(pedido.id, "enviado");
+      }
       setMostrarModalEnvio(false);
       showSuccessAlert("¡Envío creado!", "El pedido ha sido despachado");
     } catch (error) {
@@ -559,6 +578,36 @@ export default function DetallePedido() {
                       </option>
                     ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Flete asignado{" "}
+                  {fletes.length > 0 && (
+                    <span className="text-orange-500">*</span>
+                  )}
+                </label>
+                <select
+                  className="input-field"
+                  value={envioData.fleteId}
+                  onChange={(e) =>
+                    setEnvioData({ ...envioData, fleteId: e.target.value })
+                  }
+                  required={fletes.length > 0}
+                >
+                  <option value="">Seleccionar flete...</option>
+                  {fletes.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      🚚 {f.nombre} {f.telefono && `- ${f.telefono}`}
+                    </option>
+                  ))}
+                </select>
+                {fletes.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No hay fletes relacionados. Puedes crear el envío sin
+                    asignar flete.
+                  </p>
+                )}
               </div>
 
               <div>

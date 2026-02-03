@@ -162,12 +162,21 @@ exports.crearPedido = async (req, res, next) => {
       { transaction: t },
     );
 
+    // Función para validar si es un UUID válido
+    const isValidUUID = (str) => {
+      if (!str || typeof str !== "string") return false;
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(str);
+    };
+
     // Crear productos del pedido
     for (const prod of productos) {
+      const productoId = isValidUUID(prod.productoId) ? prod.productoId : null;
       await PedidoProducto.create(
         {
           pedidoId: pedido.id,
-          productoId: prod.productoId || null,
+          productoId,
           nombre: prod.nombre,
           cantidad: prod.cantidad,
           precioUnitario: prod.precio,
@@ -176,11 +185,11 @@ exports.crearPedido = async (req, res, next) => {
         { transaction: t },
       );
 
-      // Descontar stock si hay productoId
-      if (prod.productoId) {
+      // Descontar stock si hay productoId válido
+      if (productoId) {
         await Producto.decrement("stock", {
           by: prod.cantidad,
-          where: { id: prod.productoId },
+          where: { id: productoId },
           transaction: t,
         });
       }
@@ -249,14 +258,25 @@ exports.actualizarPedido = async (req, res, next) => {
         transaction: t,
       });
 
+      // Función para validar si es un UUID válido
+      const isValidUUID = (str) => {
+        if (!str || typeof str !== "string") return false;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(str);
+      };
+
       // Calcular nuevo total y crear productos
       let total = 0;
       for (const prod of productos) {
         total += prod.cantidad * prod.precio;
+        const productoId = isValidUUID(prod.productoId)
+          ? prod.productoId
+          : null;
         await PedidoProducto.create(
           {
             pedidoId: pedido.id,
-            productoId: prod.productoId || null,
+            productoId,
             nombre: prod.nombre,
             cantidad: prod.cantidad,
             precioUnitario: prod.precio,
