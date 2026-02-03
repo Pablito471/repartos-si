@@ -1,6 +1,10 @@
 const { Usuario, Calificacion, sequelize } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
+const {
+  enviarEmailCuentaDesactivada,
+  enviarEmailCuentaActivada,
+} = require("../services/emailService");
 
 // GET /api/usuarios
 exports.getUsuarios = async (req, res, next) => {
@@ -125,6 +129,11 @@ exports.activarUsuario = async (req, res, next) => {
 
     await usuario.update({ activo: true });
 
+    // Enviar email de notificación
+    enviarEmailCuentaActivada(usuario).catch((err) => {
+      console.error("Error enviando email de activación:", err);
+    });
+
     res.json({
       success: true,
       message: "Usuario activado",
@@ -144,7 +153,14 @@ exports.desactivarUsuario = async (req, res, next) => {
       throw new AppError("Usuario no encontrado", 404);
     }
 
+    const { motivo } = req.body;
+
     await usuario.update({ activo: false });
+
+    // Enviar email de notificación
+    enviarEmailCuentaDesactivada(usuario, motivo).catch((err) => {
+      console.error("Error enviando email de desactivación:", err);
+    });
 
     res.json({
       success: true,

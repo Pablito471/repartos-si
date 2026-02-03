@@ -6,7 +6,21 @@ import { formatNumber } from "@/utils/formatters";
 import Link from "next/link";
 
 export default function FleteDashboard() {
-  const { getEstadisticas, getEnviosDelDia, vehiculo } = useFlete();
+  const { getEstadisticas, getEnviosDelDia, vehiculo, cargandoEnvios } =
+    useFlete();
+
+  // Mostrar loading mientras se cargan los datos
+  if (cargandoEnvios) {
+    return (
+      <FleteLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <span className="ml-3 text-gray-600">Cargando datos...</span>
+        </div>
+      </FleteLayout>
+    );
+  }
+
   const stats = getEstadisticas();
   const enviosHoy = getEnviosDelDia();
 

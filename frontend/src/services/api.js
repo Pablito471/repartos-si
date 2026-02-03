@@ -136,7 +136,7 @@ export const productosService = {
   eliminar: (id) => api.delete(`/productos/${id}`),
 
   actualizarStock: (id, cantidad, tipo = "agregar") =>
-    api.patch(`/productos/${id}/stock`, { cantidad, tipo }),
+    api.put(`/productos/${id}/stock`, { cantidad, tipo }),
 
   getByDeposito: (depositoId) => api.get(`/productos/deposito/${depositoId}`),
 };
@@ -153,7 +153,7 @@ export const pedidosService = {
 
   eliminar: (id) => api.delete(`/pedidos/${id}`),
 
-  cambiarEstado: (id, estado) => api.patch(`/pedidos/${id}/estado`, { estado }),
+  cambiarEstado: (id, estado) => api.put(`/pedidos/${id}/estado`, { estado }),
 
   getMisPedidos: () => api.get("/pedidos/mis-pedidos"),
 
@@ -173,11 +173,14 @@ export const enviosService = {
   eliminar: (id) => api.delete(`/envios/${id}`),
 
   actualizarUbicacion: (id, ubicacion) =>
-    api.patch(`/envios/${id}/ubicacion`, { ubicacion }),
+    api.put(`/envios/${id}/ubicacion`, ubicacion),
 
-  cambiarEstado: (id, estado) => api.patch(`/envios/${id}/estado`, { estado }),
+  cambiarEstado: (id, estado, notas = "") =>
+    api.put(`/envios/${id}/estado`, { estado, notas }),
 
   getActivos: () => api.get("/envios/activos"),
+
+  getActivosFlete: () => api.get("/envios/flete/activos"),
 
   getMisEnvios: () => api.get("/envios/mis-envios"),
 };
@@ -207,6 +210,76 @@ export const entregasService = {
     api.post(`/entregas/confirmar/${codigoEntrega}`),
 
   getByCodigo: (codigoEntrega) => api.get(`/entregas/codigo/${codigoEntrega}`),
+};
+
+// ============== RELACIONES ==============
+export const relacionesService = {
+  // Obtener todas las relaciones (admin)
+  getAll: () => api.get("/relaciones"),
+
+  // Crear una nueva relación
+  crear: (relacionData) => api.post("/relaciones", relacionData),
+
+  // Eliminar una relación
+  eliminar: (id) => api.delete(`/relaciones/${id}`),
+
+  // Obtener relaciones de un usuario
+  getByUsuario: (usuarioId) => api.get(`/relaciones/usuario/${usuarioId}`),
+
+  // Obtener depósitos vinculados al cliente actual
+  getMisDepositos: () => api.get("/relaciones/cliente/depositos"),
+
+  // Obtener depósitos de un cliente específico
+  getDepositosCliente: (clienteId) =>
+    api.get(`/relaciones/cliente/${clienteId}/depositos`),
+
+  // Obtener clientes del depósito actual
+  getMisClientes: () => api.get("/relaciones/deposito/clientes"),
+
+  // Obtener clientes de un depósito específico
+  getClientesDeposito: (depositoId) =>
+    api.get(`/relaciones/deposito/${depositoId}/clientes`),
+
+  // Obtener fletes del depósito actual
+  getMisFletes: () => api.get("/relaciones/deposito/fletes"),
+
+  // Obtener fletes de un depósito específico
+  getFletesDeposito: (depositoId) =>
+    api.get(`/relaciones/deposito/${depositoId}/fletes`),
+
+  // Obtener depósitos del flete actual
+  getMisDepositosFlete: () => api.get("/relaciones/flete/depositos"),
+
+  // Obtener depósitos de un flete específico
+  getDepositosFlete: (fleteId) =>
+    api.get(`/relaciones/flete/${fleteId}/depositos`),
+};
+
+// ============== CHAT ==============
+export const chatService = {
+  // Obtener o crear conversación con admin
+  getMiConversacion: () => api.get("/chat/mi-conversacion"),
+
+  // Obtener todas las conversaciones (admin)
+  getConversaciones: () => api.get("/chat/conversaciones"),
+
+  // Obtener mensajes de una conversación
+  getMensajes: (conversacionId, page = 1, limit = 50) =>
+    api.get(`/chat/${conversacionId}/mensajes`, { params: { page, limit } }),
+
+  // Enviar mensaje
+  enviarMensaje: (conversacionId, contenido, tipo = "texto") =>
+    api.post(`/chat/${conversacionId}/mensajes`, { contenido, tipo }),
+
+  // Marcar mensajes como leídos
+  marcarLeidos: (conversacionId) => api.put(`/chat/${conversacionId}/leidos`),
+
+  // Obtener cantidad de mensajes no leídos
+  getNoLeidos: () => api.get("/chat/no-leidos"),
+
+  // Cerrar conversación (admin)
+  cerrarConversacion: (conversacionId) =>
+    api.put(`/chat/${conversacionId}/cerrar`),
 };
 
 // ============== HEALTH CHECK ==============

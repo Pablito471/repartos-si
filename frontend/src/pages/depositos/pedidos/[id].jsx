@@ -94,8 +94,15 @@ export default function DetallePedido() {
     );
 
     if (confirmado) {
-      cambiarEstadoPedido(pedido.id, nuevoEstado);
-      showToast("success", `Pedido actualizado a ${textoEstado}`);
+      try {
+        await cambiarEstadoPedido(pedido.id, nuevoEstado);
+        showToast("success", `Pedido actualizado a ${textoEstado}`);
+      } catch (error) {
+        showToast(
+          "error",
+          "Error al cambiar estado: " + (error.message || "Error desconocido"),
+        );
+      }
     }
   };
 
@@ -191,10 +198,17 @@ export default function DetallePedido() {
       notas: envioData.notas,
     };
 
-    crearEnvio(nuevoEnvio);
-    cambiarEstadoPedido(pedido.id, "enviado");
-    setMostrarModalEnvio(false);
-    showSuccessAlert("¡Envío creado!", "El pedido ha sido despachado");
+    try {
+      await crearEnvio(nuevoEnvio);
+      await cambiarEstadoPedido(pedido.id, "enviado");
+      setMostrarModalEnvio(false);
+      showSuccessAlert("¡Envío creado!", "El pedido ha sido despachado");
+    } catch (error) {
+      showToast(
+        "error",
+        "Error al crear envío: " + (error.message || "Error desconocido"),
+      );
+    }
   };
 
   const tipoEnvioInfo = {

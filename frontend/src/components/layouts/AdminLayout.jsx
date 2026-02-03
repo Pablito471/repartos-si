@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icons from "@/components/Icons";
+import NotificacionesPanel from "@/components/NotificacionesPanel";
 
 const menuItems = [
   {
@@ -16,6 +17,11 @@ const menuItems = [
     name: "Gestión de Usuarios",
     href: "/admin/usuarios",
     icon: "Users",
+  },
+  {
+    name: "Chat de Soporte",
+    href: "/admin/chat",
+    icon: "ChatMultiple",
   },
   {
     name: "Calificaciones",
@@ -165,6 +171,9 @@ export default function AdminLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
+            {/* Notificaciones */}
+            <NotificacionesPanel />
+
             {/* Theme Toggle */}
             <ThemeToggle />
 

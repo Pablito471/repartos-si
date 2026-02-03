@@ -157,8 +157,10 @@ export default function EditarPedido() {
     );
 
     if (confirmado) {
-      modificarPedido(id, {
+      const resultado = await modificarPedido(id, {
         productos: pedido.productos.map((p) => ({
+          id: p.id,
+          productoId: p.id,
           nombre: p.nombre,
           cantidad: p.cantidad,
           precio: p.precio,
@@ -167,8 +169,16 @@ export default function EditarPedido() {
         tipoEnvio: pedido.tipoEnvio,
         total: calcularTotal(),
       });
-      showSuccessAlert("¡Guardado!", "Los cambios han sido guardados");
-      router.push("/clientes/pedidos");
+
+      if (resultado.success) {
+        showSuccessAlert("¡Guardado!", "Los cambios han sido guardados");
+        router.push("/clientes/pedidos");
+      } else {
+        showErrorAlert(
+          "Error",
+          resultado.error || "No se pudieron guardar los cambios",
+        );
+      }
     }
   };
 
@@ -179,9 +189,16 @@ export default function EditarPedido() {
     );
 
     if (confirmado) {
-      cancelarPedido(id);
-      showSuccessAlert("Pedido cancelado", "El pedido ha sido cancelado");
-      router.push("/clientes/pedidos");
+      const resultado = await cancelarPedido(id);
+      if (resultado.success) {
+        showSuccessAlert("Pedido cancelado", "El pedido ha sido cancelado");
+        router.push("/clientes/pedidos");
+      } else {
+        showErrorAlert(
+          "Error",
+          resultado.error || "No se pudo cancelar el pedido",
+        );
+      }
     }
   };
 

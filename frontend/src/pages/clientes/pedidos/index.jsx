@@ -38,11 +38,18 @@ export default function MisPedidos() {
     );
 
     if (confirmado) {
-      cancelarPedido(id);
-      showSuccessAlert(
-        "Pedido cancelado",
-        "El pedido ha sido cancelado exitosamente",
-      );
+      const resultado = await cancelarPedido(id);
+      if (resultado.success) {
+        showSuccessAlert(
+          "Pedido cancelado",
+          "El pedido ha sido cancelado exitosamente",
+        );
+      } else {
+        showErrorAlert(
+          "Error al cancelar",
+          resultado.error || "No se pudo cancelar el pedido",
+        );
+      }
     }
   };
 

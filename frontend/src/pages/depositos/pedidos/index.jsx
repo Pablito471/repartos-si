@@ -41,8 +41,15 @@ export default function PedidosDeposito() {
     );
 
     if (confirmado) {
-      cambiarEstadoPedido(id, nuevoEstado);
-      showToast("success", `Pedido #${id} actualizado a ${textoEstado}`);
+      try {
+        await cambiarEstadoPedido(id, nuevoEstado);
+        showToast("success", `Pedido actualizado a ${textoEstado}`);
+      } catch (error) {
+        showToast(
+          "error",
+          "Error al cambiar estado: " + (error.message || "Error desconocido"),
+        );
+      }
     }
   };
 

@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icons from "@/components/Icons";
+import NotificacionesPanel from "@/components/NotificacionesPanel";
 
 const menuItems = [
   {
@@ -196,20 +197,7 @@ export default function FleteLayout({ children }) {
             </div>
 
             {/* Notifications */}
-            <Link
-              href="/fletes/notificaciones"
-              className="relative p-1.5 sm:p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
-              aria-label="Notificaciones"
-            >
-              <Icons.Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-              {notificacionesNoLeidas.length > 0 && (
-                <span className="absolute top-0 right-0 sm:top-1 sm:right-1 min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 bg-red-500 rounded-full text-white text-[10px] sm:text-xs flex items-center justify-center font-bold px-1">
-                  {notificacionesNoLeidas.length > 9
-                    ? "9+"
-                    : notificacionesNoLeidas.length}
-                </span>
-              )}
-            </Link>
+            <NotificacionesPanel />
 
             {/* User */}
             <div className="hidden md:flex items-center gap-2 pl-4 border-l border-neutral-200 dark:border-neutral-700">

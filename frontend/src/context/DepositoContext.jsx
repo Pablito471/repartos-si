@@ -1,5 +1,9 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { pedidosService, productosService } from "../services/api";
+import {
+  pedidosService,
+  productosService,
+  enviosService,
+} from "../services/api";
 import { useAuth } from "./AuthContext";
 
 const DepositoContext = createContext();
@@ -323,13 +327,14 @@ export function DepositoProvider({ children }) {
   const { usuario } = useAuth();
   const [pedidos, setPedidos] = useState([]);
   const [inventario, setInventario] = useState([]);
-  const [envios, setEnvios] = useState(enviosIniciales);
+  const [envios, setEnvios] = useState([]);
   const [movimientos, setMovimientos] = useState(movimientosDepositoIniciales);
   const [vehiculos, setVehiculos] = useState(vehiculosIniciales);
   const [conductores, setConductores] = useState(conductoresIniciales);
   const [notificaciones, setNotificaciones] = useState(notificacionesIniciales);
   const [cargandoPedidos, setCargandoPedidos] = useState(true);
   const [cargandoInventario, setCargandoInventario] = useState(true);
+  const [cargandoEnvios, setCargandoEnvios] = useState(true);
 
   // Cargar pedidos del depósito desde el backend
   useEffect(() => {
@@ -425,13 +430,73 @@ export function DepositoProvider({ children }) {
     cargarInventario();
   }, [usuario?.id]);
 
+  // Cargar envíos del depósito desde el backend
+  useEffect(() => {
+    const cargarEnvios = async () => {
+      if (MODO_CONEXION === "api" && usuario?.id) {
+        setCargandoEnvios(true);
+        try {
+          const response = await enviosService.getAll();
+          const enviosBackend = response.data || response || [];
+
+          const enviosMapeados = enviosBackend.map((envio) => ({
+            id: envio.id,
+            pedidoId: envio.pedidoId,
+            fleteId: envio.fleteId,
+            flete: envio.flete?.nombre || "Sin asignar",
+            estado: envio.estado || "pendiente",
+            direccionOrigen: envio.direccionOrigen,
+            direccionDestino: envio.direccionDestino,
+            fechaEstimada: envio.fechaEstimada,
+            fechaEntrega: envio.fechaEntrega,
+            ubicacionActual: envio.ubicacionActual,
+            notas: envio.notas,
+            codigoSeguimiento: envio.codigoSeguimiento,
+            createdAt: envio.createdAt,
+          }));
+
+          setEnvios(enviosMapeados);
+        } catch (error) {
+          console.error("Error al cargar envíos:", error);
+          setEnvios([]);
+        } finally {
+          setCargandoEnvios(false);
+        }
+      } else if (!usuario?.id) {
+        setEnvios([]);
+        setCargandoEnvios(false);
+      } else {
+        setEnvios(enviosIniciales);
+        setCargandoEnvios(false);
+      }
+    };
+
+    cargarEnvios();
+  }, [usuario?.id]);
+
   // ============ PEDIDOS ============
 
   // Cambiar estado de pedido
-  const cambiarEstadoPedido = (id, nuevoEstado) => {
-    setPedidos(
-      pedidos.map((p) => (p.id === id ? { ...p, estado: nuevoEstado } : p)),
-    );
+  const cambiarEstadoPedido = async (id, nuevoEstado) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await pedidosService.cambiarEstado(id, nuevoEstado);
+        setPedidos(
+          pedidos.map((p) =>
+            String(p.id) === String(id) ? { ...p, estado: nuevoEstado } : p,
+          ),
+        );
+        return true;
+      } catch (error) {
+        console.error("Error al cambiar estado del pedido:", error);
+        throw error;
+      }
+    } else {
+      setPedidos(
+        pedidos.map((p) => (p.id === id ? { ...p, estado: nuevoEstado } : p)),
+      );
+      return true;
+    }
   };
 
   // Obtener pedidos por estado
@@ -580,21 +645,61 @@ export function DepositoProvider({ children }) {
   // ============ ENVIOS ============
 
   // Crear envío
-  const crearEnvio = (envioData) => {
-    const nuevoEnvio = {
-      ...envioData,
-      id: envios.length + 1,
-      estado: "pendiente",
-    };
-    setEnvios([...envios, nuevoEnvio]);
-    return nuevoEnvio;
+  const crearEnvio = async (envioData) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        const response = await enviosService.crear(envioData);
+        const nuevoEnvio = response.data || response;
+
+        const envioMapeado = {
+          id: nuevoEnvio.id,
+          pedidoId: nuevoEnvio.pedidoId,
+          fleteId: nuevoEnvio.fleteId,
+          estado: nuevoEnvio.estado || "pendiente",
+          direccionOrigen: nuevoEnvio.direccionOrigen,
+          direccionDestino: nuevoEnvio.direccionDestino,
+          fechaEstimada: nuevoEnvio.fechaEstimada,
+          notas: nuevoEnvio.notas,
+        };
+
+        setEnvios((prev) => [...prev, envioMapeado]);
+        return envioMapeado;
+      } catch (error) {
+        console.error("Error al crear envío:", error);
+        throw error;
+      }
+    } else {
+      const nuevoEnvio = {
+        ...envioData,
+        id: envios.length + 1,
+        estado: "pendiente",
+      };
+      setEnvios([...envios, nuevoEnvio]);
+      return nuevoEnvio;
+    }
   };
 
   // Actualizar estado de envío
-  const actualizarEstadoEnvio = (id, nuevoEstado) => {
-    setEnvios(
-      envios.map((e) => (e.id === id ? { ...e, estado: nuevoEstado } : e)),
-    );
+  const actualizarEstadoEnvio = async (id, nuevoEstado) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await enviosService.cambiarEstado(id, nuevoEstado);
+        setEnvios(
+          envios.map((e) =>
+            String(e.id) === String(id) ? { ...e, estado: nuevoEstado } : e,
+          ),
+        );
+        return true;
+      } catch (error) {
+        console.error("Error al actualizar estado del envío:", error);
+        throw error;
+      }
+    } else {
+      setEnvios(
+        envios.map((e) => (e.id === id ? { ...e, estado: nuevoEstado } : e)),
+      );
+      return true;
+    }
   };
 
   // ============ NOTIFICACIONES ============
@@ -748,6 +853,7 @@ export function DepositoProvider({ children }) {
     notificaciones,
     cargandoPedidos,
     cargandoInventario,
+    cargandoEnvios,
     cambiarEstadoPedido,
     getPedidosPorEstado,
     actualizarStock,

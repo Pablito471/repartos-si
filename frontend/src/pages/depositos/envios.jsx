@@ -13,6 +13,8 @@ export default function Envios() {
     pedidos,
     crearEnvio,
     cambiarEstadoPedido,
+    cargandoEnvios,
+    cargandoPedidos,
   } = useDeposito();
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -23,6 +25,18 @@ export default function Envios() {
     conductor: "",
     notas: "",
   });
+
+  // Mostrar loading mientras se cargan los datos
+  if (cargandoEnvios || cargandoPedidos) {
+    return (
+      <DepositoLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <span className="ml-3 text-gray-600">Cargando envíos...</span>
+        </div>
+      </DepositoLayout>
+    );
+  }
 
   // Pedidos listos para enviar
   const pedidosListos = pedidos.filter(
@@ -43,8 +57,16 @@ export default function Envios() {
     );
 
     if (confirmado) {
-      actualizarEstadoEnvio(envioId, nuevoEstado);
-      showToast("success", `Envío actualizado a ${texto}`);
+      try {
+        await actualizarEstadoEnvio(envioId, nuevoEstado);
+        showToast("success", `Envío actualizado a ${texto}`);
+      } catch (error) {
+        showToast(
+          "error",
+          "Error al actualizar envío: " +
+            (error.message || "Error desconocido"),
+        );
+      }
     }
   };
 
@@ -79,11 +101,18 @@ export default function Envios() {
       notas: nuevoEnvio.notas,
     };
 
-    crearEnvio(envioData);
-    cambiarEstadoPedido(pedido.id, "enviado");
-    setMostrarModalNuevo(false);
-    setNuevoEnvio({ pedidoId: "", vehiculo: "", conductor: "", notas: "" });
-    showSuccessAlert("¡Envío creado!", "El envío ha sido despachado");
+    try {
+      await crearEnvio(envioData);
+      await cambiarEstadoPedido(pedido.id, "enviado");
+      setMostrarModalNuevo(false);
+      setNuevoEnvio({ pedidoId: "", vehiculo: "", conductor: "", notas: "" });
+      showSuccessAlert("¡Envío creado!", "El envío ha sido despachado");
+    } catch (error) {
+      showToast(
+        "error",
+        "Error al crear envío: " + (error.message || "Error desconocido"),
+      );
+    }
   };
 
   // Estadísticas

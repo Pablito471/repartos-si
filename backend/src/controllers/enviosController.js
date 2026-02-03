@@ -1,6 +1,11 @@
 const { Envio, Pedido, Usuario, PedidoProducto } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
+const {
+  emitirEnvioAsignado,
+  emitirEnvioEnCamino,
+  emitirEnvioEntregado,
+} = require("../socket");
 
 // GET /api/envios
 exports.getEnvios = async (req, res, next) => {
@@ -180,6 +185,20 @@ exports.crearEnvio = async (req, res, next) => {
       ],
     });
 
+    // Emitir notificaciones
+    if (fleteId) {
+      emitirEnvioAsignado(fleteId, {
+        id: envioCompleto.id,
+        pedidoNumero: pedido.numero,
+        direccion: pedido.direccion,
+      });
+    }
+
+    emitirEnvioEnCamino(pedido.clienteId, {
+      id: envioCompleto.id,
+      numero: pedido.numero,
+    });
+
     res.status(201).json({
       success: true,
       message: "Envío creado",
@@ -222,6 +241,12 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
       await envio.pedido.update({
         estado: "entregado",
         fechaEntrega: new Date(),
+      });
+
+      // Emitir notificación de entrega al cliente
+      emitirEnvioEntregado(envio.pedido.clienteId, {
+        id: envio.id,
+        numero: envio.pedido.numero,
       });
     }
 

@@ -8,6 +8,8 @@ const pedidosRoutes = require("./pedidos");
 const enviosRoutes = require("./envios");
 const calificacionesRoutes = require("./calificaciones");
 const entregasRoutes = require("./entregas");
+const relacionesRoutes = require("./relaciones");
+const chatRoutes = require("./chat");
 
 router.use("/auth", authRoutes);
 router.use("/usuarios", usuariosRoutes);
@@ -16,6 +18,8 @@ router.use("/pedidos", pedidosRoutes);
 router.use("/envios", enviosRoutes);
 router.use("/calificaciones", calificacionesRoutes);
 router.use("/entregas", entregasRoutes);
+router.use("/relaciones", relacionesRoutes);
+router.use("/chat", chatRoutes);
 
 // Ruta de health check
 router.get("/health", (req, res) => {

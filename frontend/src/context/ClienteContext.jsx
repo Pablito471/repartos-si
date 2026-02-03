@@ -460,10 +460,13 @@ export function ClienteProvider({ children }) {
   // Cargar pedidos desde el backend
   useEffect(() => {
     const cargarPedidos = async () => {
-      if (MODO_CONEXION === "api") {
+      if (MODO_CONEXION === "api" && usuario?.id) {
+        setCargandoPedidos(true);
         try {
           const response = await pedidosService.getAll();
           const pedidosBackend = response.data || response || [];
+
+          console.log("Pedidos del cliente cargados:", pedidosBackend.length);
 
           // Mapear pedidos del backend al formato del frontend
           const pedidosMapeados = pedidosBackend.map((pedido) => ({
@@ -490,16 +493,21 @@ export function ClienteProvider({ children }) {
           setPedidos(pedidosMapeados);
         } catch (error) {
           console.error("Error al cargar pedidos:", error);
-          setPedidos(pedidosIniciales); // Fallback a datos de ejemplo
+          setPedidos([]); // Sin pedidos si hay error
+        } finally {
+          setCargandoPedidos(false);
         }
+      } else if (!usuario?.id) {
+        setPedidos([]);
+        setCargandoPedidos(false);
       } else {
         setPedidos(pedidosIniciales);
+        setCargandoPedidos(false);
       }
-      setCargandoPedidos(false);
     };
 
     cargarPedidos();
-  }, []);
+  }, [usuario?.id]);
 
   // Funciones del carrito
   const agregarAlCarrito = (producto, depositoId) => {
@@ -589,34 +597,133 @@ export function ClienteProvider({ children }) {
   };
 
   // Crear pedido
-  const crearPedido = (nuevoPedido) => {
-    const pedido = {
-      ...nuevoPedido,
-      id: pedidos.length + 1,
-      fecha: new Date().toISOString().split("T")[0],
-      estado: "pendiente",
-    };
-    setPedidos([pedido, ...pedidos]);
-    vaciarCarrito(); // Vaciar carrito después de crear pedido
-    return pedido;
+  const crearPedido = async (nuevoPedido) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        // Preparar datos para el backend
+        const pedidoBackend = {
+          depositoId: nuevoPedido.depositoId,
+          tipoEnvio: nuevoPedido.tipoEnvio,
+          direccion: nuevoPedido.direccion,
+          notas: nuevoPedido.notas || "",
+          productos: nuevoPedido.productos.map((p) => ({
+            productoId: p.id,
+            nombre: p.nombre,
+            cantidad: p.cantidad,
+            precio: p.precio,
+          })),
+        };
+
+        console.log("Enviando pedido al backend:", pedidoBackend);
+
+        const response = await pedidosService.crear(pedidoBackend);
+        const pedidoCreado = response.data || response;
+
+        console.log("Pedido creado:", pedidoCreado);
+
+        // Agregar al estado local
+        const pedidoMapeado = {
+          id: pedidoCreado.id,
+          fecha: pedidoCreado.createdAt
+            ? pedidoCreado.createdAt.split("T")[0]
+            : new Date().toISOString().split("T")[0],
+          productos: nuevoPedido.productos,
+          deposito: nuevoPedido.deposito,
+          depositoId: nuevoPedido.depositoId,
+          tipoEnvio: nuevoPedido.tipoEnvio,
+          estado: pedidoCreado.estado || "pendiente",
+          total: parseFloat(pedidoCreado.total) || nuevoPedido.total,
+          direccion: nuevoPedido.direccion,
+          notas: nuevoPedido.notas,
+        };
+
+        setPedidos((prev) => [pedidoMapeado, ...prev]);
+        return pedidoMapeado;
+      } catch (error) {
+        console.error("Error al crear pedido:", error);
+        throw error;
+      }
+    } else {
+      // Modo local (fallback)
+      const pedido = {
+        ...nuevoPedido,
+        id: pedidos.length + 1,
+        fecha: new Date().toISOString().split("T")[0],
+        estado: "pendiente",
+      };
+      setPedidos([pedido, ...pedidos]);
+      return pedido;
+    }
   };
 
   // Modificar pedido
-  const modificarPedido = (id, datosActualizados) => {
-    setPedidos(
-      pedidos.map((p) =>
-        String(p.id) === String(id) ? { ...p, ...datosActualizados } : p,
-      ),
-    );
+  const modificarPedido = async (id, datosActualizados) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        // Preparar datos para el backend
+        const datosBackend = {
+          tipoEnvio: datosActualizados.tipoEnvio,
+          direccionEntrega: datosActualizados.direccion,
+          notas: datosActualizados.notas || "",
+          prioridad: datosActualizados.prioridad || "normal",
+        };
+
+        // Si hay productos, incluirlos
+        if (datosActualizados.productos) {
+          datosBackend.productos = datosActualizados.productos.map((p) => ({
+            productoId: p.id || p.productoId,
+            nombre: p.nombre,
+            cantidad: p.cantidad,
+            precio: p.precio,
+          }));
+        }
+
+        await pedidosService.actualizar(id, datosBackend);
+
+        // Actualizar estado local
+        setPedidos(
+          pedidos.map((p) =>
+            String(p.id) === String(id) ? { ...p, ...datosActualizados } : p,
+          ),
+        );
+        return { success: true };
+      } catch (error) {
+        console.error("Error al modificar pedido:", error);
+        return { success: false, error: error.message };
+      }
+    } else {
+      setPedidos(
+        pedidos.map((p) =>
+          String(p.id) === String(id) ? { ...p, ...datosActualizados } : p,
+        ),
+      );
+      return { success: true };
+    }
   };
 
   // Cancelar pedido
-  const cancelarPedido = (id) => {
-    setPedidos(
-      pedidos.map((p) =>
-        String(p.id) === String(id) ? { ...p, estado: "cancelado" } : p,
-      ),
-    );
+  const cancelarPedido = async (id) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await pedidosService.cambiarEstado(id, "cancelado");
+        setPedidos(
+          pedidos.map((p) =>
+            String(p.id) === String(id) ? { ...p, estado: "cancelado" } : p,
+          ),
+        );
+        return { success: true };
+      } catch (error) {
+        console.error("Error al cancelar pedido:", error);
+        return { success: false, error: error.message };
+      }
+    } else {
+      setPedidos(
+        pedidos.map((p) =>
+          String(p.id) === String(id) ? { ...p, estado: "cancelado" } : p,
+        ),
+      );
+      return { success: true };
+    }
   };
 
   // Agregar movimiento contable

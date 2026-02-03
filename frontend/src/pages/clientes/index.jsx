@@ -5,9 +5,24 @@ import Icons from "@/components/Icons";
 import Link from "next/link";
 
 export default function ClienteDashboard() {
-  const { getEstadisticas, pedidos } = useCliente();
-  const stats = getEstadisticas();
+  const { getEstadisticas, pedidos, cargandoPedidos, cargandoDepositos } =
+    useCliente();
 
+  // Mostrar loading mientras se cargan los datos
+  if (cargandoPedidos || cargandoDepositos) {
+    return (
+      <ClienteLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+          <span className="ml-3 text-neutral-600 dark:text-neutral-400">
+            Cargando datos...
+          </span>
+        </div>
+      </ClienteLayout>
+    );
+  }
+
+  const stats = getEstadisticas();
   const ultimosPedidos = pedidos.slice(0, 5);
 
   return (

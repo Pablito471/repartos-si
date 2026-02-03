@@ -57,12 +57,25 @@ export default function FleteEnvios() {
     marcarEntregado,
     reportarProblema,
     getEnviosPorEstado,
+    cargandoEnvios,
   } = useFlete();
   const { usuarios, getPromedioCalificaciones, getCalificacionesUsuario } =
     useAuth();
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
   const [usuarioACalificar, setUsuarioACalificar] = useState(null);
+
+  // Mostrar loading mientras se cargan los envíos
+  if (cargandoEnvios) {
+    return (
+      <FleteLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <span className="ml-3 text-gray-600">Cargando envíos...</span>
+        </div>
+      </FleteLayout>
+    );
+  }
 
   // Función para obtener usuario cliente por nombre
   const getUsuarioCliente = (nombreCliente) => {
@@ -138,14 +151,24 @@ export default function FleteEnvios() {
     });
 
     if (result.isConfirmed) {
-      marcarRecogido(envio.id);
-      Swal.fire({
-        title: "¡Recogido!",
-        text: "El pedido ha sido marcado como en camino",
-        icon: "success",
-        timer: 2000,
-        showConfirmButton: false,
-      });
+      try {
+        await marcarRecogido(envio.id);
+        Swal.fire({
+          title: "¡Recogido!",
+          text: "El pedido ha sido marcado como en camino",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        Swal.fire({
+          title: "Error",
+          text:
+            "No se pudo actualizar el estado: " +
+            (error.message || "Error desconocido"),
+          icon: "error",
+        });
+      }
     }
   };
 
@@ -165,14 +188,24 @@ export default function FleteEnvios() {
     });
 
     if (result.isConfirmed) {
-      marcarEntregado(envio.id);
-      Swal.fire({
-        title: "¡Entregado!",
-        text: "El pedido ha sido entregado exitosamente",
-        icon: "success",
-        timer: 2000,
-        showConfirmButton: false,
-      });
+      try {
+        await marcarEntregado(envio.id);
+        Swal.fire({
+          title: "¡Entregado!",
+          text: "El pedido ha sido entregado exitosamente",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        Swal.fire({
+          title: "Error",
+          text:
+            "No se pudo actualizar el estado: " +
+            (error.message || "Error desconocido"),
+          icon: "error",
+        });
+      }
     }
   };
 
@@ -194,14 +227,24 @@ export default function FleteEnvios() {
     });
 
     if (descripcion) {
-      reportarProblema(envio.id, descripcion);
-      Swal.fire({
-        title: "Problema Reportado",
-        text: "Se ha notificado al depósito sobre el problema",
-        icon: "warning",
-        timer: 2000,
-        showConfirmButton: false,
-      });
+      try {
+        await reportarProblema(envio.id, descripcion);
+        Swal.fire({
+          title: "Problema Reportado",
+          text: "Se ha notificado al depósito sobre el problema",
+          icon: "warning",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        Swal.fire({
+          title: "Error",
+          text:
+            "No se pudo reportar el problema: " +
+            (error.message || "Error desconocido"),
+          icon: "error",
+        });
+      }
     }
   };
 

@@ -10,9 +10,23 @@ export default function FleteRuta() {
     getEnviosPorEstado,
     marcarRecogido,
     marcarEntregado,
+    cargandoEnvios,
   } = useFlete();
-  const enviosHoy = getEnviosDelDia();
   const [vistaOptimizada, setVistaOptimizada] = useState(true);
+
+  // Mostrar loading mientras se cargan los envíos
+  if (cargandoEnvios) {
+    return (
+      <FleteLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <span className="ml-3 text-gray-600">Cargando ruta...</span>
+        </div>
+      </FleteLayout>
+    );
+  }
+
+  const enviosHoy = getEnviosDelDia();
 
   // Ordenar por prioridad y estado
   const enviosOrdenados = [...enviosHoy].sort((a, b) => {
@@ -68,13 +82,21 @@ export default function FleteRuta() {
         confirmButtonColor: "#f97316",
       });
       if (result.isConfirmed) {
-        marcarRecogido(envio.id);
-        Swal.fire({
-          icon: "success",
-          title: "¡En camino!",
-          timer: 1500,
-          showConfirmButton: false,
-        });
+        try {
+          await marcarRecogido(envio.id);
+          Swal.fire({
+            icon: "success",
+            title: "¡En camino!",
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: error.message || "No se pudo actualizar el estado",
+          });
+        }
       }
     } else if (envio.estado === "en_camino") {
       const result = await Swal.fire({
@@ -87,13 +109,21 @@ export default function FleteRuta() {
         confirmButtonColor: "#22c55e",
       });
       if (result.isConfirmed) {
-        marcarEntregado(envio.id);
-        Swal.fire({
-          icon: "success",
-          title: "¡Entregado!",
-          timer: 1500,
-          showConfirmButton: false,
-        });
+        try {
+          await marcarEntregado(envio.id);
+          Swal.fire({
+            icon: "success",
+            title: "¡Entregado!",
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: error.message || "No se pudo actualizar el estado",
+          });
+        }
       }
     }
   };

@@ -7,6 +7,9 @@ const Envio = require("./Envio");
 const Calificacion = require("./Calificacion");
 const Entrega = require("./Entrega");
 const StockCliente = require("./StockCliente");
+const UsuarioRelacion = require("./UsuarioRelacion");
+const Mensaje = require("./Mensaje");
+const Conversacion = require("./Conversacion");
 
 // ============ RELACIONES ============
 
@@ -146,6 +149,59 @@ StockCliente.belongsTo(Entrega, {
   as: "entrega",
 });
 
+// Relaciones entre usuarios
+UsuarioRelacion.belongsTo(Usuario, {
+  foreignKey: "usuarioOrigenId",
+  as: "usuarioOrigen",
+});
+UsuarioRelacion.belongsTo(Usuario, {
+  foreignKey: "usuarioDestinoId",
+  as: "usuarioDestino",
+});
+Usuario.hasMany(UsuarioRelacion, {
+  foreignKey: "usuarioOrigenId",
+  as: "relacionesOrigen",
+});
+Usuario.hasMany(UsuarioRelacion, {
+  foreignKey: "usuarioDestinoId",
+  as: "relacionesDestino",
+});
+
+// Conversaciones y Mensajes
+Conversacion.belongsTo(Usuario, {
+  foreignKey: "usuarioId",
+  as: "usuario",
+});
+Conversacion.belongsTo(Usuario, {
+  foreignKey: "adminId",
+  as: "admin",
+});
+Usuario.hasMany(Conversacion, {
+  foreignKey: "usuarioId",
+  as: "conversacionesComoUsuario",
+});
+Usuario.hasMany(Conversacion, {
+  foreignKey: "adminId",
+  as: "conversacionesComoAdmin",
+});
+
+Mensaje.belongsTo(Usuario, {
+  foreignKey: "remitenteId",
+  as: "remitente",
+});
+Mensaje.belongsTo(Usuario, {
+  foreignKey: "destinatarioId",
+  as: "destinatario",
+});
+Mensaje.belongsTo(Conversacion, {
+  foreignKey: "conversacionId",
+  as: "conversacion",
+});
+Conversacion.hasMany(Mensaje, {
+  foreignKey: "conversacionId",
+  as: "mensajes",
+});
+
 module.exports = {
   sequelize,
   Usuario,
@@ -156,4 +212,7 @@ module.exports = {
   Calificacion,
   Entrega,
   StockCliente,
+  UsuarioRelacion,
+  Mensaje,
+  Conversacion,
 };

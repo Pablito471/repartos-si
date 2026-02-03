@@ -1,11 +1,14 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
 const { sequelize } = require("./models");
 const routes = require("./routes");
 const { errorHandler } = require("./middleware/errorHandler");
+const { initSocket } = require("./socket");
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // Middlewares
@@ -36,6 +39,8 @@ app.get("/", (req, res) => {
       envios: "/api/envios",
       calificaciones: "/api/calificaciones",
       entregas: "/api/entregas",
+      relaciones: "/api/relaciones",
+      chat: "/api/chat",
     },
   });
 });
@@ -68,10 +73,15 @@ const startServer = async () => {
       );
     }
 
-    // Iniciar servidor
-    app.listen(PORT, () => {
+    // Inicializar Socket.io
+    initSocket(server);
+    console.log("✅ Socket.io inicializado");
+
+    // Iniciar servidor HTTP con Socket.io
+    server.listen(PORT, () => {
       console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
       console.log(`📚 API disponible en http://localhost:${PORT}/api`);
+      console.log(`💬 WebSocket disponible en ws://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("❌ Error al iniciar el servidor:", error);

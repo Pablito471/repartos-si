@@ -51,6 +51,9 @@ import {
   PrinterIcon,
   QrCodeIcon,
   XCircleIcon,
+  PaperAirplaneIcon,
+  LifebuoyIcon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 
 import { StarIcon as StarFilledIcon } from "@heroicons/react/24/solid";
@@ -203,6 +206,15 @@ const Icons = {
 
   // Triángulo de exclamación (alias)
   ExclamationTriangle: ExclamationTriangleIcon,
+
+  // Enviar mensaje
+  Send: PaperAirplaneIcon,
+
+  // Soporte/Ayuda
+  Support: LifebuoyIcon,
+
+  // Chat con múltiples burbujas
+  ChatMultiple: ChatBubbleLeftRightIcon,
 };
 
 export default Icons;

@@ -13,10 +13,11 @@ export default function DepositoDashboard() {
     envios,
     cargandoPedidos,
     cargandoInventario,
+    cargandoEnvios,
   } = useDeposito();
 
   // Mostrar loading mientras se cargan los datos
-  if (cargandoPedidos || cargandoInventario) {
+  if (cargandoPedidos || cargandoInventario || cargandoEnvios) {
     return (
       <DepositoLayout>
         <div className="flex justify-center items-center h-64">

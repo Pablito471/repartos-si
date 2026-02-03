@@ -6,7 +6,8 @@ import { formatNumber, formatDate } from "@/utils/formatters";
 import Swal from "sweetalert2";
 
 export default function FleteContabilidad() {
-  const { movimientos, agregarMovimiento, calcularTotales } = useFlete();
+  const { movimientos, agregarMovimiento, calcularTotales, cargandoEnvios } =
+    useFlete();
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nuevoMovimiento, setNuevoMovimiento] = useState({
@@ -15,6 +16,18 @@ export default function FleteContabilidad() {
     monto: "",
     descripcion: "",
   });
+
+  // Mostrar loading mientras se carga
+  if (cargandoEnvios) {
+    return (
+      <FleteLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <span className="ml-3 text-gray-600">Cargando contabilidad...</span>
+        </div>
+      </FleteLayout>
+    );
+  }
 
   const totales = calcularTotales();
 

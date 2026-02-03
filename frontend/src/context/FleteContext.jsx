@@ -1,6 +1,11 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import { enviosService } from "../services/api";
+import { useAuth } from "./AuthContext";
 
 const FleteContext = createContext();
+
+// Configurar modo de conexión: 'api' o 'local'
+const MODO_CONEXION = process.env.NEXT_PUBLIC_MODE || "api";
 
 // Envíos asignados al transportista
 const enviosAsignadosIniciales = [
@@ -186,29 +191,115 @@ const vehiculoInicial = {
 };
 
 export function FleteProvider({ children }) {
-  const [envios, setEnvios] = useState(enviosAsignadosIniciales);
+  const { usuario } = useAuth();
+  const [envios, setEnvios] = useState([]);
   const [movimientos, setMovimientos] = useState(movimientosFleteIniciales);
   const [notificaciones, setNotificaciones] = useState(
     notificacionesFleteIniciales,
   );
   const [vehiculo, setVehiculo] = useState(vehiculoInicial);
+  const [cargandoEnvios, setCargandoEnvios] = useState(true);
+
+  // Cargar envíos del flete desde el backend
+  useEffect(() => {
+    const cargarEnvios = async () => {
+      if (MODO_CONEXION === "api" && usuario?.id) {
+        try {
+          setCargandoEnvios(true);
+          const response = await enviosService.getAll();
+          const enviosData = response.data || response || [];
+
+          // Mapear envíos al formato esperado por el frontend
+          const enviosMapeados = enviosData.map((envio) => ({
+            id: envio.id,
+            pedidoId: envio.pedidoId,
+            numeroPedido: `PED-${String(envio.pedidoId).slice(-6).toUpperCase()}`,
+            cliente: envio.pedido?.cliente?.nombre || "Cliente",
+            direccion:
+              envio.pedido?.direccion || envio.pedido?.cliente?.direccion || "",
+            telefono: envio.pedido?.cliente?.telefono || "",
+            deposito: envio.pedido?.deposito?.nombre || "Depósito",
+            depositoDireccion: envio.pedido?.deposito?.direccion || "",
+            productos:
+              envio.pedido?.productos?.map((p) => ({
+                nombre: p.nombre,
+                cantidad: p.cantidad,
+              })) || [],
+            fechaAsignacion:
+              envio.createdAt?.split("T")[0] ||
+              new Date().toISOString().split("T")[0],
+            fechaEntrega:
+              envio.fechaEstimada?.split("T")[0] ||
+              new Date().toISOString().split("T")[0],
+            horarioEntrega: envio.fechaEstimada
+              ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Sin horario",
+            estado: envio.estado || "pendiente",
+            prioridad: envio.pedido?.prioridad || "media",
+            notas: envio.notas || "",
+            total: envio.pedido?.total || 0,
+          }));
+
+          setEnvios(enviosMapeados);
+        } catch (error) {
+          console.error("Error al cargar envíos del flete:", error);
+          setEnvios([]);
+        } finally {
+          setCargandoEnvios(false);
+        }
+      } else if (MODO_CONEXION !== "api") {
+        setEnvios(enviosAsignadosIniciales);
+        setCargandoEnvios(false);
+      } else {
+        setCargandoEnvios(false);
+      }
+    };
+
+    cargarEnvios();
+  }, [usuario?.id]);
 
   // ============ ENVÍOS ============
 
   // Cambiar estado de envío
-  const cambiarEstadoEnvio = (id, nuevoEstado, notas = "") => {
-    setEnvios(
-      envios.map((e) =>
-        e.id === id
-          ? {
-              ...e,
-              estado: nuevoEstado,
-              notas: notas || e.notas,
-              fechaActualizacion: new Date().toISOString(),
-            }
-          : e,
-      ),
-    );
+  const cambiarEstadoEnvio = async (id, nuevoEstado, notas = "") => {
+    if (MODO_CONEXION === "api") {
+      try {
+        await enviosService.cambiarEstado(id, nuevoEstado, notas);
+
+        // Actualizar estado local
+        setEnvios(
+          envios.map((e) =>
+            String(e.id) === String(id)
+              ? {
+                  ...e,
+                  estado: nuevoEstado,
+                  notas: notas || e.notas,
+                  fechaActualizacion: new Date().toISOString(),
+                }
+              : e,
+          ),
+        );
+      } catch (error) {
+        console.error("Error al cambiar estado de envío:", error);
+        throw error;
+      }
+    } else {
+      setEnvios(
+        envios.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                estado: nuevoEstado,
+                notas: notas || e.notas,
+                fechaActualizacion: new Date().toISOString(),
+              }
+            : e,
+        ),
+      );
+    }
   };
 
   // Obtener envíos por estado
@@ -231,8 +322,8 @@ export function FleteProvider({ children }) {
   };
 
   // Marcar como recogido (en depósito)
-  const marcarRecogido = (id) => {
-    cambiarEstadoEnvio(id, "en_camino");
+  const marcarRecogido = async (id) => {
+    await cambiarEstadoEnvio(id, "en_camino");
     agregarNotificacion({
       tipo: "info",
       titulo: "Envío recogido",
@@ -242,8 +333,8 @@ export function FleteProvider({ children }) {
   };
 
   // Marcar como entregado
-  const marcarEntregado = (id, notas = "") => {
-    cambiarEstadoEnvio(id, "entregado", notas);
+  const marcarEntregado = async (id, notas = "") => {
+    await cambiarEstadoEnvio(id, "entregado", notas);
     agregarNotificacion({
       tipo: "success",
       titulo: "Envío entregado",
@@ -253,8 +344,8 @@ export function FleteProvider({ children }) {
   };
 
   // Reportar problema
-  const reportarProblema = (id, descripcion) => {
-    cambiarEstadoEnvio(id, "problema", descripcion);
+  const reportarProblema = async (id, descripcion) => {
+    await cambiarEstadoEnvio(id, "problema", descripcion);
     agregarNotificacion({
       tipo: "alerta",
       titulo: "Problema reportado",
@@ -366,6 +457,7 @@ export function FleteProvider({ children }) {
     movimientos,
     notificaciones,
     vehiculo,
+    cargandoEnvios,
     cambiarEstadoEnvio,
     getEnviosPorEstado,
     getEnviosDelDia,

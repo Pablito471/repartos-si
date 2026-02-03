@@ -4,9 +4,21 @@ import { useFlete } from "@/context/FleteContext";
 import { formatNumber, formatDate } from "@/utils/formatters";
 
 export default function FleteHistorial() {
-  const { envios } = useFlete();
+  const { envios, cargandoEnvios } = useFlete();
   const [filtroMes, setFiltroMes] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
+
+  // Mostrar loading mientras se cargan los envíos
+  if (cargandoEnvios) {
+    return (
+      <FleteLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <span className="ml-3 text-gray-600">Cargando historial...</span>
+        </div>
+      </FleteLayout>
+    );
+  }
 
   // Filtrar solo entregados y con problemas (histórico)
   const enviosHistoricos = envios.filter(

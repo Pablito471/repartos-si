@@ -12,6 +12,391 @@
   --background-rgb: 15, 23, 42;
 }
 
+/* ========================================
+   DARK MODE AUTO-FIX LAYER
+   Agrega soporte dark mode a clases existentes
+   ======================================== */
+
+/* Fix para text-gray-* sin dark: - ALTA ESPECIFICIDAD */
+.dark .text-gray-400 {
+  color: rgb(163 163 163) !important;
+} /* neutral-400 */
+.dark .text-gray-500 {
+  color: rgb(163 163 163) !important;
+} /* neutral-400 */
+.dark .text-gray-600 {
+  color: rgb(163 163 163) !important;
+} /* neutral-400 */
+.dark .text-gray-700 {
+  color: rgb(212 212 212) !important;
+} /* neutral-300 */
+.dark .text-gray-800 {
+  color: rgb(245 245 245) !important;
+} /* neutral-100 */
+.dark .text-gray-900 {
+  color: rgb(255 255 255) !important;
+} /* white */
+
+/* Fix para bg-gray-* sin dark: */
+.dark .bg-gray-50 {
+  background-color: rgb(38 38 38) !important;
+} /* neutral-800 */
+.dark .bg-gray-100 {
+  background-color: rgb(64 64 64) !important;
+} /* neutral-700 */
+.dark .bg-gray-200 {
+  background-color: rgb(82 82 82) !important;
+} /* neutral-600 */
+.dark .bg-gray-300 {
+  background-color: rgb(82 82 82) !important;
+} /* neutral-600 */
+
+/* Fix para bg-white sin dark - con exclusiones */
+.dark .bg-white:not([class*="dark\:bg-"]) {
+  background-color: rgb(38 38 38) !important; /* neutral-800 */
+}
+
+/* Fix para border-gray-* sin dark: */
+.dark .border-gray-100 {
+  border-color: rgb(64 64 64) !important;
+}
+.dark .border-gray-200 {
+  border-color: rgb(64 64 64) !important;
+}
+.dark .border-gray-300 {
+  border-color: rgb(82 82 82) !important;
+}
+
+/* Fix para hover states */
+.dark .hover\:bg-gray-50:hover {
+  background-color: rgb(64 64 64) !important;
+}
+.dark .hover\:bg-gray-100:hover {
+  background-color: rgb(82 82 82) !important;
+}
+.dark .hover\:bg-gray-200:hover {
+  background-color: rgb(82 82 82) !important;
+}
+.dark .hover\:bg-gray-300:hover {
+  background-color: rgb(115 115 115) !important;
+}
+.dark .hover\:text-gray-700:hover {
+  color: rgb(212 212 212) !important;
+}
+.dark .hover\:text-gray-900:hover {
+  color: rgb(255 255 255) !important;
+}
+
+/* Fix para ring y focus states */
+.dark .ring-gray-200 {
+  --tw-ring-color: rgb(64 64 64) !important;
+}
+.dark .ring-gray-300 {
+  --tw-ring-color: rgb(82 82 82) !important;
+}
+.dark .focus\:ring-gray-200:focus {
+  --tw-ring-color: rgb(64 64 64) !important;
+}
+.dark .focus\:ring-gray-300:focus {
+  --tw-ring-color: rgb(82 82 82) !important;
+}
+
+/* Fix para divide */
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(64 64 64) !important;
+}
+
+/* Fix para shadow en modales y dropdowns */
+.dark .shadow-xl {
+  --tw-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+  --tw-shadow-colored:
+    0 20px 25px -5px var(--tw-shadow-color),
+    0 8px 10px -6px var(--tw-shadow-color);
+}
+
+/* Fix para placeholder en dark mode */
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(115 115 115) !important; /* neutral-500 */
+}
+
+/* Fix para selects en dark mode */
+.dark select {
+  background-color: rgb(38 38 38);
+  color: rgb(245 245 245);
+  border-color: rgb(82 82 82);
+}
+
+/* Fix para scrollbar en dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: rgb(38 38 38);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgb(82 82 82);
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgb(115 115 115);
+}
+
+/* ========================================
+   DARK MODE FIXES PARA COMPONENTES ESPECÍFICOS
+   ======================================== */
+
+/* Modales y popups - fondo del contenido */
+.dark .rounded-xl.shadow-xl,
+.dark .rounded-2xl.shadow-xl {
+  background-color: rgb(38 38 38);
+  border-color: rgb(64 64 64);
+}
+
+/* Mejorar contraste de textos en badges de color */
+.dark .text-green-600 {
+  color: rgb(74 222 128) !important;
+} /* green-400 */
+.dark .text-red-600 {
+  color: rgb(248 113 113) !important;
+} /* red-400 */
+.dark .text-blue-600 {
+  color: rgb(96 165 250) !important;
+} /* blue-400 */
+.dark .text-yellow-600 {
+  color: rgb(250 204 21) !important;
+} /* yellow-400 */
+.dark .text-orange-600 {
+  color: rgb(251 146 60) !important;
+} /* orange-400 */
+.dark .text-purple-600 {
+  color: rgb(192 132 252) !important;
+} /* purple-400 */
+
+/* Fix para textos en estados de badges */
+.dark .text-green-800 {
+  color: rgb(134 239 172) !important;
+}
+.dark .text-red-800 {
+  color: rgb(252 165 165) !important;
+}
+.dark .text-blue-800 {
+  color: rgb(147 197 253) !important;
+}
+.dark .text-yellow-800 {
+  color: rgb(253 224 71) !important;
+}
+
+/* Fix para fondos de alerta/notificación */
+.dark .bg-green-50 {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+.dark .bg-yellow-50 {
+  background-color: rgba(234, 179, 8, 0.1) !important;
+}
+.dark .bg-orange-50 {
+  background-color: rgba(249, 115, 22, 0.1) !important;
+}
+
+/* Fix para bg-green-100 y similares en badges */
+.dark .bg-green-100 {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+}
+.dark .bg-red-100 {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+.dark .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+.dark .bg-yellow-100 {
+  background-color: rgba(234, 179, 8, 0.2) !important;
+}
+.dark .bg-orange-100 {
+  background-color: rgba(249, 115, 22, 0.2) !important;
+}
+.dark .bg-purple-100 {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+}
+
+/* Fix para iconos de color en dark mode */
+.dark .text-green-500 {
+  color: rgb(34 197 94) !important;
+}
+.dark .text-red-500 {
+  color: rgb(239 68 68) !important;
+}
+.dark .text-blue-500 {
+  color: rgb(59 130 246) !important;
+}
+.dark .text-yellow-500 {
+  color: rgb(234 179 8) !important;
+}
+.dark .text-orange-500 {
+  color: rgb(249 115 22) !important;
+}
+.dark .text-purple-500 {
+  color: rgb(168 85 247) !important;
+}
+
+/* Fix para text-*-700 que se usan en estados */
+.dark .text-green-700 {
+  color: rgb(74 222 128) !important;
+} /* green-400 */
+.dark .text-red-700 {
+  color: rgb(248 113 113) !important;
+} /* red-400 */
+.dark .text-blue-700 {
+  color: rgb(96 165 250) !important;
+} /* blue-400 */
+.dark .text-yellow-700 {
+  color: rgb(250 204 21) !important;
+} /* yellow-400 */
+.dark .text-orange-700 {
+  color: rgb(251 146 60) !important;
+} /* orange-400 */
+.dark .text-purple-700 {
+  color: rgb(192 132 252) !important;
+} /* purple-400 */
+
+/* Fix para bordes de color */
+.dark .border-green-200 {
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+.dark .border-red-200 {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+.dark .border-blue-200 {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+.dark .border-yellow-200 {
+  border-color: rgba(234, 179, 8, 0.3) !important;
+}
+.dark .border-orange-200 {
+  border-color: rgba(249, 115, 22, 0.3) !important;
+}
+.dark .border-purple-200 {
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+
+.dark .border-green-500 {
+  border-color: rgb(34 197 94) !important;
+}
+.dark .border-red-500 {
+  border-color: rgb(239 68 68) !important;
+}
+.dark .border-blue-500 {
+  border-color: rgb(59 130 246) !important;
+}
+.dark .border-yellow-500 {
+  border-color: rgb(234 179 8) !important;
+}
+
+/* Fix para textos de subheaders en cards de colores */
+.dark .text-green-100 {
+  color: rgb(187 247 208) !important;
+}
+.dark .text-red-100 {
+  color: rgb(254 202 202) !important;
+}
+.dark .text-blue-100 {
+  color: rgb(191 219 254) !important;
+}
+.dark .text-yellow-100 {
+  color: rgb(254 249 195) !important;
+}
+.dark .text-orange-100 {
+  color: rgb(255 237 213) !important;
+}
+.dark .text-purple-100 {
+  color: rgb(243 232 255) !important;
+}
+
+/* Fix para pills/tabs inactivos */
+.dark .border-transparent.text-gray-500 {
+  color: rgb(163 163 163) !important;
+}
+.dark .border-transparent.text-gray-500:hover {
+  color: rgb(212 212 212) !important;
+}
+
+/* Fix para inputs y selects dentro de modales */
+.dark .rounded-xl.shadow-xl input,
+.dark .rounded-xl.shadow-xl select,
+.dark .rounded-xl.shadow-xl textarea,
+.dark .rounded-2xl.shadow-xl input,
+.dark .rounded-2xl.shadow-xl select,
+.dark .rounded-2xl.shadow-xl textarea {
+  background-color: rgb(64 64 64);
+  border-color: rgb(82 82 82);
+  color: rgb(245 245 245);
+}
+
+/* Fix para labels en modales */
+.dark .rounded-xl.shadow-xl label,
+.dark .rounded-2xl.shadow-xl label {
+  color: rgb(212 212 212);
+}
+
+/* Mejora para botones secundarios/cancelar */
+.dark button.bg-gray-200,
+.dark button.bg-gray-100 {
+  background-color: rgb(64 64 64) !important;
+  color: rgb(212 212 212) !important;
+}
+.dark button.bg-gray-200:hover,
+.dark button.bg-gray-100:hover {
+  background-color: rgb(82 82 82) !important;
+}
+
+/* Fix para tablas en dark mode */
+.dark table thead {
+  background-color: rgb(38 38 38);
+}
+.dark table thead th {
+  color: rgb(163 163 163);
+}
+.dark table tbody tr {
+  border-color: rgb(64 64 64);
+}
+.dark table tbody tr:hover {
+  background-color: rgb(38 38 38);
+}
+
+/* Fix para tr con hover específico */
+.dark tr.hover\:bg-gray-50:hover {
+  background-color: rgb(38 38 38) !important;
+}
+
+/* Fix para border en dark mode */
+.dark .border-b {
+  border-color: rgb(64 64 64);
+}
+.dark .border-t {
+  border-color: rgb(64 64 64);
+}
+
+/* Fix para peer-checked states en toggles */
+.dark .peer:checked ~ .peer-checked\:bg-primary {
+  background-color: rgb(var(--color-primary-500));
+}
+
+/* Fix general para todos los inputs sin clase específica */
+.dark input:not([class*="dark:bg-"]),
+.dark textarea:not([class*="dark:bg-"]),
+.dark select:not([class*="dark:bg-"]) {
+  background-color: rgb(64 64 64);
+  border-color: rgb(82 82 82);
+  color: rgb(245 245 245);
+}
+
 /* Reset y mejoras base */
 * {
   box-sizing: border-box;

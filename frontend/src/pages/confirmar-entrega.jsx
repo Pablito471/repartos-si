@@ -185,15 +185,15 @@ export default function ConfirmarEntrega() {
 
   if (estado === "error") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl dark:shadow-neutral-900/50 p-8 max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
             <Icons.XCircle className="w-10 h-10 text-red-500" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
             Código no válido
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-neutral-400 mb-6">
             El código de entrega no existe o ha expirado. Contacta al depósito
             para obtener un nuevo comprobante.
           </p>
@@ -207,15 +207,15 @@ export default function ConfirmarEntrega() {
 
   if (estado === "already_confirmed") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-50 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl dark:shadow-neutral-900/50 p-8 max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
             <Icons.ExclamationTriangle className="w-10 h-10 text-yellow-500" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
             Entrega ya confirmada
           </h1>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 dark:text-neutral-400 mb-4">
             Esta entrega ya fue confirmada anteriormente.
           </p>
           {entrega?.fechaConfirmacion && (
@@ -234,15 +234,15 @@ export default function ConfirmarEntrega() {
 
   if (estado === "success") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl dark:shadow-neutral-900/50 p-8 max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
             <Icons.CheckCircle className="w-10 h-10 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
             ¡Entrega confirmada!
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-neutral-400 mb-6">
             Los productos han sido agregados a tu stock correctamente.
           </p>
 
@@ -279,44 +279,50 @@ export default function ConfirmarEntrega() {
 
   // Estado "ready" - Mostrar detalles para confirmar
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-primary/10 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-lg w-full">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-primary/10 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl dark:shadow-neutral-900/50 p-8 max-w-lg w-full">
         {/* Header */}
         <div className="text-center mb-6">
           <Logo size="md" className="mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
             Confirmar Entrega
           </h1>
-          <p className="text-gray-600">Pedido #{pedidoId}</p>
+          <p className="text-gray-600 dark:text-neutral-400">
+            Pedido #{pedidoId}
+          </p>
         </div>
 
         {/* Info de entrega */}
-        <div className="bg-gray-50 rounded-xl p-4 mb-6">
-          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+        <div className="bg-gray-50 dark:bg-neutral-700/50 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200 dark:border-neutral-600">
+            <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-full flex items-center justify-center">
               <Icons.Truck className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <p className="font-semibold text-gray-800">
+              <p className="font-semibold text-gray-800 dark:text-white">
                 {entrega?.deposito || "Depósito"}
               </p>
-              <p className="text-sm text-gray-500">{entrega?.fecha}</p>
+              <p className="text-sm text-gray-500 dark:text-neutral-400">
+                {entrega?.fecha}
+              </p>
             </div>
           </div>
 
           {/* Productos */}
-          <h3 className="font-semibold text-gray-800 mb-3">
+          <h3 className="font-semibold text-gray-800 dark:text-white mb-3">
             Productos a recibir:
           </h3>
           <div className="space-y-2 mb-4">
             {entrega?.productos?.map((prod, idx) => (
               <div
                 key={idx}
-                className="flex justify-between items-center bg-white p-3 rounded-lg"
+                className="flex justify-between items-center bg-white dark:bg-neutral-700 p-3 rounded-lg"
               >
                 <div>
-                  <p className="font-medium text-gray-800">{prod.nombre}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="font-medium text-gray-800 dark:text-white">
+                    {prod.nombre}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-neutral-400">
                     ${prod.precio?.toLocaleString()} c/u
                   </p>
                 </div>
@@ -330,8 +336,10 @@ export default function ConfirmarEntrega() {
           </div>
 
           {/* Total */}
-          <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-            <span className="font-semibold text-gray-800">Total:</span>
+          <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-neutral-600">
+            <span className="font-semibold text-gray-800 dark:text-white">
+              Total:
+            </span>
             <span className="text-xl font-bold text-primary">
               ${entrega?.total?.toLocaleString()}
             </span>
@@ -340,19 +348,23 @@ export default function ConfirmarEntrega() {
 
         {/* Usuario info */}
         {usuario ? (
-          <div className="bg-blue-50 rounded-xl p-4 mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <Icons.User className="w-5 h-5 text-blue-600" />
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center">
+              <Icons.User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-blue-600">Confirmando como:</p>
-              <p className="font-semibold text-blue-800">{usuario.nombre}</p>
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                Confirmando como:
+              </p>
+              <p className="font-semibold text-blue-800 dark:text-blue-300">
+                {usuario.nombre}
+              </p>
             </div>
           </div>
         ) : (
-          <div className="bg-yellow-50 rounded-xl p-4 mb-6 flex items-center gap-3">
-            <Icons.ExclamationTriangle className="w-6 h-6 text-yellow-600" />
-            <p className="text-sm text-yellow-800">
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 mb-6 flex items-center gap-3">
+            <Icons.ExclamationTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
               Debes iniciar sesión para confirmar la entrega
             </p>
           </div>
@@ -377,7 +389,7 @@ export default function ConfirmarEntrega() {
           )}
         </button>
 
-        <p className="text-xs text-gray-500 text-center mt-4">
+        <p className="text-xs text-gray-500 dark:text-neutral-400 text-center mt-4">
           Al confirmar, los productos se agregarán automáticamente a tu stock
         </p>
       </div>

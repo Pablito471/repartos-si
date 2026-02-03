@@ -7,6 +7,7 @@ import { formatNumber } from "@/utils/formatters";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import Icons from "@/components/Icons";
+import NotificacionesPanel from "@/components/NotificacionesPanel";
 
 const menuItems = [
   {
@@ -194,13 +195,7 @@ export default function ClienteLayout({ children }) {
             )}
 
             {/* Notifications */}
-            <button
-              className="relative p-1.5 sm:p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
-              aria-label="Notificaciones"
-            >
-              <Icons.Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-              <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <NotificacionesPanel />
 
             {/* Help - hidden on mobile */}
             <button

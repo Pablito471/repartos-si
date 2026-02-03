@@ -22,6 +22,7 @@ export default function NuevoPedido() {
     getProductosPorDeposito,
     eliminarDelCarrito,
     actualizarCantidadCarrito,
+    cargandoDepositos,
   } = useCliente();
 
   const { recibirPedidoCliente } = useDeposito();
@@ -45,6 +46,18 @@ export default function NuevoPedido() {
       }));
     }
   }, []); // Solo al montar
+
+  // Mostrar loading mientras se cargan los depósitos
+  if (cargandoDepositos) {
+    return (
+      <ClienteLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <span className="ml-3 text-gray-600">Cargando...</span>
+        </div>
+      </ClienteLayout>
+    );
+  }
 
   const depositosEnCarrito = getDepositosEnCarrito();
 
@@ -115,56 +128,67 @@ export default function NuevoPedido() {
     );
 
     if (confirmado) {
-      // Crear un pedido por cada depósito
-      const depositosIds = [
-        ...new Set(pedido.productos.map((p) => p.depositoId)),
-      ];
+      try {
+        // Crear un pedido por cada depósito
+        const depositosIds = [
+          ...new Set(pedido.productos.map((p) => p.depositoId)),
+        ];
 
-      for (const depositoId of depositosIds) {
-        const deposito = depositos.find((d) => d.id === depositoId);
-        const productosDeposito = getProductosDeDeposito(depositoId);
+        for (const depositoId of depositosIds) {
+          const deposito = depositos.find(
+            (d) => String(d.id) === String(depositoId),
+          );
+          const productosDeposito = getProductosDeDeposito(depositoId);
 
-        const nuevoPedido = {
-          deposito: deposito.nombre,
-          depositoId: depositoId,
-          tipoEnvio: pedido.tipoEnvio,
-          direccion: pedido.direccion || deposito.direccion,
-          productos: productosDeposito.map((p) => ({
-            nombre: p.nombre,
-            cantidad: p.cantidad,
-            precio: p.precio,
-          })),
-          total: calcularTotalPorDeposito(depositoId),
-          notas: pedido.notas,
-        };
+          const nuevoPedido = {
+            deposito: deposito?.nombre || "Depósito",
+            depositoId: depositoId,
+            tipoEnvio: pedido.tipoEnvio,
+            direccion: pedido.direccion || deposito?.direccion || "",
+            productos: productosDeposito.map((p) => ({
+              id: p.id,
+              nombre: p.nombre,
+              cantidad: p.cantidad,
+              precio: p.precio,
+            })),
+            total: calcularTotalPorDeposito(depositoId),
+            notas: pedido.notas,
+          };
 
-        // Crear pedido en el contexto del cliente
-        crearPedido(nuevoPedido);
+          // Crear pedido en el backend
+          await crearPedido(nuevoPedido);
 
-        // Enviar notificación al depósito correspondiente
-        recibirPedidoCliente({
-          clienteId: "CLI-12345",
-          cliente: "Mi Local", // Nombre del cliente actual
-          tipoEnvio: pedido.tipoEnvio,
-          direccion: pedido.direccion || deposito.direccion,
-          productos: productosDeposito.map((p) => ({
-            nombre: p.nombre,
-            cantidad: p.cantidad,
-            precio: p.precio,
-          })),
-          total: calcularTotalPorDeposito(depositoId),
-          notas: pedido.notas,
-        });
+          // Enviar notificación al depósito correspondiente (opcional, para UI local)
+          recibirPedidoCliente({
+            clienteId: "CLI-12345",
+            cliente: "Mi Local",
+            tipoEnvio: pedido.tipoEnvio,
+            direccion: pedido.direccion || deposito?.direccion || "",
+            productos: productosDeposito.map((p) => ({
+              nombre: p.nombre,
+              cantidad: p.cantidad,
+              precio: p.precio,
+            })),
+            total: calcularTotalPorDeposito(depositoId),
+            notas: pedido.notas,
+          });
+        }
+
+        vaciarCarrito();
+        showSuccessAlert(
+          "¡Pedido creado!",
+          depositosIds.length > 1
+            ? `Se han creado ${depositosIds.length} pedidos y notificado a cada depósito`
+            : "Tu pedido ha sido registrado y el depósito ha sido notificado",
+        );
+        router.push("/clientes/pedidos");
+      } catch (error) {
+        console.error("Error al crear pedido:", error);
+        showErrorAlert(
+          "Error al crear pedido",
+          error.message || "No se pudo crear el pedido. Intenta nuevamente.",
+        );
       }
-
-      vaciarCarrito();
-      showSuccessAlert(
-        "¡Pedido creado!",
-        depositosIds.length > 1
-          ? `Se han creado ${depositosIds.length} pedidos y notificado a cada depósito`
-          : "Tu pedido ha sido registrado y el depósito ha sido notificado",
-      );
-      router.push("/clientes/pedidos");
     }
   };
 

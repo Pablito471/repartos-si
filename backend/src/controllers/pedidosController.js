@@ -8,6 +8,7 @@ const {
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
+const { emitirNuevoPedido, emitirPedidoActualizado } = require("../socket");
 
 // GET /api/pedidos
 exports.getPedidos = async (req, res, next) => {
@@ -196,6 +197,14 @@ exports.crearPedido = async (req, res, next) => {
       ],
     });
 
+    // Emitir notificación al depósito
+    emitirNuevoPedido(depositoId, {
+      id: pedidoCompleto.id,
+      numero: pedidoCompleto.numero,
+      cliente: pedidoCompleto.cliente?.nombre,
+      total: pedidoCompleto.total,
+    });
+
     res.status(201).json({
       success: true,
       message: "Pedido creado exitosamente",
@@ -326,6 +335,13 @@ exports.cambiarEstado = async (req, res, next) => {
     await pedido.update({
       estado,
       fechaEntrega: estado === "entregado" ? new Date() : pedido.fechaEntrega,
+    });
+
+    // Emitir notificación al cliente
+    emitirPedidoActualizado(pedido.clienteId, {
+      id: pedido.id,
+      numero: pedido.numero,
+      estado,
     });
 
     res.json({
