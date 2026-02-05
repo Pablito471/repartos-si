@@ -14,8 +14,7 @@ const NotificacionContext = createContext(null);
 // Verificar si Pusher está configurado
 const isPusherConfigured = () => {
   return !!(
-    process.env.NEXT_PUBLIC_PUSHER_KEY &&
-    process.env.NEXT_PUBLIC_PUSHER_CLUSTER
+    process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.NEXT_PUBLIC_PUSHER_CLUSTER
   );
 };
 
@@ -99,7 +98,7 @@ export function NotificacionProvider({ children }) {
     if (usuario && notificaciones.length > 0) {
       localStorage.setItem(
         `notificaciones_${usuario.id}`,
-        JSON.stringify(notificaciones.slice(0, 50))
+        JSON.stringify(notificaciones.slice(0, 50)),
       );
     }
   }, [notificaciones, usuario]);
@@ -134,7 +133,7 @@ export function NotificacionProvider({ children }) {
                   socket_id: socketId,
                   channel_name: channel.name,
                 }),
-              }
+              },
             );
             const data = await response.json();
             callback(null, data);
@@ -155,7 +154,9 @@ export function NotificacionProvider({ children }) {
     // Suscribirse a canal de rol (si aplica)
     let roleChannel = null;
     if (usuario.tipoUsuario) {
-      roleChannel = pusherInstance.subscribe(`private-role-${usuario.tipoUsuario}`);
+      roleChannel = pusherInstance.subscribe(
+        `private-role-${usuario.tipoUsuario}`,
+      );
     }
 
     // Notificación de nuevo mensaje de chat
@@ -179,7 +180,7 @@ export function NotificacionProvider({ children }) {
         icono: "📦",
       });
       window.dispatchEvent(
-        new CustomEvent("socket:nuevo_pedido", { detail: data })
+        new CustomEvent("socket:nuevo_pedido", { detail: data }),
       );
     };
 
@@ -206,7 +207,7 @@ export function NotificacionProvider({ children }) {
         icono: "📋",
       });
       window.dispatchEvent(
-        new CustomEvent("socket:pedido_actualizado", { detail: data })
+        new CustomEvent("socket:pedido_actualizado", { detail: data }),
       );
     });
 
@@ -220,7 +221,7 @@ export function NotificacionProvider({ children }) {
         icono: "🚚",
       });
       window.dispatchEvent(
-        new CustomEvent("socket:envio_asignado", { detail: data })
+        new CustomEvent("socket:envio_asignado", { detail: data }),
       );
     });
 
@@ -234,7 +235,7 @@ export function NotificacionProvider({ children }) {
         icono: "🚀",
       });
       window.dispatchEvent(
-        new CustomEvent("socket:envio_en_camino", { detail: data })
+        new CustomEvent("socket:envio_en_camino", { detail: data }),
       );
     });
 
@@ -248,7 +249,7 @@ export function NotificacionProvider({ children }) {
         icono: "✅",
       });
       window.dispatchEvent(
-        new CustomEvent("socket:envio_entregado", { detail: data })
+        new CustomEvent("socket:envio_entregado", { detail: data }),
       );
     });
 
@@ -262,7 +263,7 @@ export function NotificacionProvider({ children }) {
         icono: "✅",
       });
       window.dispatchEvent(
-        new CustomEvent("socket:envio_entregado_deposito", { detail: data })
+        new CustomEvent("socket:envio_entregado_deposito", { detail: data }),
       );
     });
 
@@ -309,7 +310,7 @@ export function NotificacionProvider({ children }) {
   // Marcar notificación como leída
   const marcarComoLeida = useCallback((id) => {
     setNotificaciones((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, leida: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, leida: true } : n)),
     );
     setNoLeidas((prev) => Math.max(0, prev - 1));
   }, []);
@@ -371,7 +372,7 @@ export function useNotificaciones() {
   const context = useContext(NotificacionContext);
   if (!context) {
     throw new Error(
-      "useNotificaciones debe usarse dentro de un NotificacionProvider"
+      "useNotificaciones debe usarse dentro de un NotificacionProvider",
     );
   }
   return context;
