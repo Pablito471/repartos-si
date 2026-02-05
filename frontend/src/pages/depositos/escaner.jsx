@@ -60,8 +60,34 @@ export default function EscanerDeposito() {
   // Referencia para el contexto de audio
   const audioContextRef = useRef(null);
 
+  // Función para inicializar/desbloquear el audio (necesario en móviles)
+  const inicializarAudio = useCallback(async () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      }
+      // Desbloquear el contexto de audio (requerido en móviles)
+      if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
+      // Reproducir un sonido silencioso para "despertar" el audio en iOS
+      const oscillator = audioContextRef.current.createOscillator();
+      const gainNode = audioContextRef.current.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContextRef.current.destination);
+      gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime);
+      oscillator.start();
+      oscillator.stop(audioContextRef.current.currentTime + 0.001);
+      console.log("🔊 Audio inicializado correctamente");
+    } catch (err) {
+      console.log("Error al inicializar audio:", err);
+    }
+  }, []);
+
   // Función para reproducir sonido de escaneo fuerte
-  const reproducirSonidoEscaneo = useCallback(() => {
+  const reproducirSonidoEscaneo = useCallback(async () => {
     try {
       // Crear contexto de audio si no existe
       if (!audioContextRef.current) {
@@ -70,6 +96,11 @@ export default function EscanerDeposito() {
         )();
       }
       const audioContext = audioContextRef.current;
+
+      // Asegurar que el contexto esté activo (importante para móviles)
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
 
       // Crear un oscilador para el beep
       const oscillator = audioContext.createOscillator();
@@ -83,7 +114,7 @@ export default function EscanerDeposito() {
       oscillator.type = "square"; // Tipo de onda para sonido más fuerte
 
       // Volumen fuerte
-      gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(1, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(
         0.01,
         audioContext.currentTime + 0.3,
@@ -94,14 +125,17 @@ export default function EscanerDeposito() {
       oscillator.stop(audioContext.currentTime + 0.3);
 
       // Segundo beep más corto para confirmar
-      setTimeout(() => {
+      setTimeout(async () => {
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
         const osc2 = audioContext.createOscillator();
         const gain2 = audioContext.createGain();
         osc2.connect(gain2);
         gain2.connect(audioContext.destination);
         osc2.frequency.setValueAtTime(2200, audioContext.currentTime);
         osc2.type = "square";
-        gain2.gain.setValueAtTime(0.8, audioContext.currentTime);
+        gain2.gain.setValueAtTime(1, audioContext.currentTime);
         gain2.gain.exponentialRampToValueAtTime(
           0.01,
           audioContext.currentTime + 0.15,
@@ -134,6 +168,9 @@ export default function EscanerDeposito() {
   // Iniciar escáner - verificar permisos primero
   const iniciarEscaner = useCallback(async () => {
     setErrorCamara(null);
+
+    // Inicializar audio al iniciar escáner (requiere interacción del usuario en móviles)
+    await inicializarAudio();
 
     // Verificar si estamos en HTTPS o localhost
     const isSecure =
@@ -192,7 +229,7 @@ export default function EscanerDeposito() {
         );
       }
     }
-  }, []);
+  }, [inicializarAudio]);
 
   // Efecto para inicializar el escáner cuando el elemento DOM existe
   useEffect(() => {
@@ -704,6 +741,8 @@ export default function EscanerDeposito() {
       showToast("warning", "Ingresa un código");
       return;
     }
+    // Inicializar audio (requiere interacción del usuario en móviles)
+    await inicializarAudio();
     await buscarProducto(codigoManual.trim().toUpperCase());
   };
 
