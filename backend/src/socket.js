@@ -318,15 +318,20 @@ const emitirStockBajo = (depositoId, producto, cantidad) => {
 };
 
 // Emitir nuevo mensaje de chat
-const emitirNuevoMensaje = (conversacionId, mensaje, remitenteId, destinatarioId) => {
+const emitirNuevoMensaje = (
+  conversacionId,
+  mensaje,
+  remitenteId,
+  destinatarioId,
+) => {
   if (io) {
     // Emitir a la sala de la conversación
     io.to(`conversacion_${conversacionId}`).emit("nuevo_mensaje", mensaje);
-    
+
     // Emitir directamente a ambos usuarios para asegurar entrega
     io.to(`user_${remitenteId}`).emit("nuevo_mensaje", mensaje);
     io.to(`user_${destinatarioId}`).emit("nuevo_mensaje", mensaje);
-    
+
     // Notificar al destinatario
     io.to(`user_${destinatarioId}`).emit("notificacion_mensaje", {
       conversacionId,
