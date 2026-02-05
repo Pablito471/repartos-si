@@ -53,6 +53,67 @@ export default function EscanerDeposito() {
   const ocrIntervalRef = useRef(null);
   const ultimoCodigoOCR = useRef("");
 
+  // Control de linterna
+  const [linternaActiva, setLinternaActiva] = useState(false);
+  const [linternaDisponible, setLinternaDisponible] = useState(false);
+
+  // Referencia para el contexto de audio
+  const audioContextRef = useRef(null);
+
+  // Función para reproducir sonido de escaneo fuerte
+  const reproducirSonidoEscaneo = useCallback(() => {
+    try {
+      // Crear contexto de audio si no existe
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      }
+      const audioContext = audioContextRef.current;
+
+      // Crear un oscilador para el beep
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Configurar el sonido - frecuencia alta y volumen fuerte
+      oscillator.frequency.setValueAtTime(1800, audioContext.currentTime); // Frecuencia del beep
+      oscillator.type = "square"; // Tipo de onda para sonido más fuerte
+
+      // Volumen fuerte
+      gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.01,
+        audioContext.currentTime + 0.3,
+      );
+
+      // Reproducir
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+
+      // Segundo beep más corto para confirmar
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.setValueAtTime(2200, audioContext.currentTime);
+        osc2.type = "square";
+        gain2.gain.setValueAtTime(0.8, audioContext.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(
+          0.01,
+          audioContext.currentTime + 0.15,
+        );
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.15);
+      }, 100);
+    } catch (err) {
+      console.log("Error al reproducir sonido:", err);
+    }
+  }, []);
+
   // Detectar cambios de orientación
   useEffect(() => {
     const checkOrientation = () => {
@@ -211,6 +272,8 @@ export default function EscanerDeposito() {
             config,
             async (decodedText, decodedResult) => {
               console.log("✅ Código detectado:", decodedText);
+              // Reproducir sonido fuerte de escaneo
+              reproducirSonidoEscaneo();
               if (navigator.vibrate) {
                 navigator.vibrate(200);
               }
@@ -250,9 +313,18 @@ export default function EscanerDeposito() {
                   advanced: [{ zoom: initialZoom }],
                 });
               }
+
+              // Verificar si la linterna está disponible
+              if (capabilities.torch) {
+                setLinternaDisponible(true);
+                setLinternaActiva(false);
+              } else {
+                setLinternaDisponible(false);
+              }
             }
           } catch (zoomErr) {
             setZoomDisponible(false);
+            setLinternaDisponible(false);
           }
 
           console.log("🎥 Escáner iniciado correctamente");
@@ -280,6 +352,23 @@ export default function EscanerDeposito() {
       }
     } catch (err) {
       console.log("Error al cambiar zoom:", err);
+    }
+  };
+
+  // Función para encender/apagar linterna
+  const toggleLinterna = async () => {
+    try {
+      const videoElement = document.querySelector("#reader video");
+      if (videoElement && videoElement.srcObject) {
+        const track = videoElement.srcObject.getVideoTracks()[0];
+        const nuevoEstado = !linternaActiva;
+        await track.applyConstraints({
+          advanced: [{ torch: nuevoEstado }],
+        });
+        setLinternaActiva(nuevoEstado);
+      }
+    } catch (err) {
+      console.log("Error al cambiar linterna:", err);
     }
   };
 
@@ -373,6 +462,8 @@ export default function EscanerDeposito() {
         console.log("🔢 OCR detectó código:", codigoDetectado);
         ultimoCodigoOCR.current = codigoDetectado;
 
+        // Reproducir sonido fuerte de escaneo
+        reproducirSonidoEscaneo();
         if (navigator.vibrate) {
           navigator.vibrate([100, 50, 100]);
         }
@@ -385,7 +476,7 @@ export default function EscanerDeposito() {
     } catch (err) {
       console.log("Error en OCR:", err.message);
     }
-  }, [productoEscaneado]);
+  }, [productoEscaneado, reproducirSonidoEscaneo]);
 
   // Activar/desactivar OCR
   const toggleOCR = useCallback(async () => {
@@ -425,6 +516,17 @@ export default function EscanerDeposito() {
 
   // Detener escáner
   const detenerEscaner = useCallback(async () => {
+    // Apagar linterna si está encendida
+    if (linternaActiva) {
+      try {
+        const videoElement = document.querySelector("#reader video");
+        if (videoElement && videoElement.srcObject) {
+          const track = videoElement.srcObject.getVideoTracks()[0];
+          await track.applyConstraints({ advanced: [{ torch: false }] });
+        }
+      } catch (e) {}
+    }
+
     if (html5QrcodeScannerRef.current) {
       try {
         await html5QrcodeScannerRef.current.stop();
@@ -433,7 +535,9 @@ export default function EscanerDeposito() {
     }
     setEscaneando(false);
     setErrorCamara(null);
-  }, []);
+    setLinternaActiva(false);
+    setLinternaDisponible(false);
+  }, [linternaActiva]);
 
   // Buscar producto por código
   const buscarProducto = async (codigo) => {
@@ -881,6 +985,32 @@ export default function EscanerDeposito() {
                         disabled={zoomLevel >= maxZoom}
                       >
                         +
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Control de linterna */}
+                {linternaDisponible && (
+                  <div className="mt-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm text-yellow-800 dark:text-yellow-200 font-bold">
+                          🔦 Linterna
+                        </span>
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                          Enciende la luz para lugares oscuros
+                        </p>
+                      </div>
+                      <button
+                        onClick={toggleLinterna}
+                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                          linternaActiva
+                            ? "bg-yellow-500 text-white shadow-lg shadow-yellow-500/50"
+                            : "bg-white dark:bg-gray-800 border-2 border-yellow-400 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100"
+                        }`}
+                      >
+                        {linternaActiva ? "💡 Encendida" : "🔦 Encender"}
                       </button>
                     </div>
                   </div>
