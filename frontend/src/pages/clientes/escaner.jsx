@@ -4,7 +4,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { stockService } from "@/services/api";
 import { showToast, showConfirmAlert, showSuccessAlert } from "@/utils/alerts";
 import { formatNumber } from "@/utils/formatters";
-import { Html5QrcodeScanner, Html5QrcodeScanType } from "html5-qrcode";
+import {
+  Html5QrcodeScanner,
+  Html5QrcodeScanType,
+  Html5Qrcode,
+} from "html5-qrcode";
 
 export default function EscanerStock() {
   const { usuario } = useAuth();
@@ -13,6 +17,7 @@ export default function EscanerStock() {
 
   const [escaneando, setEscaneando] = useState(false);
   const [productoEscaneado, setProductoEscaneado] = useState(null);
+  const [errorCamara, setErrorCamara] = useState(null);
   const [cantidad, setCantidad] = useState(1);
   const [procesando, setProcesando] = useState(false);
   const [historialVentas, setHistorialVentas] = useState([]);
@@ -49,9 +54,67 @@ export default function EscanerStock() {
     cargarCategorias();
   }, []);
 
-  // Iniciar escáner - solo marca el estado, la inicialización real ocurre en useEffect
-  const iniciarEscaner = useCallback(() => {
-    setEscaneando(true);
+  // Iniciar escáner - verificar permisos primero
+  const iniciarEscaner = useCallback(async () => {
+    setErrorCamara(null);
+
+    // Verificar si estamos en HTTPS o localhost
+    const isSecure =
+      window.location.protocol === "https:" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    if (!isSecure) {
+      setErrorCamara(
+        "La cámara solo funciona en conexiones seguras (HTTPS). Por favor, usa el modo manual o accede desde HTTPS.",
+      );
+      setModoManual(true);
+      return;
+    }
+
+    // Verificar si el navegador soporta getUserMedia
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setErrorCamara(
+        "Tu navegador no soporta acceso a la cámara. Usa el modo manual.",
+      );
+      setModoManual(true);
+      return;
+    }
+
+    try {
+      // Solicitar permiso de cámara explícitamente
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      // Detener el stream de prueba
+      stream.getTracks().forEach((track) => track.stop());
+
+      setEscaneando(true);
+    } catch (err) {
+      console.error("Error al acceder a la cámara:", err);
+      if (
+        err.name === "NotAllowedError" ||
+        err.name === "PermissionDeniedError"
+      ) {
+        setErrorCamara(
+          "Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración del navegador.",
+        );
+      } else if (
+        err.name === "NotFoundError" ||
+        err.name === "DevicesNotFoundError"
+      ) {
+        setErrorCamara("No se encontró ninguna cámara en el dispositivo.");
+      } else if (
+        err.name === "NotReadableError" ||
+        err.name === "TrackStartError"
+      ) {
+        setErrorCamara("La cámara está siendo usada por otra aplicación.");
+      } else {
+        setErrorCamara(
+          `Error al acceder a la cámara: ${err.message || err.name}`,
+        );
+      }
+    }
   }, []);
 
   // Efecto para inicializar el escáner cuando el elemento DOM existe
@@ -62,6 +125,10 @@ export default function EscanerStock() {
         const readerElement = document.getElementById("reader");
         if (!readerElement) {
           console.error("Elemento reader no encontrado");
+          setErrorCamara(
+            "Error al inicializar el escáner. Intenta recargar la página.",
+          );
+          setEscaneando(false);
           return;
         }
 
@@ -73,12 +140,20 @@ export default function EscanerStock() {
           }
         }
 
+        // Calcular tamaño del qrbox basado en el ancho de pantalla
+        const screenWidth = window.innerWidth;
+        const qrboxSize = Math.min(screenWidth - 60, 300);
+
         const config = {
           fps: 10,
-          qrbox: { width: 250, height: 150 },
+          qrbox: { width: qrboxSize, height: Math.floor(qrboxSize * 0.6) },
           supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
           rememberLastUsedCamera: true,
           showTorchButtonIfSupported: true,
+          aspectRatio: 1.0,
+          videoConstraints: {
+            facingMode: "environment", // Usar cámara trasera en móviles
+          },
         };
 
         html5QrcodeScannerRef.current = new Html5QrcodeScanner(
@@ -113,6 +188,7 @@ export default function EscanerStock() {
       html5QrcodeScannerRef.current = null;
     }
     setEscaneando(false);
+    setErrorCamara(null);
   }, []);
 
   // Buscar producto por código
@@ -407,7 +483,36 @@ export default function EscanerStock() {
         {/* Escáner de cámara */}
         {!modoManual && (
           <div className="card">
-            {!escaneando ? (
+            {errorCamara ? (
+              <div className="text-center py-8">
+                <span className="text-6xl block mb-4">⚠️</span>
+                <p className="text-red-600 mb-4 font-medium">{errorCamara}</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={() => {
+                      setErrorCamara(null);
+                      iniciarEscaner();
+                    }}
+                    className="btn-primary px-6 py-2"
+                  >
+                    🔄 Reintentar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setErrorCamara(null);
+                      setModoManual(true);
+                    }}
+                    className="btn-secondary px-6 py-2"
+                  >
+                    ⌨️ Usar modo manual
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-4">
+                  💡 En móviles, asegúrate de permitir el acceso a la cámara
+                  cuando el navegador lo solicite
+                </p>
+              </div>
+            ) : !escaneando ? (
               <div className="text-center py-8">
                 <span className="text-6xl block mb-4">📷</span>
                 <p className="text-gray-600 mb-4">
@@ -419,6 +524,9 @@ export default function EscanerStock() {
                 >
                   🎯 Iniciar Escáner
                 </button>
+                <p className="text-xs text-gray-400 mt-4">
+                  📱 Se usará la cámara trasera en dispositivos móviles
+                </p>
               </div>
             ) : (
               <div>
@@ -426,6 +534,7 @@ export default function EscanerStock() {
                   id="reader"
                   ref={scannerRef}
                   className="w-full rounded-lg overflow-hidden"
+                  style={{ minHeight: "300px" }}
                 ></div>
                 <div className="mt-4 flex justify-center">
                   <button onClick={detenerEscaner} className="btn-secondary">
