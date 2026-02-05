@@ -1,0 +1,15 @@
+{
+  "name": "repartos-si-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo para Repartos SI - Ver frontend/ y backend/ para los proyectos individuales",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "install:all": "cd frontend && npm install && cd ../backend && npm install"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}
