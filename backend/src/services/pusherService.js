@@ -1,28 +1,43 @@
 // Servicio de Pusher para tiempo real en Vercel (serverless)
+// OPCIONAL: Si no hay credenciales de Pusher, el servicio funciona sin tiempo real
 const Pusher = require("pusher");
 require("dotenv").config();
 
 let pusher = null;
+let pusherEnabled = false;
 
 const initPusher = () => {
+  // Verificar si las credenciales están configuradas
+  const { PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER } = process.env;
+  
+  if (!PUSHER_APP_ID || !PUSHER_KEY || !PUSHER_SECRET || !PUSHER_CLUSTER) {
+    console.log("⚠️ Pusher no configurado - notificaciones en tiempo real deshabilitadas");
+    pusherEnabled = false;
+    return null;
+  }
+
   if (!pusher) {
     pusher = new Pusher({
-      appId: process.env.PUSHER_APP_ID,
-      key: process.env.PUSHER_KEY,
-      secret: process.env.PUSHER_SECRET,
-      cluster: process.env.PUSHER_CLUSTER,
+      appId: PUSHER_APP_ID,
+      key: PUSHER_KEY,
+      secret: PUSHER_SECRET,
+      cluster: PUSHER_CLUSTER,
       useTLS: true,
     });
+    pusherEnabled = true;
+    console.log("✅ Pusher inicializado correctamente");
   }
   return pusher;
 };
 
 const getPusher = () => {
-  if (!pusher) {
+  if (!pusher && pusherEnabled !== false) {
     return initPusher();
   }
   return pusher;
 };
+
+const isPusherEnabled = () => pusherEnabled;
 
 // ============================================
 // Funciones para emitir eventos
@@ -159,6 +174,7 @@ const emitirMensajesLeidos = (conversacionId, lectorId) => {
 module.exports = {
   initPusher,
   getPusher,
+  isPusherEnabled,
   emitirAUsuario,
   emitirAConversacion,
   emitirARol,

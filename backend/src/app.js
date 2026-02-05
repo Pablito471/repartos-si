@@ -11,10 +11,26 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
+// Configurar orígenes permitidos para CORS
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 // Middlewares
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Permitir requests sin origin (mobile apps, Postman, etc)
+      if (!origin) return callback(null, true);
+
+      // Verificar si el origin está permitido o es un subdominio de vercel.app
+      if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   }),
 );

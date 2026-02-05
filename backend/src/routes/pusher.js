@@ -1,11 +1,19 @@
 // Ruta de autenticación para Pusher (canales privados)
 const express = require("express");
 const router = express.Router();
-const { getPusher } = require("../services/pusherService");
+const { getPusher, isPusherEnabled } = require("../services/pusherService");
 const { verificarToken } = require("../middleware/auth");
 
 // POST /api/pusher/auth - Autenticar canal privado de Pusher
 router.post("/auth", verificarToken, (req, res) => {
+  // Si Pusher no está habilitado, retornar error amigable
+  if (!isPusherEnabled()) {
+    return res.status(503).json({ 
+      error: "Pusher no configurado", 
+      message: "Notificaciones en tiempo real no disponibles" 
+    });
+  }
+
   const socketId = req.body.socket_id;
   const channel = req.body.channel_name;
   const usuario = req.usuario;
