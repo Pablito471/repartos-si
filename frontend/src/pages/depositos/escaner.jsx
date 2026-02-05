@@ -1,3 +1,4 @@
+// Escáner de inventario con sonido beep y linterna - v2.1
 import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useAuth } from "@/context/AuthContext";
 import { useDeposito } from "@/context/DepositoContext";
