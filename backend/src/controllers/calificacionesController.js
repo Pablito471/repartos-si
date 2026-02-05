@@ -1,6 +1,13 @@
 const { Calificacion, Usuario, sequelize } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 
+// Función para validar UUID
+const isValidUUID = (str) => {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
 // GET /api/calificaciones
 exports.getCalificaciones = async (req, res, next) => {
   try {
@@ -8,6 +15,9 @@ exports.getCalificaciones = async (req, res, next) => {
 
     const where = {};
     if (usuarioId) {
+      if (!isValidUUID(usuarioId)) {
+        throw new AppError("ID de usuario inválido", 400);
+      }
       where.calificadoId = usuarioId;
     }
 
@@ -40,8 +50,22 @@ exports.getCalificaciones = async (req, res, next) => {
 // GET /api/calificaciones/usuario/:id
 exports.getCalificacionesUsuario = async (req, res, next) => {
   try {
+    const { id } = req.params;
+
+    // Validar que sea un UUID válido
+    if (!isValidUUID(id)) {
+      return res.json({
+        success: true,
+        data: {
+          calificaciones: [],
+          promedio: null,
+          total: 0,
+        },
+      });
+    }
+
     const calificaciones = await Calificacion.findAll({
-      where: { calificadoId: req.params.id },
+      where: { calificadoId: id },
       include: [
         {
           model: Usuario,
@@ -54,7 +78,7 @@ exports.getCalificacionesUsuario = async (req, res, next) => {
 
     // Calcular promedio
     const promedio = await Calificacion.findOne({
-      where: { calificadoId: req.params.id },
+      where: { calificadoId: id },
       attributes: [
         [sequelize.fn("AVG", sequelize.col("puntuacion")), "promedio"],
         [sequelize.fn("COUNT", sequelize.col("id")), "total"],
@@ -81,6 +105,16 @@ exports.getCalificacionesUsuario = async (req, res, next) => {
 exports.crearCalificacion = async (req, res, next) => {
   try {
     const { calificadoId, pedidoId, puntuacion, comentario } = req.body;
+
+    // Validar UUID de calificadoId
+    if (!calificadoId || !isValidUUID(calificadoId)) {
+      throw new AppError("ID de usuario a calificar inválido", 400);
+    }
+
+    // Validar UUID de pedidoId si se proporciona
+    if (pedidoId && !isValidUUID(pedidoId)) {
+      throw new AppError("ID de pedido inválido", 400);
+    }
 
     // No puede calificarse a sí mismo
     if (calificadoId === req.usuario.id) {
@@ -147,8 +181,21 @@ exports.crearCalificacion = async (req, res, next) => {
 // GET /api/calificaciones/promedio/:usuarioId
 exports.getPromedioUsuario = async (req, res, next) => {
   try {
+    const { usuarioId } = req.params;
+
+    // Validar que sea un UUID válido
+    if (!isValidUUID(usuarioId)) {
+      return res.json({
+        success: true,
+        data: {
+          promedio: null,
+          total: 0,
+        },
+      });
+    }
+
     const resultado = await Calificacion.findOne({
-      where: { calificadoId: req.params.usuarioId },
+      where: { calificadoId: usuarioId },
       attributes: [
         [sequelize.fn("AVG", sequelize.col("puntuacion")), "promedio"],
         [sequelize.fn("COUNT", sequelize.col("id")), "total"],

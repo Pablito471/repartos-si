@@ -310,6 +310,7 @@ export function DepositoProvider({ children }) {
               email: f.email || "",
               vehiculoTipo: f.vehiculoTipo || "",
               vehiculoPatente: f.vehiculoPatente || "",
+              vehiculoCapacidad: f.vehiculoCapacidad || "",
               estado: "disponible",
               foto: f.foto || null,
             }))
@@ -377,8 +378,15 @@ export function DepositoProvider({ children }) {
       setCargandoPedidos(false);
     };
 
-    cargarPedidos();
-  }, []);
+    // Solo cargar si hay usuario autenticado (token disponible)
+    if (usuario?.id) {
+      cargarPedidos();
+    } else if (MODO_CONEXION !== "api") {
+      cargarPedidos();
+    } else {
+      setCargandoPedidos(false);
+    }
+  }, [usuario?.id]);
 
   // Escuchar eventos del navegador desde NotificacionContext (socket centralizado)
   useEffect(() => {
@@ -462,10 +470,32 @@ export function DepositoProvider({ children }) {
       }
     };
 
+    // Handler para cuando el flete marca el envío como "en camino"
+    const handleEnvioEnCamino = (event) => {
+      const data = event.detail;
+      console.log(
+        "DepositoContext: Recibido socket:envio_en_camino_deposito",
+        data,
+      );
+
+      // Actualizar el estado del pedido a "enviado"
+      setPedidos((prev) =>
+        prev.map((p) =>
+          String(p.id) === String(data.pedidoId)
+            ? { ...p, estado: "enviado" }
+            : p,
+        ),
+      );
+    };
+
     window.addEventListener("socket:nuevo_pedido", handleNuevoPedido);
     window.addEventListener(
       "socket:envio_entregado_deposito",
       handleEnvioEntregado,
+    );
+    window.addEventListener(
+      "socket:envio_en_camino_deposito",
+      handleEnvioEnCamino,
     );
 
     return () => {
@@ -473,6 +503,10 @@ export function DepositoProvider({ children }) {
       window.removeEventListener(
         "socket:envio_entregado_deposito",
         handleEnvioEntregado,
+      );
+      window.removeEventListener(
+        "socket:envio_en_camino_deposito",
+        handleEnvioEnCamino,
       );
     };
   }, [usuario?.id]);

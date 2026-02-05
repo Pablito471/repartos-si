@@ -1,4 +1,10 @@
-const { Envio, Pedido, Usuario, PedidoProducto } = require("../models");
+const {
+  Envio,
+  Pedido,
+  Usuario,
+  PedidoProducto,
+  StockCliente,
+} = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
 const {
@@ -237,6 +243,32 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
     if (notas) updates.notas = notas;
     if (ubicacionActual) updates.ubicacionActual = ubicacionActual;
 
+    // Cuando el flete marca como "en_camino", actualizar el pedido a "enviado"
+    if (estado === "en_camino") {
+      // Actualizar el pedido a enviado si no lo está
+      if (
+        envio.pedido.estado !== "enviado" &&
+        envio.pedido.estado !== "entregado"
+      ) {
+        await envio.pedido.update({ estado: "enviado" });
+      }
+
+      // Emitir notificación al cliente (incluir pedidoId para actualizar estado)
+      emitirEnvioEnCamino(envio.pedido.clienteId, {
+        id: envio.id,
+        pedidoId: envio.pedido.id,
+        numero: envio.pedido.numero,
+      });
+
+      // Emitir notificación al depósito
+      emitirNotificacion(envio.pedido.depositoId, {
+        tipo: "info",
+        titulo: "Envío en camino",
+        mensaje: `El pedido #${envio.pedido.numero || envio.pedido.id} está en camino`,
+        datos: { envioId: envio.id, pedidoId: envio.pedido.id },
+      });
+    }
+
     if (estado === "entregado") {
       updates.fechaEntrega = new Date();
       // También actualizar el pedido
@@ -245,10 +277,47 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
         fechaEntrega: new Date(),
       });
 
-      // Emitir notificación de entrega al cliente
+      // Agregar productos al stock del cliente automáticamente
+      try {
+        // Verificar si ya se agregó este pedido al stock
+        const yaAgregado = await StockCliente.findOne({
+          where: {
+            clienteId: envio.pedido.clienteId,
+            pedidoId: envio.pedido.id,
+          },
+        });
+
+        if (!yaAgregado) {
+          // Obtener los productos del pedido
+          const productos = await PedidoProducto.findAll({
+            where: { pedidoId: envio.pedido.id },
+          });
+
+          // Agregar cada producto al stock del cliente
+          for (const producto of productos) {
+            await StockCliente.create({
+              clienteId: envio.pedido.clienteId,
+              nombre: producto.nombre,
+              cantidad: producto.cantidad,
+              precio: producto.precioUnitario,
+              pedidoId: envio.pedido.id,
+            });
+          }
+          console.log(
+            `Stock actualizado para cliente ${envio.pedido.clienteId} - Pedido ${envio.pedido.id}`,
+          );
+        }
+      } catch (stockError) {
+        console.error("Error al agregar productos al stock:", stockError);
+        // No lanzar error para no interrumpir la entrega
+      }
+
+      // Emitir notificación de entrega al cliente (incluir pedidoId para actualizar estado)
       emitirEnvioEntregado(envio.pedido.clienteId, {
         id: envio.id,
+        pedidoId: envio.pedido.id,
         numero: envio.pedido.numero,
+        stockActualizado: true,
       });
 
       // Emitir notificación al depósito

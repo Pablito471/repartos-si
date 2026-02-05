@@ -25,6 +25,7 @@ exports.obtenerStock = async (req, res, next) => {
           nombre: item.nombre,
           cantidad: 0,
           precio: parseFloat(item.precio) || 0,
+          categoria: item.categoria || "General",
           ultimaActualizacion: item.updatedAt,
         };
       }
@@ -41,6 +42,35 @@ exports.obtenerStock = async (req, res, next) => {
     res.json({
       success: true,
       data: Object.values(stockAgrupado),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/stock/categorias - Obtener categorías del cliente
+exports.obtenerCategorias = async (req, res, next) => {
+  try {
+    const stock = await StockCliente.findAll({
+      where: {
+        clienteId: req.usuario.id,
+        categoria: { [Op.ne]: null },
+      },
+      attributes: ["categoria"],
+      group: ["categoria"],
+    });
+
+    // Extraer categorías únicas y agregar "General" si no existe
+    const categoriasSet = new Set(
+      stock.map((item) => item.categoria).filter(Boolean),
+    );
+    categoriasSet.add("General"); // Siempre incluir General
+
+    const categorias = Array.from(categoriasSet).sort();
+
+    res.json({
+      success: true,
+      data: categorias,
     });
   } catch (error) {
     next(error);
@@ -125,7 +155,7 @@ exports.agregarDesdePedido = async (req, res, next) => {
     const yaAgregado = await StockCliente.findOne({
       where: {
         clienteId: req.usuario.id,
-        entregaId: pedidoId, // Usamos entregaId para guardar referencia al pedido
+        pedidoId: pedidoId,
       },
     });
 
@@ -144,7 +174,7 @@ exports.agregarDesdePedido = async (req, res, next) => {
         nombre: producto.nombre,
         cantidad: producto.cantidad,
         precio: producto.precioUnitario,
-        entregaId: pedidoId, // Guardamos referencia al pedido
+        pedidoId: pedidoId,
       });
       productosAgregados.push(stockItem);
     }
@@ -162,10 +192,34 @@ exports.agregarDesdePedido = async (req, res, next) => {
 // POST /api/stock/agregar - Agregar producto manualmente al stock
 exports.agregarProducto = async (req, res, next) => {
   try {
-    const { nombre, cantidad, precio, registrarCompra } = req.body;
+    const {
+      nombre,
+      cantidad,
+      precio,
+      registrarCompra,
+      codigoBarras,
+      categoria,
+    } = req.body;
 
     if (!nombre || !cantidad) {
       throw new AppError("Nombre y cantidad son requeridos", 400);
+    }
+
+    // Si tiene código de barras, verificar que no exista ya para este cliente
+    if (codigoBarras) {
+      const codigoExistente = await StockCliente.findOne({
+        where: {
+          clienteId: req.usuario.id,
+          codigoBarras: codigoBarras,
+        },
+      });
+
+      if (codigoExistente) {
+        throw new AppError(
+          `Ya existe un producto con este código de barras: ${codigoExistente.nombre}`,
+          400,
+        );
+      }
     }
 
     const stockItem = await StockCliente.create({
@@ -173,6 +227,8 @@ exports.agregarProducto = async (req, res, next) => {
       nombre,
       cantidad: parseInt(cantidad),
       precio: precio ? parseFloat(precio) : null,
+      codigoBarras: codigoBarras || null,
+      categoria: categoria || "General",
     });
 
     // Registrar movimiento contable de egreso (compra) si tiene precio y se indica
@@ -367,6 +423,169 @@ exports.descontarStock = async (req, res, next) => {
   }
 };
 
+// POST /api/stock/descontar-por-codigo - Descontar por código de barras
+exports.descontarPorCodigo = async (req, res, next) => {
+  try {
+    const { codigo, cantidad = 1, motivo, precioVenta } = req.body;
+
+    if (!codigo) {
+      throw new AppError("Código de barras requerido", 400);
+    }
+
+    // Parsear código de barras (formato: STK000001)
+    const match = codigo.match(/^STK0*(\d+)$/);
+    if (!match) {
+      throw new AppError("Código de barras inválido", 400);
+    }
+
+    const stockId = parseInt(match[1]);
+
+    // Buscar el producto en el stock por ID
+    const stockItem = await StockCliente.findOne({
+      where: {
+        id: stockId,
+        clienteId: req.usuario.id,
+      },
+    });
+
+    if (!stockItem) {
+      throw new AppError("Producto no encontrado en tu stock", 404);
+    }
+
+    const nombreProducto = stockItem.nombre;
+
+    // Ahora buscar todos los items con ese nombre para el descuento FIFO
+    const stockItems = await StockCliente.findAll({
+      where: {
+        clienteId: req.usuario.id,
+        nombre: nombreProducto,
+      },
+      order: [["createdAt", "ASC"]], // FIFO
+    });
+
+    const totalDisponible = stockItems.reduce(
+      (sum, item) => sum + item.cantidad,
+      0,
+    );
+
+    if (totalDisponible < cantidad) {
+      throw new AppError(
+        `Stock insuficiente de "${nombreProducto}". Disponible: ${totalDisponible}, Solicitado: ${cantidad}`,
+        400,
+      );
+    }
+
+    // Calcular precio
+    const precioUnitario =
+      precioVenta ||
+      (stockItems[0]?.precio ? parseFloat(stockItems[0].precio) : 0);
+    const montoVenta = precioUnitario * parseInt(cantidad);
+
+    // Descontar del stock (FIFO)
+    let cantidadRestante = parseInt(cantidad);
+    for (const item of stockItems) {
+      if (cantidadRestante <= 0) break;
+
+      if (item.cantidad <= cantidadRestante) {
+        cantidadRestante -= item.cantidad;
+        await item.destroy();
+      } else {
+        await item.update({ cantidad: item.cantidad - cantidadRestante });
+        cantidadRestante = 0;
+      }
+    }
+
+    // Registrar movimiento contable de ingreso (venta)
+    if (montoVenta > 0) {
+      await Movimiento.create({
+        usuarioId: req.usuario.id,
+        tipo: "ingreso",
+        concepto: `Venta (escáner): ${cantidad}x ${nombreProducto}`,
+        monto: montoVenta,
+        categoria: "ventas",
+        notas: motivo || "Venta por escáner de código de barras",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Se descontó ${cantidad} unidad(es) de "${nombreProducto}"`,
+      data: {
+        codigo: codigo,
+        producto: nombreProducto,
+        cantidadDescontada: parseInt(cantidad),
+        stockRestante: totalDisponible - cantidad,
+        precioUnitario: precioUnitario,
+        montoVenta: montoVenta,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/stock/buscar-por-codigo/:codigo - Buscar producto por código de barras
+exports.buscarPorCodigo = async (req, res, next) => {
+  try {
+    const { codigo } = req.params;
+
+    let stockItem = null;
+
+    // Primero buscar por código de barras personalizado
+    stockItem = await StockCliente.findOne({
+      where: {
+        clienteId: req.usuario.id,
+        codigoBarras: codigo,
+      },
+    });
+
+    // Si no encontró, intentar con formato STK000001 (código interno)
+    if (!stockItem) {
+      const match = codigo.match(/^STK0*(\d+)$/);
+      if (match) {
+        const stockId = parseInt(match[1]);
+        stockItem = await StockCliente.findOne({
+          where: {
+            id: stockId,
+            clienteId: req.usuario.id,
+          },
+        });
+      }
+    }
+
+    if (!stockItem) {
+      throw new AppError("Producto no encontrado en tu stock", 404);
+    }
+
+    // Obtener cantidad total de este producto (por nombre)
+    const stockItems = await StockCliente.findAll({
+      where: {
+        clienteId: req.usuario.id,
+        nombre: stockItem.nombre,
+      },
+    });
+
+    const totalDisponible = stockItems.reduce(
+      (sum, item) => sum + item.cantidad,
+      0,
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: stockItem.id,
+        codigo: stockItem.codigoBarras || codigo,
+        nombre: stockItem.nombre,
+        precio: parseFloat(stockItem.precio) || 0,
+        cantidadDisponible: totalDisponible,
+        categoria: stockItem.categoria || "General",
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // GET /api/stock/historial - Obtener historial de entregas que agregaron stock
 exports.obtenerHistorial = async (req, res, next) => {
   try {
@@ -396,7 +615,7 @@ exports.obtenerHistorial = async (req, res, next) => {
         const yaAgregado = await StockCliente.findOne({
           where: {
             clienteId: req.usuario.id,
-            entregaId: pedido.id,
+            pedidoId: pedido.id,
           },
         });
 

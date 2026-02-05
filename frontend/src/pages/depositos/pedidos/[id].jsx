@@ -18,14 +18,7 @@ import Icons from "@/components/Icons";
 export default function DetallePedido() {
   const router = useRouter();
   const { id } = router.query;
-  const {
-    pedidos,
-    cambiarEstadoPedido,
-    vehiculos,
-    conductores,
-    fletes,
-    crearEnvio,
-  } = useDeposito();
+  const { pedidos, cambiarEstadoPedido, fletes, crearEnvio } = useDeposito();
   const { usuarios, getPromedioCalificaciones, getCalificacionesUsuario } =
     useAuth();
 
@@ -178,11 +171,44 @@ export default function DetallePedido() {
     }
   };
 
+  // Handler para cuando se selecciona un flete - auto-completar vehículo y conductor
+  const handleFleteChange = (fleteId) => {
+    const fleteSeleccionado = fletes.find(
+      (f) => String(f.id) === String(fleteId),
+    );
+
+    if (fleteSeleccionado) {
+      // Construir string del vehículo con los datos del flete
+      const vehiculoStr =
+        [
+          fleteSeleccionado.vehiculoTipo,
+          fleteSeleccionado.vehiculoPatente,
+          fleteSeleccionado.vehiculoCapacidad,
+        ]
+          .filter(Boolean)
+          .join(" - ") || fleteSeleccionado.nombre;
+
+      setEnvioData({
+        ...envioData,
+        fleteId: fleteId,
+        vehiculo: vehiculoStr,
+        conductor: fleteSeleccionado.nombre || "",
+      });
+    } else {
+      setEnvioData({
+        ...envioData,
+        fleteId: fleteId,
+        vehiculo: "",
+        conductor: "",
+      });
+    }
+  };
+
   const handleCrearEnvio = async (e) => {
     e.preventDefault();
 
     if (!envioData.vehiculo || !envioData.conductor) {
-      showToast("error", "Selecciona vehículo y conductor");
+      showToast("error", "Completa los datos de vehículo y conductor");
       return;
     }
 
@@ -194,20 +220,13 @@ export default function DetallePedido() {
       );
     }
 
-    const vehiculo = vehiculos.find(
-      (v) => v.id === parseInt(envioData.vehiculo),
-    );
-    const conductor = conductores.find(
-      (c) => c.id === parseInt(envioData.conductor),
-    );
-
     const nuevoEnvio = {
       pedidoId: pedido.id,
       fleteId: envioData.fleteId || null, // Importante: asignar el flete
       cliente: pedido.cliente,
       tipo: pedido.tipoEnvio,
-      vehiculo: vehiculo.nombre,
-      conductor: conductor.nombre,
+      vehiculo: envioData.vehiculo,
+      conductor: envioData.conductor,
       direccion: pedido.direccion,
       fechaSalida: formatDateTime(new Date()),
       fechaEstimada: formatDateTime(new Date(Date.now() + 2 * 60 * 60 * 1000)),
@@ -215,17 +234,22 @@ export default function DetallePedido() {
     };
 
     try {
-      await crearEnvio(nuevoEnvio);
-      // Cambiar estado a "enviado" si no está ya en ese estado
-      // El backend ahora permite: pendiente→preparando, preparando→enviado, listo→enviado
-      if (pedido.estado !== "enviado" && pedido.estado !== "entregado") {
-        // Si está en pendiente, primero pasar a preparando
-        if (pedido.estado === "pendiente") {
-          await cambiarEstadoPedido(pedido.id, "preparando");
-        }
-        // Luego pasar a enviado (desde preparando o listo)
-        await cambiarEstadoPedido(pedido.id, "enviado");
+      // El backend requiere que el pedido esté en estado "listo" para crear el envío
+      // Seguir las transiciones: pendiente→preparando→listo
+      let estadoActual = pedido.estado;
+
+      if (estadoActual === "pendiente") {
+        await cambiarEstadoPedido(pedido.id, "preparando");
+        estadoActual = "preparando";
       }
+      if (estadoActual === "preparando") {
+        await cambiarEstadoPedido(pedido.id, "listo");
+        estadoActual = "listo";
+      }
+
+      // Crear el envío (el backend cambiará automáticamente el estado a "enviado")
+      await crearEnvio(nuevoEnvio);
+
       setMostrarModalEnvio(false);
       showSuccessAlert("¡Envío creado!", "El pedido ha sido despachado");
     } catch (error) {
@@ -540,52 +564,7 @@ export default function DetallePedido() {
             </div>
 
             <form onSubmit={handleCrearEnvio} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Vehículo
-                </label>
-                <select
-                  className="input-field"
-                  value={envioData.vehiculo}
-                  onChange={(e) =>
-                    setEnvioData({ ...envioData, vehiculo: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Seleccionar vehículo...</option>
-                  {vehiculos
-                    .filter((v) => v.estado === "disponible")
-                    .map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.nombre} - {v.patente} ({v.capacidad})
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Conductor
-                </label>
-                <select
-                  className="input-field"
-                  value={envioData.conductor}
-                  onChange={(e) =>
-                    setEnvioData({ ...envioData, conductor: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Seleccionar conductor...</option>
-                  {conductores
-                    .filter((c) => c.estado === "disponible")
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre} - {c.telefono}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
+              {/* Selector de flete primero para auto-completar los demás campos */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Flete asignado{" "}
@@ -596,9 +575,7 @@ export default function DetallePedido() {
                 <select
                   className="input-field"
                   value={envioData.fleteId}
-                  onChange={(e) =>
-                    setEnvioData({ ...envioData, fleteId: e.target.value })
-                  }
+                  onChange={(e) => handleFleteChange(e.target.value)}
                   required={fletes.length > 0}
                 >
                   <option value="">Seleccionar flete...</option>
@@ -614,6 +591,44 @@ export default function DetallePedido() {
                     asignar flete.
                   </p>
                 )}
+                {fletes.length > 0 && (
+                  <p className="text-xs text-blue-500 mt-1">
+                    💡 Al seleccionar un flete se completarán automáticamente
+                    los datos del vehículo y conductor
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vehículo
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={envioData.vehiculo}
+                  onChange={(e) =>
+                    setEnvioData({ ...envioData, vehiculo: e.target.value })
+                  }
+                  placeholder="Ej: Camioneta - ABC123 - 500kg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Conductor
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={envioData.conductor}
+                  onChange={(e) =>
+                    setEnvioData({ ...envioData, conductor: e.target.value })
+                  }
+                  placeholder="Nombre del conductor"
+                  required
+                />
               </div>
 
               <div>

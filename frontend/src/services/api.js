@@ -351,6 +351,9 @@ export const stockService = {
   // Obtener historial de entregas
   obtenerHistorial: () => api.get("/stock/historial"),
 
+  // Obtener categorías del cliente
+  obtenerCategorias: () => api.get("/stock/categorias"),
+
   // Agregar producto manualmente
   agregarProducto: (producto) => api.post("/stock/agregar", producto),
 
@@ -361,6 +364,18 @@ export const stockService = {
   // Descontar stock (venta)
   descontarStock: (nombre, cantidad, motivo, precioVenta) =>
     api.post("/stock/descontar", { nombre, cantidad, motivo, precioVenta }),
+
+  // Descontar por código de barras
+  descontarPorCodigo: (codigo, cantidad = 1, motivo, precioVenta) =>
+    api.post("/stock/descontar-por-codigo", {
+      codigo,
+      cantidad,
+      motivo,
+      precioVenta,
+    }),
+
+  // Buscar producto por código de barras
+  buscarPorCodigo: (codigo) => api.get(`/stock/buscar-por-codigo/${codigo}`),
 
   // Actualizar producto
   actualizar: (id, datos) => api.put(`/stock/${id}`, datos),

@@ -207,10 +207,15 @@ export function NotificacionProvider({ children }) {
 
     // Notificación de envío entregado
     socketInstance.on("envio_entregado", (data) => {
+      const mensajeBase = `El pedido #${data.numero} ha sido entregado`;
+      const mensajeStock = data.stockActualizado
+        ? ". Los productos se agregaron a tu stock automáticamente"
+        : "";
+
       agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "Pedido entregado",
-        mensaje: `El pedido #${data.numero} ha sido entregado`,
+        mensaje: mensajeBase + mensajeStock,
         data: data,
         icono: "✅",
       });
@@ -258,6 +263,15 @@ export function NotificacionProvider({ children }) {
     // Notificación genérica
     socketInstance.on("notificacion", (data) => {
       agregarNotificacionRef.current(data);
+
+      // Si es una notificación de envío en camino, emitir evento para el depósito
+      if (data.tipo === "info" && data.datos?.envioId && data.datos?.pedidoId) {
+        window.dispatchEvent(
+          new CustomEvent("socket:envio_en_camino_deposito", {
+            detail: data.datos,
+          }),
+        );
+      }
     });
 
     setSocket(socketInstance);

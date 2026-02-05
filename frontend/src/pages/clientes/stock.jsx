@@ -37,6 +37,27 @@ export default function StockCliente() {
     }
   }, [usuario]);
 
+  // Recargar stock cuando se recibe notificación de envío entregado (stock actualizado automáticamente)
+  useEffect(() => {
+    const handleEnvioEntregado = (event) => {
+      const data = event.detail;
+      console.log("Stock: Recibido socket:envio_entregado", data);
+      if (data.stockActualizado) {
+        showToast("success", "📦 Nuevo stock agregado automáticamente");
+        cargarDatos();
+      }
+    };
+
+    window.addEventListener("socket:envio_entregado", handleEnvioEntregado);
+
+    return () => {
+      window.removeEventListener(
+        "socket:envio_entregado",
+        handleEnvioEntregado,
+      );
+    };
+  }, []);
+
   const cargarDatos = async () => {
     setCargando(true);
     try {

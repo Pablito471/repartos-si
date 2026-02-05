@@ -38,12 +38,39 @@ const StockCliente = sequelize.define(
         key: "id",
       },
     },
+    pedidoId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "pedidos",
+        key: "id",
+      },
+    },
+    codigoBarras: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: "codigo_barras",
+    },
+    categoria: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: "General",
+    },
   },
   {
     tableName: "stock_clientes",
     indexes: [
       {
         fields: ["cliente_id", "nombre"],
+      },
+      {
+        fields: ["pedido_id"],
+      },
+      {
+        fields: ["cliente_id", "codigo_barras"],
+      },
+      {
+        fields: ["cliente_id", "categoria"],
       },
     ],
   },

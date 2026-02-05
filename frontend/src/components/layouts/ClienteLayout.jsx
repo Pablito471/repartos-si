@@ -22,6 +22,16 @@ const menuItems = [
     icon: "Building",
   },
   {
+    name: "Catálogo",
+    href: "/clientes/catalogo",
+    icon: "ShoppingCart",
+  },
+  {
+    name: "Escáner",
+    href: "/clientes/escaner",
+    icon: "QrCode",
+  },
+  {
     name: "Mis Pedidos",
     href: "/clientes/pedidos",
     icon: "Package",
