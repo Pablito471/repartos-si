@@ -1,3 +1,4 @@
+// Repartos-SI Backend - v2.1 (columna imagen en stock_clientes)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
