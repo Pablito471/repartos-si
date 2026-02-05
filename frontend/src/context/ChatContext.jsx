@@ -18,6 +18,15 @@ const getSocketUrl = () => {
   return apiUrl.replace("/api", "");
 };
 
+// Configuración de ICE servers para WebRTC
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+  ],
+};
+
 export function ChatProvider({ children }) {
   const { usuario } = useAuth();
   const [socket, setSocket] = useState(null);
@@ -30,6 +39,20 @@ export function ChatProvider({ children }) {
   const [escribiendo, setEscribiendo] = useState(null);
   const escribiendoTimeoutRef = useRef(null);
 
+  // Estados de videollamada
+  const [enLlamada, setEnLlamada] = useState(false);
+  const [llamadaEntrante, setLlamadaEntrante] = useState(null);
+  const [llamadaSaliente, setLlamadaSaliente] = useState(false);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [microfonoActivo, setMicrofonoActivo] = useState(true);
+  const [videoActivo, setVideoActivo] = useState(true);
+  const [usuarioEnLlamada, setUsuarioEnLlamada] = useState(null);
+
+  // Refs para WebRTC
+  const peerConnectionRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
+
   // Obtener token desde localStorage
   const getToken = () => {
     if (typeof window !== "undefined") {
@@ -37,6 +60,213 @@ export function ChatProvider({ children }) {
     }
     return null;
   };
+
+  // Limpiar recursos de videollamada
+  const limpiarLlamada = useCallback(() => {
+    if (localStream) {
+      localStream.getTracks().forEach((track) => track.stop());
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    pendingCandidatesRef.current = [];
+    setLocalStream(null);
+    setRemoteStream(null);
+    setEnLlamada(false);
+    setLlamadaEntrante(null);
+    setLlamadaSaliente(false);
+    setUsuarioEnLlamada(null);
+    setMicrofonoActivo(true);
+    setVideoActivo(true);
+  }, [localStream]);
+
+  // Crear peer connection
+  const crearPeerConnection = useCallback(
+    (usuarioRemotoId) => {
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate && socket) {
+          socket.emit("webrtc_ice_candidate", {
+            candidate: event.candidate,
+            usuarioDestinoId: usuarioRemotoId,
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        setRemoteStream(event.streams[0]);
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log("ICE Connection State:", pc.iceConnectionState);
+        if (
+          pc.iceConnectionState === "disconnected" ||
+          pc.iceConnectionState === "failed"
+        ) {
+          limpiarLlamada();
+        }
+      };
+
+      peerConnectionRef.current = pc;
+      return pc;
+    },
+    [socket, limpiarLlamada],
+  );
+
+  // Iniciar videollamada
+  const iniciarLlamada = useCallback(
+    async (usuarioDestinoId, usuarioDestinoNombre) => {
+      if (!socket || !conversacion) return;
+
+      try {
+        // Obtener stream local
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        setLocalStream(stream);
+        setLlamadaSaliente(true);
+        setUsuarioEnLlamada({
+          id: usuarioDestinoId,
+          nombre: usuarioDestinoNombre,
+        });
+
+        // Crear peer connection
+        const pc = crearPeerConnection(usuarioDestinoId);
+
+        // Agregar tracks al peer connection
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
+
+        // Crear oferta
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        // Enviar solicitud de llamada
+        socket.emit("videollamada_solicitar", {
+          conversacionId: conversacion.id,
+          usuarioDestinoId,
+          offer: pc.localDescription,
+          nombreLlamante: usuario?.nombre,
+        });
+      } catch (error) {
+        console.error("Error al iniciar videollamada:", error);
+        limpiarLlamada();
+
+        if (error.name === "NotAllowedError") {
+          alert(
+            "Se necesitan permisos de cámara y micrófono para realizar videollamadas",
+          );
+        }
+      }
+    },
+    [socket, conversacion, usuario, crearPeerConnection, limpiarLlamada],
+  );
+
+  // Aceptar videollamada entrante
+  const aceptarLlamada = useCallback(async () => {
+    if (!socket || !llamadaEntrante) return;
+
+    try {
+      // Obtener stream local
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      setLocalStream(stream);
+      setEnLlamada(true);
+
+      // Crear peer connection
+      const pc = crearPeerConnection(llamadaEntrante.usuarioId);
+
+      // Agregar tracks
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      // Establecer descripción remota (la oferta)
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(llamadaEntrante.offer),
+      );
+
+      // Procesar candidatos pendientes
+      for (const candidate of pendingCandidatesRef.current) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+      pendingCandidatesRef.current = [];
+
+      // Crear respuesta
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      // Enviar aceptación
+      socket.emit("videollamada_aceptar", {
+        conversacionId: llamadaEntrante.conversacionId,
+        usuarioDestinoId: llamadaEntrante.usuarioId,
+        answer: pc.localDescription,
+      });
+
+      setUsuarioEnLlamada({
+        id: llamadaEntrante.usuarioId,
+        nombre: llamadaEntrante.nombreLlamante,
+      });
+      setLlamadaEntrante(null);
+    } catch (error) {
+      console.error("Error al aceptar videollamada:", error);
+      limpiarLlamada();
+    }
+  }, [socket, llamadaEntrante, crearPeerConnection, limpiarLlamada]);
+
+  // Rechazar videollamada entrante
+  const rechazarLlamada = useCallback(() => {
+    if (!socket || !llamadaEntrante) return;
+
+    socket.emit("videollamada_rechazar", {
+      conversacionId: llamadaEntrante.conversacionId,
+      usuarioDestinoId: llamadaEntrante.usuarioId,
+    });
+
+    setLlamadaEntrante(null);
+  }, [socket, llamadaEntrante]);
+
+  // Colgar videollamada
+  const colgarLlamada = useCallback(() => {
+    if (!socket) return;
+
+    if (usuarioEnLlamada) {
+      socket.emit("videollamada_terminar", {
+        conversacionId: conversacion?.id,
+        usuarioDestinoId: usuarioEnLlamada.id,
+      });
+    }
+
+    limpiarLlamada();
+  }, [socket, conversacion, usuarioEnLlamada, limpiarLlamada]);
+
+  // Toggle micrófono
+  const toggleMicrofono = useCallback(() => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setMicrofonoActivo(audioTrack.enabled);
+      }
+    }
+  }, [localStream]);
+
+  // Toggle video
+  const toggleVideo = useCallback(() => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setVideoActivo(videoTrack.enabled);
+      }
+    }
+  }, [localStream]);
 
   // Inicializar Socket.io
   useEffect(() => {
@@ -104,7 +334,6 @@ export function ChatProvider({ children }) {
       if (data.usuarioId !== usuario?.id) {
         setEscribiendo(data);
 
-        // Limpiar escribiendo después de 3 segundos
         if (escribiendoTimeoutRef.current) {
           clearTimeout(escribiendoTimeoutRef.current);
         }
@@ -129,6 +358,71 @@ export function ChatProvider({ children }) {
             : m,
         ),
       );
+    });
+
+    // === EVENTOS DE VIDEOLLAMADA ===
+
+    // Videollamada entrante
+    socketInstance.on("videollamada_entrante", (data) => {
+      console.log("Videollamada entrante:", data);
+      setLlamadaEntrante(data);
+    });
+
+    // Videollamada aceptada
+    socketInstance.on("videollamada_aceptada", async (data) => {
+      console.log("Videollamada aceptada:", data);
+      try {
+        if (peerConnectionRef.current && data.answer) {
+          await peerConnectionRef.current.setRemoteDescription(
+            new RTCSessionDescription(data.answer),
+          );
+
+          // Procesar candidatos pendientes
+          for (const candidate of pendingCandidatesRef.current) {
+            await peerConnectionRef.current.addIceCandidate(
+              new RTCIceCandidate(candidate),
+            );
+          }
+          pendingCandidatesRef.current = [];
+
+          setEnLlamada(true);
+          setLlamadaSaliente(false);
+        }
+      } catch (error) {
+        console.error("Error al procesar aceptación de llamada:", error);
+      }
+    });
+
+    // Videollamada rechazada
+    socketInstance.on("videollamada_rechazada", () => {
+      console.log("Videollamada rechazada");
+      alert("La llamada fue rechazada");
+      limpiarLlamada();
+    });
+
+    // Videollamada terminada
+    socketInstance.on("videollamada_terminada", () => {
+      console.log("Videollamada terminada por el otro usuario");
+      limpiarLlamada();
+    });
+
+    // ICE candidate recibido
+    socketInstance.on("webrtc_ice_candidate", async (data) => {
+      try {
+        if (
+          peerConnectionRef.current &&
+          peerConnectionRef.current.remoteDescription
+        ) {
+          await peerConnectionRef.current.addIceCandidate(
+            new RTCIceCandidate(data.candidate),
+          );
+        } else {
+          // Guardar para procesar después
+          pendingCandidatesRef.current.push(data.candidate);
+        }
+      } catch (error) {
+        console.error("Error al agregar ICE candidate:", error);
+      }
     });
 
     setSocket(socketInstance);
@@ -317,6 +611,7 @@ export function ChatProvider({ children }) {
   }, [conversacion, salirDeConversacion]);
 
   const value = {
+    // Chat básico
     conectado,
     conversacion,
     conversaciones,
@@ -332,6 +627,21 @@ export function ChatProvider({ children }) {
     indicarEscribiendo,
     marcarComoLeidos,
     salirConversacion,
+    // Videollamadas
+    enLlamada,
+    llamadaEntrante,
+    llamadaSaliente,
+    localStream,
+    remoteStream,
+    microfonoActivo,
+    videoActivo,
+    usuarioEnLlamada,
+    iniciarLlamada,
+    aceptarLlamada,
+    rechazarLlamada,
+    colgarLlamada,
+    toggleMicrofono,
+    toggleVideo,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

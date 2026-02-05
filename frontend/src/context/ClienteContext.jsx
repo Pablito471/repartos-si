@@ -4,6 +4,7 @@ import {
   productosService,
   pedidosService,
   movimientosService,
+  stockService,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
 
@@ -371,6 +372,8 @@ export function ClienteProvider({ children }) {
   const [pedidos, setPedidos] = useState([]);
   const [depositos, setDepositos] = useState([]);
   const [movimientos, setMovimientos] = useState([]);
+  const [stockCliente, setStockCliente] = useState([]);
+  const [cargandoStock, setCargandoStock] = useState(false);
   const [totalesContables, setTotalesContables] = useState({
     ingresos: 0,
     egresos: 0,
@@ -631,6 +634,31 @@ export function ClienteProvider({ children }) {
 
     cargarMovimientos();
   }, [usuario?.id]);
+
+  // Cargar stock del cliente desde el backend
+  useEffect(() => {
+    const cargarStock = async () => {
+      if (MODO_CONEXION !== "api" || !usuario?.id) return;
+
+      setCargandoStock(true);
+      try {
+        const stockRes = await stockService.obtenerStock();
+        setStockCliente(stockRes.data || []);
+      } catch (error) {
+        console.error("Error al cargar stock:", error);
+        setStockCliente([]);
+      } finally {
+        setCargandoStock(false);
+      }
+    };
+
+    cargarStock();
+  }, [usuario?.id]);
+
+  // Obtener productos con stock bajo (menos de 10 unidades)
+  const getProductosStockBajo = (limite = 10) => {
+    return stockCliente.filter((p) => p.cantidad > 0 && p.cantidad <= limite);
+  };
 
   // Funciones del carrito
   const agregarAlCarrito = (producto, depositoId) => {
@@ -1095,12 +1123,16 @@ export function ClienteProvider({ children }) {
     ).length;
     const totalPedidos = pedidos.filter((p) => p.estado !== "cancelado").length;
     const totales = calcularTotales();
+    const productosStockBajo = getProductosStockBajo().length;
+    const totalProductosStock = stockCliente.length;
 
     return {
       pedidosPendientes,
       pedidosEnCamino,
       pedidosEntregados,
       totalPedidos,
+      productosStockBajo,
+      totalProductosStock,
       ...totales,
     };
   };
@@ -1109,6 +1141,7 @@ export function ClienteProvider({ children }) {
     pedidos,
     depositos,
     movimientos,
+    stockCliente,
     totalesContables,
     productos,
     carrito,
@@ -1129,7 +1162,9 @@ export function ClienteProvider({ children }) {
     recargarMovimientos,
     calcularTotales,
     getEstadisticas,
+    getProductosStockBajo,
     cargandoDepositos,
+    cargandoStock,
     cargandoPedidos,
     cargandoMovimientos,
   };

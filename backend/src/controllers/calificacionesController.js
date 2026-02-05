@@ -1,5 +1,6 @@
-const { Calificacion, Usuario, sequelize } = require("../models");
+const { Calificacion, Usuario, Pedido, sequelize } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
+const { Op } = require("sequelize");
 
 // Función para validar UUID
 const isValidUUID = (str) => {
@@ -322,6 +323,120 @@ exports.getEstadisticas = async (req, res, next) => {
                 ).toFixed(1),
               )
             : 0,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/calificaciones/pendientes - Obtener pedidos/usuarios pendientes de calificar
+exports.getPendientesCalificar = async (req, res, next) => {
+  try {
+    const usuarioId = req.usuario.id;
+    const tipoUsuario = req.usuario.tipoUsuario;
+
+    // Buscar pedidos entregados donde el usuario participó
+    const whereClause = { estado: "entregado" };
+
+    if (tipoUsuario === "cliente") {
+      whereClause.clienteId = usuarioId;
+    } else if (tipoUsuario === "deposito") {
+      whereClause.depositoId = usuarioId;
+    } else if (tipoUsuario === "flete") {
+      whereClause.fleteId = usuarioId;
+    }
+
+    const pedidosEntregados = await Pedido.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: Usuario,
+          as: "cliente",
+          attributes: ["id", "nombre", "tipoUsuario", "foto"],
+        },
+        {
+          model: Usuario,
+          as: "deposito",
+          attributes: ["id", "nombre", "tipoUsuario", "foto"],
+        },
+        {
+          model: Usuario,
+          as: "flete",
+          attributes: ["id", "nombre", "tipoUsuario", "foto"],
+          required: false,
+        },
+      ],
+      order: [["updatedAt", "DESC"]],
+      limit: 50,
+    });
+
+    // Obtener las calificaciones ya hechas por este usuario
+    const calificacionesHechas = await Calificacion.findAll({
+      where: { calificadorId: usuarioId },
+      attributes: ["calificadoId", "pedidoId"],
+    });
+
+    const calificacionesMap = new Set(
+      calificacionesHechas.map(
+        (c) => `${c.calificadoId}-${c.pedidoId || "general"}`,
+      ),
+    );
+
+    // Filtrar pedidos y usuarios pendientes de calificar
+    const pendientes = [];
+
+    for (const pedido of pedidosEntregados) {
+      const participantes = [];
+
+      // Agregar cliente si no es el usuario actual
+      if (pedido.cliente && pedido.cliente.id !== usuarioId) {
+        const key = `${pedido.cliente.id}-${pedido.id}`;
+        if (!calificacionesMap.has(key)) {
+          participantes.push({
+            usuario: pedido.cliente,
+            rol: "cliente",
+          });
+        }
+      }
+
+      // Agregar depósito si no es el usuario actual
+      if (pedido.deposito && pedido.deposito.id !== usuarioId) {
+        const key = `${pedido.deposito.id}-${pedido.id}`;
+        if (!calificacionesMap.has(key)) {
+          participantes.push({
+            usuario: pedido.deposito,
+            rol: "deposito",
+          });
+        }
+      }
+
+      // Agregar flete si existe y no es el usuario actual
+      if (pedido.flete && pedido.flete.id !== usuarioId) {
+        const key = `${pedido.flete.id}-${pedido.id}`;
+        if (!calificacionesMap.has(key)) {
+          participantes.push({
+            usuario: pedido.flete,
+            rol: "flete",
+          });
+        }
+      }
+
+      if (participantes.length > 0) {
+        pendientes.push({
+          pedidoId: pedido.id,
+          numeroPedido: pedido.numero,
+          fechaEntrega: pedido.updatedAt,
+          participantes,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        pendientes,
+        total: pendientes.reduce((acc, p) => acc + p.participantes.length, 0),
       },
     });
   } catch (error) {

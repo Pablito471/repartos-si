@@ -3,9 +3,10 @@ import AdminLayout from "@/components/layouts/AdminLayout";
 import { useAuth } from "@/context/AuthContext";
 import Icons from "@/components/Icons";
 import { formatDate } from "@/utils/formatters";
+import Link from "next/link";
 
 export default function AdminDashboard() {
-  const { getUsuariosVisibles } = useAuth();
+  const { getUsuariosVisibles, usuario } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
 
@@ -64,6 +65,69 @@ export default function AdminDashboard() {
                 <p className="text-red-700 dark:text-red-400 text-sm">
                   Las acciones realizadas aquí son irreversibles. Procede con
                   precaución.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mi Perfil Admin */}
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-neutral-800 dark:text-white flex items-center gap-2">
+                <Icons.User className="w-5 h-5" />
+                Mi Perfil
+              </h3>
+              <Link
+                href="/admin/perfil"
+                className="text-primary-600 dark:text-primary-400 hover:underline text-sm"
+              >
+                Editar
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center overflow-hidden">
+                  {usuario?.foto ? (
+                    <img
+                      src={usuario.foto}
+                      alt={usuario.nombre}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Icons.User className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    Nombre
+                  </p>
+                  <p className="font-medium text-neutral-800 dark:text-white">
+                    {usuario?.nombre || "-"}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Email
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-white truncate">
+                  {usuario?.email || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Telefono
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-white">
+                  {usuario?.telefono || "No registrado"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Rol
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-white capitalize">
+                  {usuario?.tipoUsuario || "Administrador"}
                 </p>
               </div>
             </div>

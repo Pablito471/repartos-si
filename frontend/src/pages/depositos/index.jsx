@@ -1,11 +1,14 @@
 import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useDeposito } from "@/context/DepositoContext";
+import { useAuth } from "@/context/AuthContext";
 import MisCalificaciones from "@/components/MisCalificaciones";
+import CalificarSection from "@/components/CalificarSection";
 import Icons from "@/components/Icons";
 import { formatNumber } from "@/utils/formatters";
 import Link from "next/link";
 
 export default function DepositoDashboard() {
+  const { usuario } = useAuth();
   const {
     getEstadisticas,
     pedidos,
@@ -159,6 +162,130 @@ export default function DepositoDashboard() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Informacion del Deposito */}
+        <div className="card !p-4 sm:!p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
+              <Icons.Building className="w-5 h-5" />
+              Informacion del Deposito
+            </h3>
+            <Link
+              href="/depositos/perfil"
+              className="text-primary-600 dark:text-primary-400 hover:underline text-sm"
+            >
+              Editar
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden">
+                {usuario?.foto ? (
+                  <img
+                    src={usuario.foto}
+                    alt={usuario.nombre}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Icons.Building className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Nombre
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.nombre || "-"}
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Email
+              </p>
+              <p className="font-medium text-neutral-800 dark:text-neutral-100 truncate">
+                {usuario?.email || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Telefono
+              </p>
+              <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                {usuario?.telefono || "No registrado"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Direccion
+              </p>
+              <p className="font-medium text-neutral-800 dark:text-neutral-100 truncate">
+                {usuario?.direccion || "No registrada"}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Horario
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.horarioApertura && usuario?.horarioCierre
+                    ? usuario.horarioApertura + " - " + usuario.horarioCierre
+                    : "No definido"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Dias Laborales
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.diasLaborales?.length > 0
+                    ? usuario.diasLaborales
+                        .map(
+                          (d) =>
+                            ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"][
+                              d
+                            ],
+                        )
+                        .join(", ")
+                    : "No definidos"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Tipos de Envio
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.tiposEnvio?.length > 0
+                    ? usuario.tiposEnvio.join(", ")
+                    : "No definidos"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Capacidad Maxima
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.capacidadMaxima
+                    ? formatNumber(usuario.capacidadMaxima) + " unidades"
+                    : "Sin limite"}
+                </p>
+              </div>
+            </div>
+          </div>
+          {usuario?.descripcion && (
+            <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+                Descripcion
+              </p>
+              <p className="text-sm text-neutral-800 dark:text-neutral-100">
+                {usuario.descripcion}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Main Content Grid */}
@@ -418,6 +545,9 @@ export default function DepositoDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Sección de Calificar */}
+        <CalificarSection colorPrimary="primary" />
 
         {/* Sección de Mis Calificaciones */}
         <MisCalificaciones colorPrimary="primary" />

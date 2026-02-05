@@ -56,6 +56,11 @@ import {
   ChatBubbleLeftRightIcon,
   TrashIcon,
   CameraIcon,
+  VideoCameraIcon,
+  PhoneIcon,
+  MicrophoneIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon,
 } from "@heroicons/react/24/outline";
 
 import { StarIcon as StarFilledIcon } from "@heroicons/react/24/solid";
@@ -223,6 +228,21 @@ const Icons = {
 
   // Cámara/Escáner
   Camera: CameraIcon,
+
+  // Video
+  Video: VideoCameraIcon,
+
+  // Teléfono
+  Phone: PhoneIcon,
+
+  // Micrófono
+  Microphone: MicrophoneIcon,
+
+  // Altavoz
+  Speaker: SpeakerWaveIcon,
+
+  // Altavoz silenciado
+  SpeakerOff: SpeakerXMarkIcon,
 };
 
 export default Icons;

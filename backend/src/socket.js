@@ -222,6 +222,68 @@ const initSocket = (server) => {
       }
     });
 
+    // ========== VIDEOLLAMADAS ==========
+
+    // Solicitar videollamada
+    socket.on("videollamada_solicitar", (data) => {
+      console.log(
+        `Videollamada solicitada: ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
+      );
+
+      // Enviar notificación al destinatario
+      io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_entrante", {
+        conversacionId: data.conversacionId,
+        usuarioId: socket.user.id,
+        nombreLlamante: socket.user.nombre,
+        offer: data.offer,
+      });
+    });
+
+    // Aceptar videollamada
+    socket.on("videollamada_aceptar", (data) => {
+      console.log(
+        `Videollamada aceptada por ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
+      );
+
+      io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_aceptada", {
+        conversacionId: data.conversacionId,
+        usuarioId: socket.user.id,
+        answer: data.answer,
+      });
+    });
+
+    // Rechazar videollamada
+    socket.on("videollamada_rechazar", (data) => {
+      console.log(
+        `Videollamada rechazada por ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
+      );
+
+      io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_rechazada", {
+        conversacionId: data.conversacionId,
+        usuarioId: socket.user.id,
+      });
+    });
+
+    // Terminar videollamada
+    socket.on("videollamada_terminar", (data) => {
+      console.log(
+        `Videollamada terminada por ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
+      );
+
+      io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_terminada", {
+        conversacionId: data.conversacionId,
+        usuarioId: socket.user.id,
+      });
+    });
+
+    // ICE Candidate para WebRTC
+    socket.on("webrtc_ice_candidate", (data) => {
+      io.to(`user_${data.usuarioDestinoId}`).emit("webrtc_ice_candidate", {
+        candidate: data.candidate,
+        usuarioId: socket.user.id,
+      });
+    });
+
     // Desconexión
     socket.on("disconnect", () => {
       console.log(`Usuario desconectado: ${socket.user.nombre}`);

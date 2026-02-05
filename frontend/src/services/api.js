@@ -232,6 +232,10 @@ export const calificacionesService = {
   getMisCalificaciones: () => api.get("/calificaciones/mis-calificaciones"),
 
   getEstadisticas: () => api.get("/calificaciones/estadisticas"),
+
+  getPendientes: () => api.get("/calificaciones/pendientes"),
+
+  getPromedio: (usuarioId) => api.get(`/calificaciones/promedio/${usuarioId}`),
 };
 
 // ============== ENTREGAS ==============

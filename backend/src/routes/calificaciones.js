@@ -14,6 +14,11 @@ router.get(
   requireRole("admin"),
   calificacionesController.getEstadisticas,
 );
+router.get(
+  "/pendientes",
+  auth,
+  calificacionesController.getPendientesCalificar,
+);
 router.get("/", authOptional, calificacionesController.getCalificaciones);
 router.post("/", auth, calificacionesController.crearCalificacion);
 

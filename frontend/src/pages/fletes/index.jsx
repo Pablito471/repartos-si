@@ -1,6 +1,8 @@
 import FleteLayout from "@/components/layouts/FleteLayout";
 import { useFlete } from "@/context/FleteContext";
+import { useAuth } from "@/context/AuthContext";
 import MisCalificaciones from "@/components/MisCalificaciones";
+import CalificarSection from "@/components/CalificarSection";
 import Icons from "@/components/Icons";
 import { formatNumber } from "@/utils/formatters";
 import Link from "next/link";
@@ -8,6 +10,7 @@ import Link from "next/link";
 export default function FleteDashboard() {
   const { getEstadisticas, getEnviosDelDia, vehiculo, cargandoEnvios } =
     useFlete();
+  const { usuario } = useAuth();
 
   // Mostrar loading mientras se cargan los datos
   if (cargandoEnvios) {
@@ -166,6 +169,122 @@ export default function FleteDashboard() {
             <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
               Este mes
             </p>
+          </div>
+        </div>
+
+        {/* Informacion del Flete */}
+        <div className="card !p-4 sm:!p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
+              <Icons.User className="w-5 h-5" />
+              Mi Perfil
+            </h3>
+            <Link
+              href="/fletes/perfil"
+              className="text-primary-600 dark:text-primary-400 hover:underline text-sm"
+            >
+              Editar
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden">
+                {usuario?.foto ? (
+                  <img
+                    src={usuario.foto}
+                    alt={usuario.nombre}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Icons.User className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Nombre
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.nombre || "-"}
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Email
+              </p>
+              <p className="font-medium text-neutral-800 dark:text-neutral-100 truncate">
+                {usuario?.email || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Telefono
+              </p>
+              <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                {usuario?.telefono || "No registrado"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Direccion
+              </p>
+              <p className="font-medium text-neutral-800 dark:text-neutral-100 truncate">
+                {usuario?.direccion || "No registrada"}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+            <h4 className="font-medium text-neutral-700 dark:text-neutral-300 mb-3 flex items-center gap-2">
+              <Icons.Truck className="w-4 h-4" />
+              Datos del Vehiculo
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Tipo de Vehiculo
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100 capitalize">
+                  {usuario?.vehiculoTipo || "No especificado"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Patente
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100 uppercase">
+                  {usuario?.vehiculoPatente || "No registrada"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Capacidad
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.vehiculoCapacidad
+                    ? usuario.vehiculoCapacidad + " kg"
+                    : "No especificada"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Licencia
+                </p>
+                <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                  {usuario?.licenciaTipo || "No registrada"}
+                  {usuario?.licenciaVencimiento && (
+                    <span
+                      className={`ml-2 text-xs ${new Date(usuario.licenciaVencimiento) < new Date() ? "text-red-500" : "text-green-500"}`}
+                    >
+                      (Vence:{" "}
+                      {new Date(
+                        usuario.licenciaVencimiento,
+                      ).toLocaleDateString()}
+                      )
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -334,6 +453,9 @@ export default function FleteDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Sección de Calificar */}
+        <CalificarSection colorPrimary="primary" />
 
         {/* Sección de Mis Calificaciones */}
         <MisCalificaciones colorPrimary="primary" />

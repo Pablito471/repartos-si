@@ -1,22 +1,24 @@
 import ClienteLayout from "@/components/layouts/ClienteLayout";
 import { useCliente } from "@/context/ClienteContext";
 import CalendarioContabilidad from "@/components/CalendarioContabilidad";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { showSuccessAlert, showConfirmAlert, showToast } from "@/utils/alerts";
 
 export default function Contabilidad() {
   const {
     movimientos,
+    pedidos,
     agregarMovimiento,
     actualizarMovimiento,
     eliminarMovimiento,
     calcularTotales,
     cargandoMovimientos,
+    cargandoPedidos,
   } = useCliente();
-  const totales = calcularTotales();
 
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [vistaActiva, setVistaActiva] = useState("todo"); // "todo", "movimientos", "pedidos"
   const [busqueda, setBusqueda] = useState("");
   const [mostrarModal, setMostrarModal] = useState(false);
   const [editandoMovimiento, setEditandoMovimiento] = useState(null);
@@ -31,18 +33,61 @@ export default function Contabilidad() {
   const categorias = {
     ventas: { nombre: "Ventas", icono: "💵", color: "green" },
     compras: { nombre: "Compras", icono: "🛒", color: "red" },
+    pedidos: { nombre: "Pedidos", icono: "📦", color: "orange" },
     cobranzas: { nombre: "Cobranzas", icono: "📥", color: "blue" },
-    logistica: { nombre: "Logística", icono: "🚚", color: "yellow" },
+    logistica: { nombre: "Logistica", icono: "🚚", color: "yellow" },
     servicios: { nombre: "Servicios", icono: "⚡", color: "purple" },
     otros: { nombre: "Otros", icono: "📋", color: "gray" },
   };
 
-  const movimientosFiltrados = movimientos.filter((mov) => {
+  // Convertir pedidos a movimientos de egreso (gastos)
+  const pedidosComoGastos = useMemo(() => {
+    return pedidos
+      .filter((p) => p.estado !== "cancelado")
+      .map((pedido) => ({
+        id: `pedido-${pedido.id}`,
+        pedidoId: pedido.id,
+        fecha: pedido.fecha,
+        tipo: "egreso",
+        concepto: `Pedido #${pedido.id?.toString().slice(-4) || "?"} - ${pedido.deposito}`,
+        monto: parseFloat(pedido.total) || 0,
+        categoria: "pedidos",
+        esPedido: true,
+        estado: pedido.estado,
+        productos: pedido.productos,
+      }));
+  }, [pedidos]);
+
+  // Combinar movimientos con pedidos como gastos
+  const todosLosMovimientos = useMemo(() => {
+    if (vistaActiva === "movimientos") return movimientos;
+    if (vistaActiva === "pedidos") return pedidosComoGastos;
+    return [...movimientos, ...pedidosComoGastos].sort(
+      (a, b) => new Date(b.fecha) - new Date(a.fecha),
+    );
+  }, [movimientos, pedidosComoGastos, vistaActiva]);
+
+  // Calcular totales incluyendo pedidos
+  const totales = useMemo(() => {
+    const totalesBase = calcularTotales();
+    const totalPedidos = pedidosComoGastos.reduce((sum, p) => sum + p.monto, 0);
+
+    return {
+      ingresos: totalesBase.ingresos || 0,
+      egresos: (totalesBase.egresos || 0) + totalPedidos,
+      balance:
+        (totalesBase.ingresos || 0) - (totalesBase.egresos || 0) - totalPedidos,
+      totalPedidos,
+      cantidadPedidos: pedidosComoGastos.length,
+    };
+  }, [calcularTotales, pedidosComoGastos]);
+
+  const movimientosFiltrados = todosLosMovimientos.filter((mov) => {
     const cumpleTipo = filtroTipo === "todos" || mov.tipo === filtroTipo;
     const cumpleCategoria =
       filtroCategoria === "todas" || mov.categoria === filtroCategoria;
     const cumpleBusqueda = mov.concepto
-      .toLowerCase()
+      ?.toLowerCase()
       .includes(busqueda.toLowerCase());
     return cumpleTipo && cumpleCategoria && cumpleBusqueda;
   });
@@ -138,15 +183,17 @@ export default function Contabilidad() {
       "Tipo",
       "Concepto",
       "Monto",
-      "Categoría",
+      "Categoria",
+      "Origen",
       "Notas",
     ];
-    const rows = movimientos.map((m) => [
+    const rows = todosLosMovimientos.map((m) => [
       m.fecha,
       m.tipo,
       m.concepto,
       m.monto.toString(),
       m.categoria,
+      m.esPedido ? "Pedido" : "Manual",
       m.notas || "",
     ]);
 
@@ -162,23 +209,32 @@ export default function Contabilidad() {
     link.click();
   };
 
-  // Calcular totales por categoría
-  const totalesPorCategoria = Object.keys(categorias)
-    .map((cat) => {
-      const ingresos = movimientos
-        .filter((m) => m.categoria === cat && m.tipo === "ingreso")
-        .reduce((sum, m) => sum + m.monto, 0);
-      const egresos = movimientos
-        .filter((m) => m.categoria === cat && m.tipo === "egreso")
-        .reduce((sum, m) => sum + m.monto, 0);
-      return {
-        categoria: cat,
-        ingresos,
-        egresos,
-        balance: ingresos - egresos,
-      };
-    })
-    .filter((t) => t.ingresos > 0 || t.egresos > 0);
+  // Calcular totales por categoría (incluyendo pedidos)
+  const totalesPorCategoria = useMemo(() => {
+    return Object.keys(categorias)
+      .map((cat) => {
+        // Movimientos normales
+        const ingresos = movimientos
+          .filter((m) => m.categoria === cat && m.tipo === "ingreso")
+          .reduce((sum, m) => sum + m.monto, 0);
+        let egresos = movimientos
+          .filter((m) => m.categoria === cat && m.tipo === "egreso")
+          .reduce((sum, m) => sum + m.monto, 0);
+
+        // Agregar pedidos a la categoría "pedidos"
+        if (cat === "pedidos") {
+          egresos += pedidosComoGastos.reduce((sum, p) => sum + p.monto, 0);
+        }
+
+        return {
+          categoria: cat,
+          ingresos,
+          egresos,
+          balance: ingresos - egresos,
+        };
+      })
+      .filter((t) => t.ingresos > 0 || t.egresos > 0);
+  }, [movimientos, pedidosComoGastos, categorias]);
 
   return (
     <ClienteLayout>
@@ -208,7 +264,7 @@ export default function Contabilidad() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -228,8 +284,28 @@ export default function Contabilidad() {
                 <p className="text-3xl font-bold">
                   ${totales.egresos.toLocaleString()}
                 </p>
+                <p className="text-red-200 text-xs mt-1">
+                  (Incluye ${totales.totalPedidos.toLocaleString()} en pedidos)
+                </p>
               </div>
               <span className="text-4xl opacity-80">📉</span>
+            </div>
+          </div>
+
+          <div className="card bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100 text-sm">Gastos en Pedidos</p>
+                <p className="text-3xl font-bold">
+                  ${totales.totalPedidos.toLocaleString()}
+                </p>
+                <p className="text-orange-200 text-xs mt-1">
+                  {totales.cantidadPedidos} pedido
+                  {totales.cantidadPedidos !== 1 ? "s" : ""} realizado
+                  {totales.cantidadPedidos !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <span className="text-4xl opacity-80">📦</span>
             </div>
           </div>
 
@@ -237,15 +313,22 @@ export default function Contabilidad() {
             className={`card text-white ${
               totales.balance >= 0
                 ? "bg-gradient-to-br from-blue-500 to-blue-600"
-                : "bg-gradient-to-br from-orange-500 to-orange-600"
+                : "bg-gradient-to-br from-purple-500 to-purple-600"
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm">Balance</p>
+                <p
+                  className={
+                    totales.balance >= 0 ? "text-blue-100" : "text-purple-100"
+                  }
+                  style={{ fontSize: "0.875rem" }}
+                >
+                  Balance Real
+                </p>
                 <p className="text-3xl font-bold">
                   {totales.balance >= 0 ? "+" : ""}$
-                  {totales.balance.toLocaleString()}
+                  {Math.abs(totales.balance).toLocaleString()}
                 </p>
               </div>
               <span className="text-4xl opacity-80">💰</span>
@@ -253,8 +336,45 @@ export default function Contabilidad() {
           </div>
         </div>
 
+        {/* Vista Selector */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setVistaActiva("todo")}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              vistaActiva === "todo"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-neutral-700 dark:text-neutral-300"
+            }`}
+          >
+            📊 Todo ({todosLosMovimientos.length})
+          </button>
+          <button
+            onClick={() => setVistaActiva("movimientos")}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              vistaActiva === "movimientos"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-neutral-700 dark:text-neutral-300"
+            }`}
+          >
+            💵 Movimientos ({movimientos.length})
+          </button>
+          <button
+            onClick={() => setVistaActiva("pedidos")}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              vistaActiva === "pedidos"
+                ? "bg-orange-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-neutral-700 dark:text-neutral-300"
+            }`}
+          >
+            📦 Pedidos como Gastos ({pedidosComoGastos.length})
+          </button>
+        </div>
+
         {/* Calendario de Contabilidad */}
-        <CalendarioContabilidad movimientos={movimientos} colorPrimary="blue" />
+        <CalendarioContabilidad
+          movimientos={todosLosMovimientos}
+          colorPrimary="blue"
+        />
 
         {/* Category Summary */}
         <div className="card">
@@ -364,7 +484,7 @@ export default function Contabilidad() {
                   {movimientosFiltrados.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="py-8 text-center text-gray-500"
                       >
                         No hay movimientos con los filtros aplicados
@@ -374,16 +494,44 @@ export default function Contabilidad() {
                     movimientosFiltrados.map((mov) => (
                       <tr
                         key={mov.id}
-                        className="border-b last:border-0 hover:bg-gray-50"
+                        className={`border-b last:border-0 hover:bg-gray-50 ${mov.esPedido ? "bg-orange-50/50" : ""}`}
                       >
                         <td className="py-3 text-gray-600">{mov.fecha}</td>
                         <td className="py-3 font-medium text-gray-800">
-                          {mov.concepto}
+                          <div className="flex items-center gap-2">
+                            {mov.esPedido && (
+                              <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded font-medium">
+                                Pedido
+                              </span>
+                            )}
+                            {mov.concepto}
+                          </div>
+                          {mov.esPedido && mov.estado && (
+                            <span
+                              className={`text-xs mt-1 inline-block px-2 py-0.5 rounded ${
+                                mov.estado === "entregado"
+                                  ? "bg-green-100 text-green-700"
+                                  : mov.estado === "pendiente"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : mov.estado === "en_camino"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-gray-100 text-gray-700"
+                              }`}
+                            >
+                              {mov.estado === "entregado"
+                                ? "✓ Entregado"
+                                : mov.estado === "pendiente"
+                                  ? "⏳ Pendiente"
+                                  : mov.estado === "en_camino"
+                                    ? "🚚 En camino"
+                                    : mov.estado}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3">
                           <span className="px-2 py-1 bg-gray-100 rounded text-sm">
                             {categorias[mov.categoria]?.icono}{" "}
-                            {categorias[mov.categoria]?.nombre}
+                            {categorias[mov.categoria]?.nombre || mov.categoria}
                           </span>
                         </td>
                         <td className="py-3">
@@ -408,22 +556,28 @@ export default function Contabilidad() {
                           {mov.monto.toLocaleString()}
                         </td>
                         <td className="py-3 text-center">
-                          <div className="flex justify-center gap-1">
-                            <button
-                              onClick={() => handleEditar(mov)}
-                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors"
-                              title="Editar movimiento"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleEliminar(mov)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                              title="Eliminar movimiento"
-                            >
-                              🗑️
-                            </button>
-                          </div>
+                          {mov.esPedido ? (
+                            <span className="text-gray-400 text-xs">
+                              Automatico
+                            </span>
+                          ) : (
+                            <div className="flex justify-center gap-1">
+                              <button
+                                onClick={() => handleEditar(mov)}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                                title="Editar movimiento"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => handleEliminar(mov)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                title="Eliminar movimiento"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))

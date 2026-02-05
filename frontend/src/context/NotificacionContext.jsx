@@ -17,13 +17,33 @@ const getSocketUrl = () => {
   return apiUrl.replace("/api", "");
 };
 
+// Prioridades de notificaciones
+export const PRIORIDADES = {
+  BAJA: "baja",
+  NORMAL: "normal",
+  ALTA: "alta",
+  URGENTE: "urgente",
+};
+
+// Categorias de notificaciones
+export const CATEGORIAS = {
+  TODAS: "todas",
+  PEDIDOS: "pedido",
+  ENVIOS: "envio",
+  MENSAJES: "mensaje",
+  STOCK: "stock",
+  SISTEMA: "sistema",
+};
+
 export function NotificacionProvider({ children }) {
   const { usuario } = useAuth();
   const [socket, setSocket] = useState(null);
   const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
+  const [filtroCategoria, setFiltroCategoria] = useState(CATEGORIAS.TODAS);
+  const [sonidoHabilitado, setSonidoHabilitado] = useState(true);
+  const [vibracionHabilitada, setVibracionHabilitada] = useState(true);
 
-  // Obtener token desde localStorage
   const getToken = () => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("token");
@@ -31,136 +51,315 @@ export function NotificacionProvider({ children }) {
     return null;
   };
 
-  // Reproducir sonido de notificación
-  const playNotificationSound = () => {
-    if (typeof window !== "undefined") {
-      try {
-        const audio = new Audio("/notification.mp3");
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
-      } catch (e) {}
-    }
-  };
+  // Contexto de audio para generar sonidos
+  const audioContextRef = useRef(null);
 
-  // Función para agregar notificación
-  const agregarNotificacionFn = (notificacion) => {
-    const nuevaNotificacion = {
-      id: Date.now().toString(),
-      ...notificacion,
-      fecha: new Date().toISOString(),
-      leida: false,
-    };
-
-    setNotificaciones((prev) => [nuevaNotificacion, ...prev]);
-    setNoLeidas((prev) => prev + 1);
-
-    // Mostrar notificación del navegador si está permitido
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "granted") {
-        new Notification(notificacion.titulo, {
-          body: notificacion.mensaje,
-          icon: "/favicon.ico",
-        });
+  // Obtener o crear AudioContext
+  const getAudioContext = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    if (!audioContextRef.current) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        audioContextRef.current = new AudioContext();
       }
     }
+    return audioContextRef.current;
+  }, []);
 
-    playNotificationSound();
-  };
+  // Reproducir tono con Web Audio API
+  const playTone = useCallback(
+    (frequency, duration, volume = 0.3, type = "sine") => {
+      const ctx = getAudioContext();
+      if (!ctx) return;
 
-  // Ref para mantener la función actualizada
+      // Reanudar contexto si está suspendido
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+      // Fade in y fade out suave
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + duration);
+    },
+    [getAudioContext],
+  );
+
+  // Reproducir sonido segun prioridad y tipo
+  const playNotificationSound = useCallback(
+    (prioridad = PRIORIDADES.NORMAL, tipo = "default") => {
+      if (!sonidoHabilitado || typeof window === "undefined") return;
+
+      try {
+        // Diferentes patrones de sonido según prioridad
+        switch (prioridad) {
+          case PRIORIDADES.URGENTE:
+            // Sonido urgente: tres tonos ascendentes rápidos
+            playTone(880, 0.15, 0.5, "square");
+            setTimeout(() => playTone(1100, 0.15, 0.5, "square"), 150);
+            setTimeout(() => playTone(1320, 0.2, 0.6, "square"), 300);
+            break;
+
+          case PRIORIDADES.ALTA:
+            // Sonido alto: dos tonos ascendentes
+            playTone(660, 0.15, 0.4, "sine");
+            setTimeout(() => playTone(880, 0.2, 0.4, "sine"), 150);
+            break;
+
+          case PRIORIDADES.NORMAL:
+            // Sonido normal según tipo
+            if (tipo === "mensaje") {
+              // Sonido suave para mensajes
+              playTone(523, 0.1, 0.25, "sine");
+              setTimeout(() => playTone(659, 0.15, 0.25, "sine"), 100);
+            } else if (tipo === "pedido") {
+              // Sonido distintivo para pedidos
+              playTone(440, 0.1, 0.3, "triangle");
+              setTimeout(() => playTone(554, 0.1, 0.3, "triangle"), 100);
+              setTimeout(() => playTone(659, 0.15, 0.3, "triangle"), 200);
+            } else {
+              // Sonido genérico
+              playTone(587, 0.15, 0.3, "sine");
+            }
+            break;
+
+          case PRIORIDADES.BAJA:
+            // Sonido sutil
+            playTone(440, 0.1, 0.15, "sine");
+            break;
+
+          default:
+            playTone(523, 0.15, 0.25, "sine");
+        }
+
+        // Vibración para notificaciones urgentes
+        if (
+          vibracionHabilitada &&
+          "vibrate" in navigator &&
+          (prioridad === PRIORIDADES.URGENTE || prioridad === PRIORIDADES.ALTA)
+        ) {
+          const patron =
+            prioridad === PRIORIDADES.URGENTE
+              ? [200, 100, 200, 100, 200]
+              : [150, 100, 150];
+          navigator.vibrate(patron);
+        }
+      } catch (e) {
+        // Silenciar errores de audio
+        console.warn("Error al reproducir sonido:", e);
+      }
+    },
+    [sonidoHabilitado, vibracionHabilitada, playTone],
+  );
+
+  // Agregar notificacion
+  const agregarNotificacionFn = useCallback(
+    (notificacion) => {
+      const prioridad = notificacion.prioridad || PRIORIDADES.NORMAL;
+      const nuevaNotificacion = {
+        id:
+          Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9),
+        ...notificacion,
+        fecha: new Date().toISOString(),
+        leida: false,
+        prioridad,
+        animacion: true,
+      };
+
+      setNotificaciones((prev) => {
+        // Evitar duplicados
+        const cincoSegundosAtras = Date.now() - 5000;
+        const existeDuplicado = prev.some(
+          (n) =>
+            n.titulo === nuevaNotificacion.titulo &&
+            n.mensaje === nuevaNotificacion.mensaje &&
+            new Date(n.fecha).getTime() > cincoSegundosAtras,
+        );
+        if (existeDuplicado) return prev;
+
+        const nuevas = [nuevaNotificacion, ...prev];
+        return nuevas
+          .sort((a, b) => {
+            const prioridadOrden = {
+              [PRIORIDADES.URGENTE]: 4,
+              [PRIORIDADES.ALTA]: 3,
+              [PRIORIDADES.NORMAL]: 2,
+              [PRIORIDADES.BAJA]: 1,
+            };
+            const prioA = prioridadOrden[a.prioridad] || 2;
+            const prioB = prioridadOrden[b.prioridad] || 2;
+            if (prioA !== prioB) return prioB - prioA;
+            return new Date(b.fecha) - new Date(a.fecha);
+          })
+          .slice(0, 100);
+      });
+
+      setNoLeidas((prev) => prev + 1);
+
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        const notification = new Notification(notificacion.titulo, {
+          body: notificacion.mensaje,
+          icon: "/favicon.ico",
+          tag: nuevaNotificacion.id,
+          requireInteraction: prioridad === PRIORIDADES.URGENTE,
+        });
+        const tiemposCierre = {
+          [PRIORIDADES.BAJA]: 3000,
+          [PRIORIDADES.NORMAL]: 5000,
+          [PRIORIDADES.ALTA]: 8000,
+          [PRIORIDADES.URGENTE]: 15000,
+        };
+        setTimeout(
+          () => notification.close(),
+          tiemposCierre[prioridad] || 5000,
+        );
+      }
+
+      playNotificationSound(prioridad, notificacion.tipo || "default");
+
+      setTimeout(() => {
+        setNotificaciones((prev) =>
+          prev.map((n) =>
+            n.id === nuevaNotificacion.id ? { ...n, animacion: false } : n,
+          ),
+        );
+      }, 500);
+    },
+    [playNotificationSound],
+  );
+
   const agregarNotificacionRef = useRef(agregarNotificacionFn);
   agregarNotificacionRef.current = agregarNotificacionFn;
 
-  // Wrapper estable para usar en callbacks
   const agregarNotificacion = useCallback((notificacion) => {
     agregarNotificacionRef.current(notificacion);
   }, []);
 
-  // Cargar notificaciones desde localStorage
+  // Cargar desde localStorage
   useEffect(() => {
     if (usuario) {
-      const saved = localStorage.getItem(`notificaciones_${usuario.id}`);
+      const saved = localStorage.getItem("notificaciones_" + usuario.id);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setNotificaciones(parsed);
+          setNotificaciones(parsed.map((n) => ({ ...n, animacion: false })));
           setNoLeidas(parsed.filter((n) => !n.leida).length);
         } catch (e) {
-          console.error("Error parsing notifications:", e);
+          // Error al parsear
+        }
+      }
+      const config = localStorage.getItem("notif_config_" + usuario.id);
+      if (config) {
+        try {
+          const { sonido, vibracion } = JSON.parse(config);
+          if (typeof sonido === "boolean") setSonidoHabilitado(sonido);
+          if (typeof vibracion === "boolean") setVibracionHabilitada(vibracion);
+        } catch (e) {
+          // Error al parsear config
         }
       }
     }
   }, [usuario]);
 
-  // Guardar notificaciones en localStorage
+  // Guardar en localStorage (debounced)
   useEffect(() => {
-    if (usuario && notificaciones.length > 0) {
-      localStorage.setItem(
-        `notificaciones_${usuario.id}`,
-        JSON.stringify(notificaciones.slice(0, 50)),
-      );
-    }
+    if (!usuario) return;
+    const timeoutId = setTimeout(() => {
+      if (notificaciones.length > 0) {
+        localStorage.setItem(
+          "notificaciones_" + usuario.id,
+          JSON.stringify(notificaciones.slice(0, 50)),
+        );
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [notificaciones, usuario]);
 
-  // Inicializar Socket.io para notificaciones
+  useEffect(() => {
+    if (usuario) {
+      localStorage.setItem(
+        "notif_config_" + usuario.id,
+        JSON.stringify({
+          sonido: sonidoHabilitado,
+          vibracion: vibracionHabilitada,
+        }),
+      );
+    }
+  }, [sonidoHabilitado, vibracionHabilitada, usuario]);
+
+  // Socket.io
   useEffect(() => {
     const token = getToken();
     if (!token || !usuario) return;
 
     const socketUrl = getSocketUrl();
-    console.log("Notificaciones: Conectando a Socket.io en", socketUrl);
-
     const socketInstance = io(socketUrl, {
       auth: { token },
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
     });
 
-    socketInstance.on("connect", () => {
-      console.log("Notificaciones: Socket.io conectado");
-    });
+    socketInstance.on("connect", () =>
+      console.log("Notificaciones: Socket.io conectado"),
+    );
+    socketInstance.on("disconnect", () =>
+      console.log("Notificaciones: Socket.io desconectado"),
+    );
+    socketInstance.on("connect_error", (error) =>
+      console.error("Notificaciones: Error:", error.message),
+    );
 
-    socketInstance.on("disconnect", () => {
-      console.log("Notificaciones: Socket.io desconectado");
-    });
-
-    socketInstance.on("connect_error", (error) => {
-      console.error("Notificaciones: Error de conexión:", error.message);
-    });
-
-    // Notificación de nuevo mensaje de chat
     socketInstance.on("notificacion_mensaje", (data) => {
+      const remitente = data.remitente?.nombre || "Usuario";
+      const contenido = (data.mensaje?.contenido || "").substring(0, 50);
       agregarNotificacionRef.current({
         tipo: "mensaje",
         titulo: "Nuevo mensaje",
-        mensaje: `${data.remitente?.nombre || "Usuario"}: ${(data.mensaje?.contenido || "").substring(0, 50)}...`,
-        data: data,
-        icono: "💬",
+        mensaje: remitente + ": " + contenido + "...",
+        data,
+        icono: "chat",
+        prioridad: PRIORIDADES.NORMAL,
       });
     });
 
-    // Notificación de nuevo pedido (para depósitos y admin)
     socketInstance.on("nuevo_pedido", (data) => {
       agregarNotificacionRef.current({
         tipo: "pedido",
         titulo: "Nuevo pedido",
-        mensaje: `Pedido #${data.numero} recibido`,
-        data: data,
-        icono: "📦",
+        mensaje: "Pedido #" + data.numero + " recibido",
+        data,
+        icono: "pedido",
+        prioridad: PRIORIDADES.ALTA,
+        accion: { tipo: "ver_pedido", id: data.id },
       });
       window.dispatchEvent(
         new CustomEvent("socket:nuevo_pedido", { detail: data }),
       );
     });
 
-    // Notificación de cambio de estado de pedido
     socketInstance.on("pedido_actualizado", (data) => {
       const estadosTexto = {
-        pendiente: "está pendiente",
-        preparando: "se está preparando",
-        listo: "está listo para envío",
+        pendiente: "esta pendiente",
+        preparando: "se esta preparando",
+        listo: "esta listo para envio",
         enviado: "va en camino",
         entregado: "ha sido entregado",
         cancelado: "fue cancelado",
@@ -168,103 +367,121 @@ export function NotificacionProvider({ children }) {
       agregarNotificacionRef.current({
         tipo: "pedido",
         titulo: "Pedido actualizado",
-        mensaje: `Pedido #${data.numero} ${estadosTexto[data.estado] || data.estado}`,
-        data: data,
-        icono: "📋",
+        mensaje:
+          "Pedido #" +
+          data.numero +
+          " " +
+          (estadosTexto[data.estado] || data.estado),
+        data,
+        icono: data.estado === "entregado" ? "check" : "pedido",
+        prioridad:
+          data.estado === "cancelado" ? PRIORIDADES.ALTA : PRIORIDADES.NORMAL,
+        accion: { tipo: "ver_pedido", id: data.id },
       });
       window.dispatchEvent(
         new CustomEvent("socket:pedido_actualizado", { detail: data }),
       );
     });
 
-    // Notificación de nuevo envío asignado (para fletes)
     socketInstance.on("envio_asignado", (data) => {
       agregarNotificacionRef.current({
         tipo: "envio",
-        titulo: "Nuevo envío asignado",
-        mensaje: `Tienes un nuevo envío para entregar`,
-        data: data,
-        icono: "🚚",
+        titulo: "Nuevo envio asignado",
+        mensaje: "Tienes un nuevo envio para entregar",
+        data,
+        icono: "truck",
+        prioridad: PRIORIDADES.ALTA,
+        accion: { tipo: "ver_envio", id: data.id },
       });
       window.dispatchEvent(
         new CustomEvent("socket:envio_asignado", { detail: data }),
       );
     });
 
-    // Notificación de envío en camino (para clientes)
     socketInstance.on("envio_en_camino", (data) => {
       agregarNotificacionRef.current({
         tipo: "envio",
-        titulo: "¡Tu pedido va en camino!",
-        mensaje: `El pedido #${data.numero} está siendo entregado`,
-        data: data,
-        icono: "🚀",
+        titulo: "Tu pedido va en camino!",
+        mensaje: "El pedido #" + data.numero + " esta siendo entregado",
+        data,
+        icono: "truck",
+        prioridad: PRIORIDADES.ALTA,
       });
       window.dispatchEvent(
         new CustomEvent("socket:envio_en_camino", { detail: data }),
       );
     });
 
-    // Notificación de envío entregado
     socketInstance.on("envio_entregado", (data) => {
-      const mensajeBase = `El pedido #${data.numero} ha sido entregado`;
-      const mensajeStock = data.stockActualizado
-        ? ". Los productos se agregaron a tu stock automáticamente"
-        : "";
-
+      const stockMsg = data.stockActualizado ? ". Stock actualizado" : "";
       agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "Pedido entregado",
-        mensaje: mensajeBase + mensajeStock,
-        data: data,
-        icono: "✅",
+        mensaje: "El pedido #" + data.numero + " ha sido entregado" + stockMsg,
+        data,
+        icono: "check",
+        prioridad: PRIORIDADES.NORMAL,
       });
       window.dispatchEvent(
         new CustomEvent("socket:envio_entregado", { detail: data }),
       );
     });
 
-    // Notificación de envío entregado (para depósitos)
     socketInstance.on("envio_entregado_deposito", (data) => {
       agregarNotificacionRef.current({
         tipo: "envio",
-        titulo: "Envío completado",
-        mensaje: `El pedido #${data.numero} fue entregado exitosamente`,
-        data: data,
-        icono: "✅",
+        titulo: "Envio completado",
+        mensaje: "El pedido #" + data.numero + " fue entregado exitosamente",
+        data,
+        icono: "check",
+        prioridad: PRIORIDADES.NORMAL,
       });
       window.dispatchEvent(
         new CustomEvent("socket:envio_entregado_deposito", { detail: data }),
       );
     });
 
-    // Notificación de cuenta activada/desactivada
     socketInstance.on("cuenta_estado", (data) => {
       agregarNotificacionRef.current({
-        tipo: "cuenta",
+        tipo: "sistema",
         titulo: data.activo ? "Cuenta activada" : "Cuenta desactivada",
         mensaje: data.mensaje,
-        data: data,
-        icono: data.activo ? "✅" : "⚠️",
+        data,
+        icono: data.activo ? "check" : "warning",
+        prioridad: data.activo ? PRIORIDADES.NORMAL : PRIORIDADES.URGENTE,
       });
     });
 
-    // Notificación de stock bajo (para depósitos)
     socketInstance.on("stock_bajo", (data) => {
       agregarNotificacionRef.current({
         tipo: "stock",
         titulo: "Stock bajo",
-        mensaje: `${data.producto} tiene stock bajo (${data.cantidad} unidades)`,
-        data: data,
-        icono: "⚠️",
+        mensaje:
+          data.producto + " tiene stock bajo (" + data.cantidad + " unidades)",
+        data,
+        icono: "warning",
+        prioridad: PRIORIDADES.ALTA,
       });
     });
 
-    // Notificación genérica
-    socketInstance.on("notificacion", (data) => {
-      agregarNotificacionRef.current(data);
+    socketInstance.on("videollamada_entrante", (data) => {
+      const llamante = data.remitente?.nombre || "Usuario";
+      agregarNotificacionRef.current({
+        tipo: "mensaje",
+        titulo: "Videollamada entrante",
+        mensaje: llamante + " te esta llamando",
+        data,
+        icono: "video",
+        prioridad: PRIORIDADES.URGENTE,
+        accion: { tipo: "contestar_llamada", data },
+      });
+    });
 
-      // Si es una notificación de envío en camino, emitir evento para el depósito
+    socketInstance.on("notificacion", (data) => {
+      agregarNotificacionRef.current({
+        ...data,
+        prioridad: data.prioridad || PRIORIDADES.NORMAL,
+      });
       if (data.tipo === "info" && data.datos?.envioId && data.datos?.pedidoId) {
         window.dispatchEvent(
           new CustomEvent("socket:envio_en_camino_deposito", {
@@ -275,13 +492,9 @@ export function NotificacionProvider({ children }) {
     });
 
     setSocket(socketInstance);
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    return () => socketInstance.disconnect();
   }, [usuario]);
 
-  // Marcar notificación como leída
   const marcarComoLeida = useCallback((id) => {
     setNotificaciones((prev) =>
       prev.map((n) => (n.id === id ? { ...n, leida: true } : n)),
@@ -289,50 +502,80 @@ export function NotificacionProvider({ children }) {
     setNoLeidas((prev) => Math.max(0, prev - 1));
   }, []);
 
-  // Marcar todas como leídas
   const marcarTodasComoLeidas = useCallback(() => {
     setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
     setNoLeidas(0);
   }, []);
 
-  // Eliminar notificación
   const eliminarNotificacion = useCallback((id) => {
     setNotificaciones((prev) => {
       const notif = prev.find((n) => n.id === id);
-      if (notif && !notif.leida) {
-        setNoLeidas((count) => Math.max(0, count - 1));
-      }
+      if (notif && !notif.leida) setNoLeidas((c) => Math.max(0, c - 1));
       return prev.filter((n) => n.id !== id);
     });
   }, []);
 
-  // Limpiar todas las notificaciones
   const limpiarNotificaciones = useCallback(() => {
     setNotificaciones([]);
     setNoLeidas(0);
-    if (usuario) {
-      localStorage.removeItem(`notificaciones_${usuario.id}`);
-    }
+    if (usuario) localStorage.removeItem("notificaciones_" + usuario.id);
   }, [usuario]);
 
-  // Solicitar permiso para notificaciones del navegador
+  const getNotificacionesFiltradas = useCallback(() => {
+    if (filtroCategoria === CATEGORIAS.TODAS) return notificaciones;
+    return notificaciones.filter((n) => n.tipo === filtroCategoria);
+  }, [notificaciones, filtroCategoria]);
+
+  const getConteoPorCategoria = useCallback(
+    () => ({
+      todas: notificaciones.filter((n) => !n.leida).length,
+      pedido: notificaciones.filter((n) => n.tipo === "pedido" && !n.leida)
+        .length,
+      envio: notificaciones.filter((n) => n.tipo === "envio" && !n.leida)
+        .length,
+      mensaje: notificaciones.filter((n) => n.tipo === "mensaje" && !n.leida)
+        .length,
+      stock: notificaciones.filter((n) => n.tipo === "stock" && !n.leida)
+        .length,
+      sistema: notificaciones.filter((n) => n.tipo === "sistema" && !n.leida)
+        .length,
+    }),
+    [notificaciones],
+  );
+
   const solicitarPermisoNotificaciones = useCallback(async () => {
     if (typeof window !== "undefined" && "Notification" in window) {
-      const permission = await Notification.requestPermission();
-      return permission === "granted";
+      return (await Notification.requestPermission()) === "granted";
     }
     return false;
   }, []);
 
+  const toggleSonido = useCallback(() => setSonidoHabilitado((p) => !p), []);
+  const toggleVibracion = useCallback(
+    () => setVibracionHabilitada((p) => !p),
+    [],
+  );
+
   const value = {
     notificaciones,
     noLeidas,
+    filtroCategoria,
+    sonidoHabilitado,
+    vibracionHabilitada,
     agregarNotificacion,
     marcarComoLeida,
     marcarTodasComoLeidas,
     eliminarNotificacion,
     limpiarNotificaciones,
     solicitarPermisoNotificaciones,
+    setFiltroCategoria,
+    getNotificacionesFiltradas,
+    getConteoPorCategoria,
+    toggleSonido,
+    toggleVibracion,
+    playNotificationSound,
+    PRIORIDADES,
+    CATEGORIAS,
   };
 
   return (

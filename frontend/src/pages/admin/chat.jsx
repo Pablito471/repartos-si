@@ -4,6 +4,147 @@ import { useChat } from "@/context/ChatContext";
 import { useAuth } from "@/context/AuthContext";
 import Icons from "@/components/Icons";
 
+// Componente para el modal de llamada entrante
+function LlamadaEntranteModal({ llamadaEntrante, onAceptar, onRechazar }) {
+  if (!llamadaEntrante) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center">
+      <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 shadow-2xl text-center animate-pulse">
+        <div className="w-20 h-20 mx-auto mb-4 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
+          <Icons.Video className="w-10 h-10 text-primary-600" />
+        </div>
+        <h3 className="text-lg font-semibold text-neutral-800 dark:text-white mb-1">
+          Videollamada entrante
+        </h3>
+        <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+          {llamadaEntrante.nombreLlamante || "Usuario"} te está llamando
+        </p>
+        <div className="flex gap-4 justify-center">
+          <button
+            onClick={onRechazar}
+            className="w-14 h-14 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
+          >
+            <Icons.Phone className="w-6 h-6 rotate-[135deg]" />
+          </button>
+          <button
+            onClick={onAceptar}
+            className="w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center transition-colors animate-bounce"
+          >
+            <Icons.Video className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente para la interfaz de videollamada
+function VideollamadaUI({
+  localStream,
+  remoteStream,
+  microfonoActivo,
+  videoActivo,
+  usuarioEnLlamada,
+  llamadaSaliente,
+  onToggleMicrofono,
+  onToggleVideo,
+  onColgar,
+}) {
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-neutral-900 flex flex-col">
+      <div className="flex-1 relative">
+        {remoteStream ? (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-white">
+            <div className="w-24 h-24 bg-neutral-700 rounded-full flex items-center justify-center mb-4">
+              <Icons.User className="w-12 h-12" />
+            </div>
+            <p className="text-lg">{usuarioEnLlamada?.nombre || "Usuario"}</p>
+            {llamadaSaliente && (
+              <p className="text-neutral-400 mt-2 animate-pulse">Llamando...</p>
+            )}
+          </div>
+        )}
+
+        <div className="absolute top-4 right-4 w-32 h-40 sm:w-40 sm:h-52 bg-neutral-800 rounded-lg overflow-hidden shadow-lg">
+          {localStream && videoActivo ? (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Icons.User className="w-10 h-10 text-neutral-500" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-neutral-800/90 py-6 px-4">
+        <div className="flex justify-center gap-6">
+          <button
+            onClick={onToggleMicrofono}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
+              microfonoActivo
+                ? "bg-neutral-700 hover:bg-neutral-600 text-white"
+                : "bg-red-500 hover:bg-red-600 text-white"
+            }`}
+          >
+            {microfonoActivo ? (
+              <Icons.Microphone className="w-6 h-6" />
+            ) : (
+              <Icons.SpeakerOff className="w-6 h-6" />
+            )}
+          </button>
+
+          <button
+            onClick={onToggleVideo}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
+              videoActivo
+                ? "bg-neutral-700 hover:bg-neutral-600 text-white"
+                : "bg-red-500 hover:bg-red-600 text-white"
+            }`}
+          >
+            <Icons.Video className="w-6 h-6" />
+          </button>
+
+          <button
+            onClick={onColgar}
+            className="w-14 h-14 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
+          >
+            <Icons.Phone className="w-6 h-6 rotate-[135deg]" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminChat() {
   const { usuario } = useAuth();
   const {
@@ -19,6 +160,21 @@ export default function AdminChat() {
     indicarEscribiendo,
     marcarComoLeidos,
     salirConversacion,
+    // Videollamadas
+    enLlamada,
+    llamadaEntrante,
+    llamadaSaliente,
+    localStream,
+    remoteStream,
+    microfonoActivo,
+    videoActivo,
+    usuarioEnLlamada,
+    iniciarLlamada,
+    aceptarLlamada,
+    rechazarLlamada,
+    colgarLlamada,
+    toggleMicrofono,
+    toggleVideo,
   } = useChat();
 
   const [mensaje, setMensaje] = useState("");
@@ -86,6 +242,12 @@ export default function AdminChat() {
     }, 2000);
   };
 
+  const handleIniciarLlamada = () => {
+    if (conversacion && conversacion.usuarioId) {
+      iniciarLlamada(conversacion.usuarioId, conversacion.usuario?.nombre);
+    }
+  };
+
   const formatHora = (fecha) => {
     if (!fecha) return "";
     return new Date(fecha).toLocaleTimeString("es-AR", {
@@ -130,6 +292,28 @@ export default function AdminChat() {
 
   return (
     <AdminLayout>
+      {/* Modal de llamada entrante */}
+      <LlamadaEntranteModal
+        llamadaEntrante={llamadaEntrante}
+        onAceptar={aceptarLlamada}
+        onRechazar={rechazarLlamada}
+      />
+
+      {/* UI de videollamada activa */}
+      {(enLlamada || llamadaSaliente) && (
+        <VideollamadaUI
+          localStream={localStream}
+          remoteStream={remoteStream}
+          microfonoActivo={microfonoActivo}
+          videoActivo={videoActivo}
+          usuarioEnLlamada={usuarioEnLlamada}
+          llamadaSaliente={llamadaSaliente}
+          onToggleMicrofono={toggleMicrofono}
+          onToggleVideo={toggleVideo}
+          onColgar={colgarLlamada}
+        />
+      )}
+
       <div className="h-[calc(100vh-120px)] flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -267,6 +451,16 @@ export default function AdminChat() {
                       {conversacion.usuario?.email}
                     </p>
                   </div>
+                  {/* Botón de videollamada */}
+                  {conectado && (
+                    <button
+                      onClick={handleIniciarLlamada}
+                      className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-full transition-colors"
+                      title="Iniciar videollamada"
+                    >
+                      <Icons.Video className="w-5 h-5 text-primary-600" />
+                    </button>
+                  )}
                   <span
                     className={`text-xs px-2 py-1 rounded ${getTipoUsuarioColor(
                       conversacion.usuario?.tipoUsuario,
