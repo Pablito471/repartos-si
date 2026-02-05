@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Códigos de Barras de Prueba</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+    h1 { text-align: center; margin-bottom: 20px; color: #333; }
+    .instrucciones { text-align: center; margin-bottom: 30px; color: #666; }
+    .contenedor {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .etiqueta {
+      background: white;
+      border: 2px dashed #ccc;
+      border-radius: 12px;
+      padding: 25px;
+      text-align: center;
+    }
+    .nombre { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+    .precio { font-size: 24px; font-weight: bold; color: #e65100; margin-bottom: 15px; }
+    .barcode-container { margin: 15px 0; }
+    .codigo-texto {
+      font-family: 'Courier New', monospace;
+      font-size: 20px;
+      font-weight: bold;
+      background: #f0f0f0;
+      padding: 10px 20px;
+      border-radius: 6px;
+      margin-top: 10px;
+      letter-spacing: 3px;
+    }
+    .btn-imprimir {
+      display: block;
+      margin: 30px auto;
+      padding: 15px 40px;
+      font-size: 18px;
+      background: #e65100;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    @media print {
+      body { background: white; padding: 10px; }
+      h1, .instrucciones, .btn-imprimir { display: none; }
+      .contenedor { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .etiqueta { border: 1px dashed #999; padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🏷️ Códigos de Barras de Prueba</h1>
+  <p class="instrucciones">Escanea estos códigos para agregar productos</p>
+  
+  <div class="contenedor">
+    <div class="etiqueta">
+      <div class="nombre">Coca Cola 2.25L</div>
+      <div class="precio">$2.500</div>
+      <div class="barcode-container"><svg id="b1"></svg></div>
+      <div class="codigo-texto">STKTEST001</div>
+    </div>
+    <div class="etiqueta">
+      <div class="nombre">Pepsi 2L</div>
+      <div class="precio">$2.200</div>
+      <div class="barcode-container"><svg id="b2"></svg></div>
+      <div class="codigo-texto">STKTEST002</div>
+    </div>
+    <div class="etiqueta">
+      <div class="nombre">Fanta Naranja 2L</div>
+      <div class="precio">$2.000</div>
+      <div class="barcode-container"><svg id="b3"></svg></div>
+      <div class="codigo-texto">STKTEST003</div>
+    </div>
+    <div class="etiqueta">
+      <div class="nombre">Agua Mineral 1.5L</div>
+      <div class="precio">$800</div>
+      <div class="barcode-container"><svg id="b4"></svg></div>
+      <div class="codigo-texto">STKTEST004</div>
+    </div>
+    <div class="etiqueta">
+      <div class="nombre">Galletitas Oreo</div>
+      <div class="precio">$1.500</div>
+      <div class="barcode-container"><svg id="b5"></svg></div>
+      <div class="codigo-texto">STKTEST005</div>
+    </div>
+  </div>
+  
+  <button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script>
+    JsBarcode("#b1", "STKTEST001", { format: "CODE128", width: 2, height: 70, displayValue: false });
+    JsBarcode("#b2", "STKTEST002", { format: "CODE128", width: 2, height: 70, displayValue: false });
+    JsBarcode("#b3", "STKTEST003", { format: "CODE128", width: 2, height: 70, displayValue: false });
+    JsBarcode("#b4", "STKTEST004", { format: "CODE128", width: 2, height: 70, displayValue: false });
+    JsBarcode("#b5", "STKTEST005", { format: "CODE128", width: 2, height: 70, displayValue: false });
+  </script>
+</body>
+</html>
+</html>

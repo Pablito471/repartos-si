@@ -10,6 +10,7 @@ import {
   Html5Qrcode,
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
+import { createWorker } from "tesseract.js";
 
 export default function EscanerStock() {
   const { usuario, esMovil, modoEscaner, setModoEscaner } = useAuth();
@@ -42,6 +43,18 @@ export default function EscanerStock() {
 
   // Orientación del dispositivo
   const [isLandscape, setIsLandscape] = useState(false);
+
+  // Control de zoom para códigos pequeños
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [maxZoom, setMaxZoom] = useState(1);
+  const [zoomDisponible, setZoomDisponible] = useState(false);
+
+  // OCR para leer números debajo del código de barras
+  const [ocrActivo, setOcrActivo] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState("");
+  const ocrWorkerRef = useRef(null);
+  const ocrIntervalRef = useRef(null);
+  const ultimoCodigoOCR = useRef("");
 
   // Detectar cambios de orientación
   useEffect(() => {
@@ -162,22 +175,33 @@ export default function EscanerStock() {
           }
         }
 
+        // Detectar si es desktop (no tiene cámara trasera típicamente)
+        const isDesktop =
+          !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent,
+          );
+
         // Calcular tamaño del qrbox basado en orientación y tamaño de pantalla
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
-        const isLandscape = screenWidth > screenHeight;
+        const isLandscapeMode = screenWidth > screenHeight;
 
-        // En horizontal, usar más espacio
-        const qrboxWidth = isLandscape
-          ? Math.min(screenWidth - 100, 500)
-          : Math.min(screenWidth - 60, 300);
-        const qrboxHeight = isLandscape
-          ? Math.floor(qrboxWidth * 0.4)
-          : Math.floor(qrboxWidth * 0.6);
+        // Área de escaneo - más grande en desktop para compensar falta de zoom
+        const qrboxWidth = isDesktop
+          ? Math.min(screenWidth - 100, 600) // Desktop: área más grande
+          : isLandscapeMode
+            ? Math.min(screenWidth - 80, 550)
+            : Math.min(screenWidth - 40, 350);
+        // Altura más baja para códigos de barras lineales (son horizontales)
+        const qrboxHeight = isDesktop
+          ? Math.floor(qrboxWidth * 0.3) // Desktop: más ancho y bajo para códigos lineales
+          : isLandscapeMode
+            ? Math.floor(qrboxWidth * 0.35)
+            : Math.floor(qrboxWidth * 0.5);
 
-        // Formatos de código de barras soportados
+        // Formatos de código de barras soportados - priorizando códigos lineales
         const formatsToSupport = [
-          Html5QrcodeSupportedFormats.QR_CODE,
+          // Códigos de barras lineales (más comunes en productos)
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
           Html5QrcodeSupportedFormats.UPC_A,
@@ -187,6 +211,8 @@ export default function EscanerStock() {
           Html5QrcodeSupportedFormats.CODE_93,
           Html5QrcodeSupportedFormats.CODABAR,
           Html5QrcodeSupportedFormats.ITF,
+          // QR al final (menor prioridad)
+          Html5QrcodeSupportedFormats.QR_CODE,
         ];
 
         // Usar Html5Qrcode directamente para mejor control de formatos
@@ -195,15 +221,27 @@ export default function EscanerStock() {
           verbose: false,
         });
 
+        // Configuración optimizada - diferente para desktop y móvil
         const config = {
-          fps: 10,
+          fps: isDesktop ? 20 : 15, // Más FPS en desktop (mejor hardware)
           qrbox: { width: qrboxWidth, height: qrboxHeight },
-          aspectRatio: isLandscape ? 1.777778 : 1.333333, // 16:9 en horizontal, 4:3 en vertical
+          aspectRatio: isLandscapeMode ? 1.777778 : 1.333333,
+          // Configuración experimental para mejor lectura
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true, // Usa API nativa si está disponible
+          },
+          // Desactivar espejos para mejorar precisión
+          disableFlip: false,
         };
 
         try {
+          // Para desktop usamos "user" (webcam frontal), para móvil "environment" (cámara trasera)
+          const cameraConfig = isDesktop
+            ? { facingMode: "user" }
+            : { facingMode: "environment" };
+
           await html5QrcodeScannerRef.current.start(
-            { facingMode: "environment" },
+            cameraConfig,
             config,
             async (decodedText, decodedResult) => {
               // Código escaneado exitosamente
@@ -224,6 +262,56 @@ export default function EscanerStock() {
               // Errores silenciosos de "no code found" son normales
             },
           );
+
+          // Intentar configurar zoom y enfoque para códigos pequeños
+          try {
+            // Esperar un poco a que el video se inicialice
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            const videoElement = document.querySelector("#reader video");
+            if (videoElement && videoElement.srcObject) {
+              const track = videoElement.srcObject.getVideoTracks()[0];
+              const capabilities = track.getCapabilities();
+
+              // Configurar enfoque continuo si está disponible
+              if (
+                capabilities.focusMode &&
+                capabilities.focusMode.includes("continuous")
+              ) {
+                await track.applyConstraints({
+                  advanced: [{ focusMode: "continuous" }],
+                });
+                console.log("📷 Enfoque continuo activado");
+              }
+
+              // Configurar zoom
+              if (capabilities.zoom) {
+                const minZoom = capabilities.zoom.min || 1;
+                const maxZoomVal = capabilities.zoom.max || 1;
+                setMaxZoom(maxZoomVal);
+                setZoomDisponible(true);
+                // Aplicar zoom más alto por defecto para códigos pequeños
+                // Usar 40% del rango de zoom (mejor para mantener distancia y enfocar)
+                const initialZoom = Math.min(
+                  minZoom + (maxZoomVal - minZoom) * 0.4,
+                  3,
+                );
+                setZoomLevel(initialZoom);
+                await track.applyConstraints({
+                  advanced: [{ zoom: initialZoom }],
+                });
+                console.log(
+                  "📷 Zoom inicial:",
+                  initialZoom,
+                  "Max:",
+                  maxZoomVal,
+                );
+              }
+            }
+          } catch (zoomErr) {
+            console.log("Zoom/enfoque no disponible:", zoomErr.message);
+            setZoomDisponible(false);
+          }
+
           console.log("🎥 Escáner iniciado correctamente");
         } catch (err) {
           console.error("Error al iniciar cámara:", err);
@@ -237,6 +325,183 @@ export default function EscanerStock() {
       return () => clearTimeout(timer);
     }
   }, [escaneando, modoManual, isLandscape]);
+
+  // Función para cambiar zoom
+  const cambiarZoom = async (nuevoZoom) => {
+    try {
+      const videoElement = document.querySelector("#reader video");
+      if (videoElement && videoElement.srcObject) {
+        const track = videoElement.srcObject.getVideoTracks()[0];
+        await track.applyConstraints({ advanced: [{ zoom: nuevoZoom }] });
+        setZoomLevel(nuevoZoom);
+        console.log("📷 Zoom cambiado a:", nuevoZoom);
+      }
+    } catch (err) {
+      console.log("Error al cambiar zoom:", err);
+    }
+  };
+
+  // Inicializar worker de OCR
+  const inicializarOCR = useCallback(async () => {
+    if (ocrWorkerRef.current) return;
+
+    try {
+      setOcrStatus("Cargando OCR...");
+      const worker = await createWorker("eng", 1, {
+        logger: (m) => {
+          if (m.status === "recognizing text") {
+            setOcrStatus(`OCR: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+      });
+
+      // Configurar para reconocer solo números
+      await worker.setParameters({
+        tessedit_char_whitelist: "0123456789",
+        tessedit_pageseg_mode: "7", // Tratar como línea de texto única
+      });
+
+      ocrWorkerRef.current = worker;
+      setOcrStatus("OCR listo");
+      console.log("✅ OCR inicializado");
+    } catch (err) {
+      console.error("Error al inicializar OCR:", err);
+      setOcrStatus("Error OCR");
+    }
+  }, []);
+
+  // Ejecutar OCR en un frame del video
+  const ejecutarOCR = useCallback(async () => {
+    if (!ocrWorkerRef.current || productoEscaneado) return;
+
+    const videoElement = document.querySelector("#reader video");
+    if (!videoElement || videoElement.readyState < 2) return;
+
+    try {
+      // Crear canvas para capturar frame
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Capturar solo la parte inferior del video (donde están los números)
+      const videoWidth = videoElement.videoWidth;
+      const videoHeight = videoElement.videoHeight;
+
+      // Capturar el tercio inferior donde suelen estar los números
+      const captureHeight = Math.floor(videoHeight * 0.3);
+      const captureY = videoHeight - captureHeight;
+
+      canvas.width = videoWidth;
+      canvas.height = captureHeight;
+
+      ctx.drawImage(
+        videoElement,
+        0,
+        captureY,
+        videoWidth,
+        captureHeight, // Fuente
+        0,
+        0,
+        videoWidth,
+        captureHeight, // Destino
+      );
+
+      // Mejorar contraste para OCR
+      ctx.filter = "contrast(1.5) brightness(1.2)";
+      ctx.drawImage(canvas, 0, 0);
+
+      // Convertir a imagen
+      const imageData = canvas.toDataURL("image/png");
+
+      setOcrStatus("Leyendo números...");
+      const {
+        data: { text },
+      } = await ocrWorkerRef.current.recognize(imageData);
+
+      // Buscar patrones de código de barras en el texto
+      // EAN-13: 13 dígitos, EAN-8: 8 dígitos, UPC-A: 12 dígitos
+      const numeros = text.replace(/\s/g, ""); // Quitar espacios
+
+      // Buscar secuencias de números válidas
+      const patronEAN13 = /\d{13}/g;
+      const patronEAN8 = /\d{8}/g;
+      const patronUPC = /\d{12}/g;
+
+      let codigoDetectado = null;
+
+      // Prioridad: EAN-13/UPC > EAN-8
+      const ean13Match = numeros.match(patronEAN13);
+      const upcMatch = numeros.match(patronUPC);
+      const ean8Match = numeros.match(patronEAN8);
+
+      if (ean13Match) {
+        codigoDetectado = ean13Match[0];
+      } else if (upcMatch) {
+        codigoDetectado = upcMatch[0];
+      } else if (ean8Match) {
+        codigoDetectado = ean8Match[0];
+      }
+
+      if (codigoDetectado && codigoDetectado !== ultimoCodigoOCR.current) {
+        console.log("🔢 OCR detectó código:", codigoDetectado);
+        ultimoCodigoOCR.current = codigoDetectado;
+
+        // Vibrar
+        if (navigator.vibrate) {
+          navigator.vibrate([100, 50, 100]);
+        }
+
+        setOcrStatus(`Encontrado: ${codigoDetectado}`);
+
+        // Buscar el producto
+        await buscarProducto(codigoDetectado);
+      } else {
+        setOcrStatus("Buscando números...");
+      }
+    } catch (err) {
+      console.log("Error en OCR:", err.message);
+    }
+  }, [productoEscaneado]);
+
+  // Activar/desactivar OCR
+  const toggleOCR = useCallback(async () => {
+    if (ocrActivo) {
+      // Desactivar
+      if (ocrIntervalRef.current) {
+        clearInterval(ocrIntervalRef.current);
+        ocrIntervalRef.current = null;
+      }
+      setOcrActivo(false);
+      setOcrStatus("");
+    } else {
+      // Activar
+      await inicializarOCR();
+      setOcrActivo(true);
+
+      // Ejecutar OCR cada 2 segundos
+      ocrIntervalRef.current = setInterval(() => {
+        ejecutarOCR();
+      }, 2000);
+    }
+  }, [ocrActivo, inicializarOCR, ejecutarOCR]);
+
+  // Limpiar OCR al desmontar o cambiar estado de escaneo
+  useEffect(() => {
+    return () => {
+      if (ocrIntervalRef.current) {
+        clearInterval(ocrIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Detener OCR cuando se encuentra producto
+  useEffect(() => {
+    if (productoEscaneado && ocrIntervalRef.current) {
+      clearInterval(ocrIntervalRef.current);
+      ocrIntervalRef.current = null;
+      setOcrActivo(false);
+      setOcrStatus("");
+    }
+  }, [productoEscaneado]);
 
   // Detener escáner
   const detenerEscaner = useCallback(async () => {
@@ -643,28 +908,64 @@ export default function EscanerStock() {
               <div className="text-center py-8">
                 <span className="text-6xl block mb-4">📷</span>
                 <p className="text-gray-600 mb-4">
-                  Presiona el botón para iniciar la cámara
+                  {esMovil
+                    ? "Presiona el botón para iniciar la cámara"
+                    : "Elige cómo ingresar el código de barras"}
                 </p>
-                <button
-                  onClick={iniciarEscaner}
-                  className="btn-primary text-lg px-8 py-3"
+
+                <div
+                  className={`flex ${esMovil ? "flex-col" : "flex-row"} justify-center gap-3`}
                 >
-                  🎯 Iniciar Escáner
-                </button>
+                  <button
+                    onClick={iniciarEscaner}
+                    className={`btn-primary text-lg px-8 py-3 ${!esMovil && "flex-1 max-w-xs"}`}
+                  >
+                    🎯 {esMovil ? "Iniciar Escáner" : "Usar Webcam"}
+                  </button>
+
+                  {!esMovil && (
+                    <button
+                      onClick={() => setModoManual(true)}
+                      className="btn-secondary text-lg px-8 py-3 flex-1 max-w-xs"
+                    >
+                      ⌨️ Escribir Código
+                    </button>
+                  )}
+                </div>
+
                 <p className="text-xs text-gray-400 mt-4">
-                  📱 Se usará la cámara trasera en dispositivos móviles
+                  {esMovil
+                    ? "📱 Se usará la cámara trasera"
+                    : "💡 Para códigos pequeños o difíciles, usa 'Escribir Código'"}
                 </p>
               </div>
             ) : (
               <div>
                 <p className="text-center text-sm text-gray-600 mb-3">
-                  📷 Apunta al código de barras y mantén el celular estable
-                  {isLandscape && (
+                  📷 Apunta al código de barras y mantén{" "}
+                  {esMovil ? "el celular" : "la cámara"} estable
+                  {isLandscape && esMovil && (
                     <span className="block text-xs text-primary mt-1">
                       📱 Modo horizontal detectado - área ampliada
                     </span>
                   )}
                 </p>
+
+                {/* Tips diferentes para móvil y desktop */}
+                {esMovil ? (
+                  <div className="text-center text-xs text-amber-600 bg-amber-50 rounded-lg p-2 mb-3">
+                    💡 <strong>Tip para códigos pequeños:</strong> NO acerques
+                    demasiado el celular (se desenfoca). Mantén ~15cm de
+                    distancia y <strong>aumenta el zoom</strong> abajo ⬇️
+                  </div>
+                ) : (
+                  <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg p-2 mb-3">
+                    💻 <strong>Tip para webcam:</strong> Si el código es muy
+                    pequeño, usa el <strong>modo manual</strong> (botón abajo).
+                    Las webcams no tienen zoom óptico. Acerca el código a ~20cm
+                    de la cámara.
+                  </div>
+                )}
                 <div
                   id="reader"
                   ref={scannerRef}
@@ -674,18 +975,120 @@ export default function EscanerStock() {
                     maxHeight: isLandscape ? "60vh" : "auto",
                   }}
                 ></div>
+
+                {/* Control de zoom para códigos pequeños */}
+                {zoomDisponible && (
+                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-blue-700 font-medium">
+                        🔍 Zoom digital (¡usa esto para códigos pequeños!)
+                      </span>
+                      <span className="text-sm text-blue-600 font-bold">
+                        {zoomLevel.toFixed(1)}x
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          cambiarZoom(Math.max(1, zoomLevel - 0.5))
+                        }
+                        className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
+                        disabled={zoomLevel <= 1}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="range"
+                        min="1"
+                        max={maxZoom}
+                        step="0.1"
+                        value={zoomLevel}
+                        onChange={(e) =>
+                          cambiarZoom(parseFloat(e.target.value))
+                        }
+                        className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      />
+                      <button
+                        onClick={() =>
+                          cambiarZoom(Math.min(maxZoom, zoomLevel + 0.5))
+                        }
+                        className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
+                        disabled={zoomLevel >= maxZoom}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-2 text-center font-medium">
+                      📱 Mantén distancia (~15cm) + sube el zoom = código
+                      pequeño enfocado
+                    </p>
+                  </div>
+                )}
+
+                {/* OCR para leer números automáticamente */}
+                <div className="mt-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <span className="text-sm text-purple-800 font-bold">
+                        🔢 Leer números automáticamente
+                      </span>
+                      <p className="text-xs text-purple-600">
+                        Lee los números debajo del código de barras
+                      </p>
+                    </div>
+                    <button
+                      onClick={toggleOCR}
+                      className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                        ocrActivo
+                          ? "bg-purple-600 text-white animate-pulse"
+                          : "bg-white border-2 border-purple-400 text-purple-700 hover:bg-purple-100"
+                      }`}
+                    >
+                      {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
+                    </button>
+                  </div>
+                  {ocrStatus && (
+                    <div
+                      className={`text-center py-2 px-3 rounded-lg mt-2 ${
+                        ocrStatus.includes("Encontrado")
+                          ? "bg-green-100 text-green-700"
+                          : "bg-purple-100 text-purple-700"
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{ocrStatus}</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-purple-500 mt-2 text-center">
+                    💡 Apunta a los{" "}
+                    <strong>números debajo de las barras</strong> (ej:
+                    7790012345678)
+                  </p>
+                </div>
+
                 <p className="text-center text-xs text-gray-500 mt-2">
                   💡 Asegúrate de tener buena iluminación y el código centrado
                 </p>
-                <div className="mt-4 flex justify-center gap-3">
-                  <button onClick={detenerEscaner} className="btn-secondary">
-                    ⏹️ Detener
-                  </button>
+
+                {/* Botón prominente para códigos pequeños */}
+                <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                  <p className="text-center text-amber-800 font-medium mb-3">
+                    🔢 ¿Código muy pequeño o no se lee?
+                  </p>
                   <button
                     onClick={() => setModoManual(true)}
-                    className="btn-secondary"
+                    className="w-full btn-primary bg-amber-500 hover:bg-amber-600 text-lg py-3 flex items-center justify-center gap-2"
                   >
-                    ⌨️ Ingresar manual
+                    ⌨️ Escribir los números del código
+                  </button>
+                  <p className="text-center text-xs text-amber-700 mt-2">
+                    👉 Los números aparecen{" "}
+                    <strong>debajo de las barras</strong> (ej: 7790001234567)
+                  </p>
+                </div>
+
+                <div className="mt-3 flex justify-center">
+                  <button onClick={detenerEscaner} className="btn-secondary">
+                    ⏹️ Detener cámara
                   </button>
                 </div>
               </div>
@@ -696,26 +1099,40 @@ export default function EscanerStock() {
         {/* Entrada manual */}
         {modoManual && !productoEscaneado && !modoAgregar && (
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-4">
-              Ingresar código manualmente
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              🔢 Escribir números del código de barras
             </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">
+              Escribe los números que aparecen{" "}
+              <strong>debajo de las barras</strong>
+            </p>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Ej: STK000001"
+                inputMode="numeric"
+                placeholder="Ej: 7790001234567"
                 value={codigoManual}
                 onChange={(e) => setCodigoManual(e.target.value.toUpperCase())}
                 onKeyPress={(e) => e.key === "Enter" && buscarCodigoManual()}
-                className="input-field flex-1 font-mono text-center text-lg"
+                className="input-field flex-1 font-mono text-center text-xl tracking-wider"
                 autoFocus
               />
               <button onClick={buscarCodigoManual} className="btn-primary px-6">
                 🔍 Buscar
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-2 text-center">
-              Ingresa el código que aparece debajo del código de barras
-            </p>
+            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+              <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
+                💡 <strong>Ejemplos de códigos:</strong>
+                <br />• EAN-13: <span className="font-mono">
+                  7790001234567
+                </span>{" "}
+                (13 dígitos)
+                <br />• EAN-8: <span className="font-mono">12345678</span> (8
+                dígitos)
+                <br />• Interno: <span className="font-mono">STK12345678</span>
+              </p>
+            </div>
           </div>
         )}
 

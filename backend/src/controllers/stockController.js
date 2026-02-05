@@ -658,3 +658,68 @@ exports.obtenerHistorial = async (req, res, next) => {
     next(error);
   }
 };
+
+// POST /api/stock/generar-codigo - Generar o obtener código de barras para un producto
+exports.generarCodigoBarras = async (req, res, next) => {
+  try {
+    const { nombre } = req.body;
+
+    if (!nombre) {
+      throw new AppError("Nombre del producto es requerido", 400);
+    }
+
+    // Buscar el primer registro de stock con este nombre (donde está agrupado)
+    const stockItem = await StockCliente.findOne({
+      where: {
+        clienteId: req.usuario.id,
+        nombre: nombre,
+      },
+      order: [["createdAt", "ASC"]], // El más antiguo primero
+    });
+
+    if (!stockItem) {
+      throw new AppError("Producto no encontrado en tu stock", 404);
+    }
+
+    // Si ya tiene código de barras, devolverlo
+    if (stockItem.codigoBarras) {
+      return res.json({
+        success: true,
+        data: {
+          codigo: stockItem.codigoBarras,
+          nombre: stockItem.nombre,
+          esNuevo: false,
+        },
+      });
+    }
+
+    // Generar un nuevo código usando los primeros 8 caracteres del UUID
+    const codigoUnico = `STK${stockItem.id.replace(/-/g, "").substring(0, 8).toUpperCase()}`;
+
+    // Guardar el código en el registro
+    await stockItem.update({ codigoBarras: codigoUnico });
+
+    // También actualizar otros registros del mismo producto (para consistencia)
+    await StockCliente.update(
+      { codigoBarras: codigoUnico },
+      {
+        where: {
+          clienteId: req.usuario.id,
+          nombre: nombre,
+          codigoBarras: null,
+        },
+      },
+    );
+
+    res.json({
+      success: true,
+      data: {
+        codigo: codigoUnico,
+        nombre: stockItem.nombre,
+        esNuevo: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

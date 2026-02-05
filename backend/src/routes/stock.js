@@ -36,6 +36,9 @@ router.post("/descontar", stockController.descontarStock);
 // POST /api/stock/descontar-por-codigo - Descontar por código de barras
 router.post("/descontar-por-codigo", stockController.descontarPorCodigo);
 
+// POST /api/stock/generar-codigo - Generar código de barras para un producto
+router.post("/generar-codigo", stockController.generarCodigoBarras);
+
 // GET /api/stock/buscar-por-codigo/:codigo - Buscar producto por código
 router.get("/buscar-por-codigo/:codigo", stockController.buscarPorCodigo);
 

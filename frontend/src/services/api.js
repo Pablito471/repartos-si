@@ -388,6 +388,10 @@ export const stockService = {
   // Buscar producto por código de barras
   buscarPorCodigo: (codigo) => api.get(`/stock/buscar-por-codigo/${codigo}`),
 
+  // Generar código de barras para un producto
+  generarCodigoBarras: (nombre) =>
+    api.post("/stock/generar-codigo", { nombre }),
+
   // Actualizar producto
   actualizar: (id, datos) => api.put(`/stock/${id}`, datos),
 

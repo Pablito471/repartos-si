@@ -175,17 +175,23 @@ export default function CatalogoProductos() {
     setPaginaActual(1);
   };
 
-  // Generar código de barras único para un producto
-  const generarCodigoBarras = useCallback((producto) => {
-    // Crear código único: prefijo STK + ID del producto + últimos 4 dígitos del timestamp
-    const codigoBase = `STK${String(producto.id).padStart(6, "0")}`;
-    return codigoBase;
+  // Obtener o generar código de barras desde el backend
+  const obtenerCodigoBarras = useCallback(async (producto) => {
+    try {
+      const response = await stockService.generarCodigoBarras(producto.nombre);
+      return response.data.codigo;
+    } catch (error) {
+      console.error("Error al obtener código de barras:", error);
+      // Fallback: usar un código temporal si falla
+      return `STK${String(producto.id).substring(0, 8).toUpperCase()}`;
+    }
   }, []);
 
   // Imprimir código de barras individual (con QR incluido)
   const imprimirCodigoBarras = useCallback(
     async (producto) => {
-      const codigo = generarCodigoBarras(producto);
+      // Obtener código desde el backend (genera si no existe)
+      const codigo = await obtenerCodigoBarras(producto);
 
       // Generar QR como Data URL
       const qrDataUrl = await QRCode.toDataURL(codigo, {
@@ -292,7 +298,7 @@ export default function CatalogoProductos() {
     `);
       ventana.document.close();
     },
-    [generarCodigoBarras],
+    [obtenerCodigoBarras],
   );
 
   // Imprimir todos los códigos de barras (con QR incluido)
@@ -300,10 +306,14 @@ export default function CatalogoProductos() {
     setImprimiendoTodos(true);
     const productos = productosFiltrados;
 
-    // Generar QR codes para todos los productos
+    // Generar códigos y QR codes para todos los productos
+    const codigosMap = {};
     const qrCodes = {};
+
+    // Primero obtener todos los códigos desde el backend
     for (const producto of productos) {
-      const codigo = generarCodigoBarras(producto);
+      const codigo = await obtenerCodigoBarras(producto);
+      codigosMap[producto.id] = codigo;
       qrCodes[producto.id] = await QRCode.toDataURL(codigo, {
         width: 80,
         margin: 1,
@@ -315,7 +325,7 @@ export default function CatalogoProductos() {
 
     let etiquetasHTML = "";
     productos.forEach((producto) => {
-      const codigo = generarCodigoBarras(producto);
+      const codigo = codigosMap[producto.id];
       etiquetasHTML += `
         <div class="etiqueta">
           <div class="nombre">${producto.nombre}</div>
@@ -331,7 +341,7 @@ export default function CatalogoProductos() {
 
     let barcodeScripts = "";
     productos.forEach((producto) => {
-      const codigo = generarCodigoBarras(producto);
+      const codigo = codigosMap[producto.id];
       barcodeScripts += `
         JsBarcode("#barcode-${producto.id}", "${codigo}", {
           format: "CODE128",
@@ -427,7 +437,7 @@ export default function CatalogoProductos() {
     `);
     ventana.document.close();
     setImprimiendoTodos(false);
-  }, [productosFiltrados, generarCodigoBarras]);
+  }, [productosFiltrados, obtenerCodigoBarras]);
 
   // Mostrar modal de código de barras
   const verCodigoBarras = useCallback((producto) => {
@@ -645,7 +655,6 @@ export default function CatalogoProductos() {
                 producto={producto}
                 onVerCodigoBarras={verCodigoBarras}
                 onImprimirCodigoBarras={imprimirCodigoBarras}
-                generarCodigoBarras={generarCodigoBarras}
               />
             ))}
           </div>
@@ -658,7 +667,6 @@ export default function CatalogoProductos() {
                 producto={producto}
                 onVerCodigoBarras={verCodigoBarras}
                 onImprimirCodigoBarras={imprimirCodigoBarras}
-                generarCodigoBarras={generarCodigoBarras}
               />
             ))}
           </div>
@@ -745,7 +753,7 @@ export default function CatalogoProductos() {
             producto={modalCodigoBarras}
             onClose={() => setModalCodigoBarras(null)}
             onImprimir={() => imprimirCodigoBarras(modalCodigoBarras)}
-            generarCodigoBarras={generarCodigoBarras}
+            obtenerCodigoBarras={obtenerCodigoBarras}
           />
         )}
       </div>
@@ -753,14 +761,8 @@ export default function CatalogoProductos() {
   );
 }
 
-function ProductoCard({
-  producto,
-  onVerCodigoBarras,
-  onImprimirCodigoBarras,
-  generarCodigoBarras,
-}) {
+function ProductoCard({ producto, onVerCodigoBarras, onImprimirCodigoBarras }) {
   const stockBajo = producto.cantidad > 0 && producto.cantidad <= 10;
-  const codigoBarras = generarCodigoBarras(producto);
 
   return (
     <div className="card hover:shadow-lg transition-shadow overflow-hidden group">
@@ -799,7 +801,6 @@ function ProductoCard({
             </span>
           </div>
         )}
-        <p className="text-xs text-gray-400 font-mono">{codigoBarras}</p>
         <h3 className="font-semibold text-gray-800 line-clamp-2">
           {producto.nombre}
         </h3>
@@ -848,10 +849,8 @@ function ProductoListItem({
   producto,
   onVerCodigoBarras,
   onImprimirCodigoBarras,
-  generarCodigoBarras,
 }) {
   const stockBajo = producto.cantidad > 0 && producto.cantidad <= 10;
-  const codigoBarras = generarCodigoBarras(producto);
 
   return (
     <div className="card hover:shadow-lg transition-shadow">
@@ -894,9 +893,6 @@ function ProductoListItem({
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400 font-mono mb-1">
-              {codigoBarras}
-            </p>
             <h3 className="font-semibold text-gray-800">{producto.nombre}</h3>
           </div>
 
@@ -945,14 +941,33 @@ function ModalCodigoBarras({
   producto,
   onClose,
   onImprimir,
-  generarCodigoBarras,
+  obtenerCodigoBarras,
 }) {
   const barcodeRef = useRef(null);
-  const qrRef = useRef(null);
   const [qrDataUrl, setQrDataUrl] = useState(null);
-  const codigo = generarCodigoBarras(producto);
+  const [codigo, setCodigo] = useState(null);
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
+    // Cargar código desde el backend
+    const cargarCodigo = async () => {
+      setCargando(true);
+      try {
+        const codigoObtenido = await obtenerCodigoBarras(producto);
+        setCodigo(codigoObtenido);
+      } catch (error) {
+        console.error("Error al obtener código:", error);
+        setCodigo("ERROR");
+      } finally {
+        setCargando(false);
+      }
+    };
+    cargarCodigo();
+  }, [producto, obtenerCodigoBarras]);
+
+  useEffect(() => {
+    if (!codigo || cargando) return;
+
     // Generar código de barras
     if (barcodeRef.current) {
       JsBarcode(barcodeRef.current, codigo, {
@@ -977,7 +992,7 @@ function ModalCodigoBarras({
       .catch((err) => {
         console.error("Error generando QR:", err);
       });
-  }, [codigo]);
+  }, [codigo, cargando]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1011,37 +1026,44 @@ function ModalCodigoBarras({
 
           {/* Códigos - QR y Barras */}
           <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              {/* QR Code */}
-              <div className="text-center">
-                {qrDataUrl ? (
-                  <img
-                    src={qrDataUrl}
-                    alt="QR Code"
-                    className="w-[150px] h-[150px] mx-auto"
-                  />
-                ) : (
-                  <div className="w-[150px] h-[150px] bg-gray-200 animate-pulse rounded flex items-center justify-center">
-                    <span className="text-gray-400 text-sm">Cargando...</span>
-                  </div>
-                )}
-                <p className="text-sm text-gray-600 mt-2 font-medium">
-                  QR Code
-                </p>
+            {cargando ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span className="ml-3 text-gray-600">Cargando código...</span>
               </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+                {/* QR Code */}
+                <div className="text-center">
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt="QR Code"
+                      className="w-[150px] h-[150px] mx-auto"
+                    />
+                  ) : (
+                    <div className="w-[150px] h-[150px] bg-gray-200 animate-pulse rounded flex items-center justify-center">
+                      <span className="text-gray-400 text-sm">Cargando...</span>
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-600 mt-2 font-medium">
+                    QR Code
+                  </p>
+                </div>
 
-              {/* Barcode */}
-              <div className="text-center flex-1">
-                <svg ref={barcodeRef} className="mx-auto"></svg>
-                <p className="text-sm text-gray-600 mt-2 font-medium">
-                  Código de Barras
-                </p>
+                {/* Barcode */}
+                <div className="text-center flex-1">
+                  <svg ref={barcodeRef} className="mx-auto"></svg>
+                  <p className="text-sm text-gray-600 mt-2 font-medium">
+                    Código de Barras
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <p className="text-center text-lg font-mono font-bold text-gray-700 mt-4 bg-gray-100 py-2 rounded-lg">
-            {codigo}
+            {cargando ? "..." : codigo}
           </p>
         </div>
 
