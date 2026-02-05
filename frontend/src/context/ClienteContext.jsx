@@ -401,6 +401,7 @@ export function ClienteProvider({ children }) {
       if (MODO_CONEXION === "api") {
         try {
           const response = await usuariosService.getDepositos();
+          // response.data contiene { success, data: [...] }
           const depositosBackend = response.data || response || [];
 
           // Cargar productos para cada depósito

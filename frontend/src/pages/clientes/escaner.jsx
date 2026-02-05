@@ -40,13 +40,33 @@ export default function EscanerStock() {
   const [nuevaCategoria, setNuevaCategoria] = useState("");
   const [mostrarNuevaCategoria, setMostrarNuevaCategoria] = useState(false);
 
+  // Orientación del dispositivo
+  const [isLandscape, setIsLandscape] = useState(false);
+
+  // Detectar cambios de orientación
+  useEffect(() => {
+    const checkOrientation = () => {
+      const landscape = window.innerWidth > window.innerHeight;
+      setIsLandscape(landscape);
+    };
+
+    checkOrientation();
+    window.addEventListener("resize", checkOrientation);
+    window.addEventListener("orientationchange", checkOrientation);
+
+    return () => {
+      window.removeEventListener("resize", checkOrientation);
+      window.removeEventListener("orientationchange", checkOrientation);
+    };
+  }, []);
+
   // Cargar categorías del usuario
   useEffect(() => {
     const cargarCategorias = async () => {
       try {
         const response = await stockService.obtenerCategorias();
-        if (response.data.success && response.data.data.length > 0) {
-          setCategorias(response.data.data);
+        if (response.success && response.data?.length > 0) {
+          setCategorias(response.data);
         }
       } catch (error) {
         console.error("Error al cargar categorías:", error);
@@ -142,9 +162,18 @@ export default function EscanerStock() {
           }
         }
 
-        // Calcular tamaño del qrbox basado en el ancho de pantalla
+        // Calcular tamaño del qrbox basado en orientación y tamaño de pantalla
         const screenWidth = window.innerWidth;
-        const qrboxSize = Math.min(screenWidth - 60, 300);
+        const screenHeight = window.innerHeight;
+        const isLandscape = screenWidth > screenHeight;
+
+        // En horizontal, usar más espacio
+        const qrboxWidth = isLandscape
+          ? Math.min(screenWidth - 100, 500)
+          : Math.min(screenWidth - 60, 300);
+        const qrboxHeight = isLandscape
+          ? Math.floor(qrboxWidth * 0.4)
+          : Math.floor(qrboxWidth * 0.6);
 
         // Formatos de código de barras soportados
         const formatsToSupport = [
@@ -168,8 +197,8 @@ export default function EscanerStock() {
 
         const config = {
           fps: 10,
-          qrbox: { width: qrboxSize, height: Math.floor(qrboxSize * 0.6) },
-          aspectRatio: 1.777778, // 16:9
+          qrbox: { width: qrboxWidth, height: qrboxHeight },
+          aspectRatio: isLandscape ? 1.777778 : 1.333333, // 16:9 en horizontal, 4:3 en vertical
         };
 
         try {
@@ -207,7 +236,7 @@ export default function EscanerStock() {
 
       return () => clearTimeout(timer);
     }
-  }, [escaneando, modoManual]);
+  }, [escaneando, modoManual, isLandscape]);
 
   // Detener escáner
   const detenerEscaner = useCallback(async () => {
@@ -225,6 +254,8 @@ export default function EscanerStock() {
 
   // Buscar producto por código
   const buscarProducto = async (codigo) => {
+    console.log("🔍 Buscando código:", codigo);
+
     try {
       // Pausar escáner mientras procesamos
       if (html5QrcodeScannerRef.current) {
@@ -232,26 +263,45 @@ export default function EscanerStock() {
       }
 
       const response = await stockService.buscarPorCodigo(codigo);
+      console.log("📦 Respuesta:", response);
 
-      if (response.data.success) {
-        setProductoEscaneado(response.data.data);
+      if (response.success && response.data) {
+        setProductoEscaneado(response.data);
         setModoAgregar(false);
         setCantidad(1);
-        showToast(
-          "success",
-          `Producto encontrado: ${response.data.data.nombre}`,
-        );
+        // Detener el escáner completamente al encontrar producto
+        if (html5QrcodeScannerRef.current) {
+          try {
+            await html5QrcodeScannerRef.current.stop();
+          } catch (e) {
+            console.log("Error al detener escáner:", e);
+          }
+        }
+        showToast("success", `Producto encontrado: ${response.data.nombre}`);
+      } else {
+        // Respuesta sin datos - producto no encontrado
+        throw new Error("Producto no encontrado");
       }
     } catch (error) {
+      console.log("❌ Error o no encontrado:", error);
+
       // No se encontró en stock - preguntar si quiere agregar
       const quiereAgregar = await showConfirmAlert(
         "Producto no encontrado",
-        "Este código no está en tu stock. ¿Deseas agregar un nuevo producto?",
+        `El código "${codigo}" no está en tu stock. ¿Deseas agregar un nuevo producto?`,
         "Sí, agregar",
         "Cancelar",
       );
 
       if (quiereAgregar) {
+        // Detener escáner al agregar producto
+        if (html5QrcodeScannerRef.current) {
+          try {
+            await html5QrcodeScannerRef.current.stop();
+          } catch (e) {
+            console.log("Error al detener escáner:", e);
+          }
+        }
         setModoAgregar(true);
         setCodigoEscaneado(codigo);
         setNuevoProducto({
@@ -264,7 +314,11 @@ export default function EscanerStock() {
         // Reanudar escáner si cancela
         if (html5QrcodeScannerRef.current) {
           setTimeout(() => {
-            html5QrcodeScannerRef.current?.resume();
+            try {
+              html5QrcodeScannerRef.current?.resume();
+            } catch (e) {
+              console.log("Error al reanudar escáner:", e);
+            }
           }, 500);
         }
       }
@@ -290,22 +344,27 @@ export default function EscanerStock() {
 
     setProcesando(true);
     try {
-      const response = await stockService.agregarProducto({
+      const datosProducto = {
         nombre: nuevoProducto.nombre.trim(),
         cantidad: parseInt(nuevoProducto.cantidad),
         precio: parseFloat(nuevoProducto.precio),
         codigoBarras: codigoEscaneado || null,
         categoria: nuevoProducto.categoria,
         registrarCompra: false,
-      });
+      };
 
-      if (response.data.success) {
+      console.log("📦 Enviando producto:", datosProducto);
+
+      const response = await stockService.agregarProducto(datosProducto);
+      console.log("📦 Respuesta:", response);
+
+      if (response.success) {
         await showSuccessAlert(
           "¡Producto agregado!",
           `${nuevoProducto.cantidad}x ${nuevoProducto.nombre}\nCategoría: ${nuevoProducto.categoria}\nPrecio: $${formatNumber(parseFloat(nuevoProducto.precio))}`,
         );
 
-        // Limpiar y reanudar escáner
+        // Limpiar y reiniciar escáner
         setModoAgregar(false);
         setCodigoEscaneado("");
         setMostrarNuevaCategoria(false);
@@ -318,13 +377,21 @@ export default function EscanerStock() {
         });
         setCodigoManual("");
 
-        if (html5QrcodeScannerRef.current && !modoManual) {
-          html5QrcodeScannerRef.current.resume();
+        // Reiniciar escáner si no estamos en modo manual
+        if (!modoManual) {
+          setEscaneando(false);
+          setTimeout(() => {
+            setEscaneando(true);
+          }, 100);
         }
       }
     } catch (error) {
+      console.error("❌ Error al agregar producto:", error);
+      console.error("Response data:", error.response?.data);
       const mensaje =
-        error.response?.data?.message || "Error al agregar producto";
+        error.response?.data?.message ||
+        error.message ||
+        "Error al agregar producto";
       showToast("error", mensaje);
     } finally {
       setProcesando(false);
@@ -345,8 +412,12 @@ export default function EscanerStock() {
     });
     setCodigoManual("");
 
-    if (html5QrcodeScannerRef.current && !modoManual) {
-      html5QrcodeScannerRef.current.resume();
+    // Reiniciar escáner si no estamos en modo manual
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
     }
   };
 
@@ -393,9 +464,9 @@ export default function EscanerStock() {
         "Venta por escáner",
       );
 
-      if (response.data.success) {
+      if (response.success) {
         const venta = {
-          ...response.data.data,
+          ...response.data,
           fecha: new Date().toISOString(),
         };
 
@@ -403,16 +474,20 @@ export default function EscanerStock() {
 
         await showSuccessAlert(
           "¡Venta registrada!",
-          `${cantidad}x ${productoEscaneado.nombre}\nTotal: $${formatNumber(response.data.data.montoVenta)}\nStock restante: ${response.data.data.stockRestante}`,
+          `${cantidad}x ${productoEscaneado.nombre}\nTotal: $${formatNumber(response.data.montoVenta)}\nStock restante: ${response.data.stockRestante}`,
         );
 
-        // Limpiar y reanudar escáner
+        // Limpiar y reiniciar escáner
         setProductoEscaneado(null);
         setCantidad(1);
         setCodigoManual("");
 
-        if (html5QrcodeScannerRef.current && !modoManual) {
-          html5QrcodeScannerRef.current.resume();
+        // Reiniciar escáner si no estamos en modo manual
+        if (!modoManual) {
+          setEscaneando(false);
+          setTimeout(() => {
+            setEscaneando(true);
+          }, 100);
         }
       }
     } catch (error) {
@@ -430,8 +505,13 @@ export default function EscanerStock() {
     setCantidad(1);
     setCodigoManual("");
 
-    if (html5QrcodeScannerRef.current && !modoManual) {
-      html5QrcodeScannerRef.current.resume();
+    // El escáner fue detenido, reiniciar si no estamos en modo manual
+    if (!modoManual) {
+      setEscaneando(false);
+      // Dar tiempo para que se desmonte y luego reiniciar
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
     }
   };
 
@@ -480,40 +560,42 @@ export default function EscanerStock() {
           </div>
         </div>
 
-        {/* Selector de modo */}
-        <div className="card">
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setModoManual(false);
-                if (!escaneando) iniciarEscaner();
-              }}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                !modoManual
-                  ? "bg-primary text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              📷 Cámara
-            </button>
-            <button
-              onClick={() => {
-                setModoManual(true);
-                detenerEscaner();
-              }}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                modoManual
-                  ? "bg-primary text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              ⌨️ Manual
-            </button>
+        {/* Selector de modo - oculto cuando hay producto o modo agregar */}
+        {!productoEscaneado && !modoAgregar && (
+          <div className="card">
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setModoManual(false);
+                  if (!escaneando) iniciarEscaner();
+                }}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  !modoManual
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                📷 Cámara
+              </button>
+              <button
+                onClick={() => {
+                  setModoManual(true);
+                  detenerEscaner();
+                }}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  modoManual
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                ⌨️ Manual
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Escáner de cámara */}
-        {!modoManual && (
+        {!modoManual && !productoEscaneado && !modoAgregar && (
           <div className="card">
             {errorCamara ? (
               <div className="text-center py-8">
@@ -564,12 +646,20 @@ export default function EscanerStock() {
               <div>
                 <p className="text-center text-sm text-gray-600 mb-3">
                   📷 Apunta al código de barras y mantén el celular estable
+                  {isLandscape && (
+                    <span className="block text-xs text-primary mt-1">
+                      📱 Modo horizontal detectado - área ampliada
+                    </span>
+                  )}
                 </p>
                 <div
                   id="reader"
                   ref={scannerRef}
                   className="w-full rounded-lg overflow-hidden border-2 border-primary"
-                  style={{ minHeight: "350px" }}
+                  style={{
+                    minHeight: isLandscape ? "250px" : "350px",
+                    maxHeight: isLandscape ? "60vh" : "auto",
+                  }}
                 ></div>
                 <p className="text-center text-xs text-gray-500 mt-2">
                   💡 Asegúrate de tener buena iluminación y el código centrado
@@ -591,7 +681,7 @@ export default function EscanerStock() {
         )}
 
         {/* Entrada manual */}
-        {modoManual && !productoEscaneado && (
+        {modoManual && !productoEscaneado && !modoAgregar && (
           <div className="card">
             <h3 className="font-semibold text-gray-700 mb-4">
               Ingresar código manualmente

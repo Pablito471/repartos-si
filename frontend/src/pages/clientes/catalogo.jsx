@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { showToast } from "@/utils/alerts";
 import { stockService } from "@/services/api";
 import JsBarcode from "jsbarcode";
+import QRCode from "qrcode";
 
 const PRODUCTOS_POR_PAGINA = 12;
 
@@ -181,17 +182,25 @@ export default function CatalogoProductos() {
     return codigoBase;
   }, []);
 
-  // Imprimir código de barras individual
+  // Imprimir código de barras individual (con QR incluido)
   const imprimirCodigoBarras = useCallback(
-    (producto) => {
+    async (producto) => {
       const codigo = generarCodigoBarras(producto);
-      const ventana = window.open("", "_blank", "width=400,height=300");
+
+      // Generar QR como Data URL
+      const qrDataUrl = await QRCode.toDataURL(codigo, {
+        width: 150,
+        margin: 1,
+        color: { dark: "#000000", light: "#ffffff" },
+      });
+
+      const ventana = window.open("", "_blank", "width=500,height=500");
 
       ventana.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Código de Barras - ${producto.nombre}</title>
+          <title>Etiqueta - ${producto.nombre}</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -205,36 +214,51 @@ export default function CatalogoProductos() {
               box-sizing: border-box;
             }
             .etiqueta {
-              border: 1px dashed #ccc;
-              padding: 15px;
+              border: 2px dashed #ccc;
+              padding: 25px;
               text-align: center;
-              width: 280px;
+              width: 380px;
             }
             .nombre {
-              font-size: 14px;
+              font-size: 20px;
               font-weight: bold;
-              margin-bottom: 5px;
+              margin-bottom: 8px;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
             }
             .precio {
-              font-size: 18px;
+              font-size: 28px;
               font-weight: bold;
               color: #e65100;
-              margin-bottom: 10px;
+              margin-bottom: 15px;
+            }
+            .codigos-container {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 20px;
+              margin: 15px 0;
+            }
+            .qr-code {
+              width: 120px;
+              height: 120px;
+            }
+            .barcode-container {
+              flex: 1;
             }
             svg {
               max-width: 100%;
             }
             .codigo-texto {
               font-family: monospace;
-              font-size: 12px;
-              margin-top: 5px;
+              font-size: 14px;
+              margin-top: 10px;
+              font-weight: bold;
             }
             @media print {
               body { margin: 0; padding: 10px; }
-              .etiqueta { border: none; }
+              .etiqueta { border: 1px dashed #ddd; }
             }
           </style>
         </head>
@@ -242,15 +266,20 @@ export default function CatalogoProductos() {
           <div class="etiqueta">
             <div class="nombre">${producto.nombre}</div>
             <div class="precio">$${formatNumber(producto.precio)}</div>
-            <svg id="barcode"></svg>
+            <div class="codigos-container">
+              <img src="${qrDataUrl}" alt="QR" class="qr-code" />
+              <div class="barcode-container">
+                <svg id="barcode"></svg>
+              </div>
+            </div>
             <div class="codigo-texto">${codigo}</div>
           </div>
           <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
           <script>
             JsBarcode("#barcode", "${codigo}", {
               format: "CODE128",
-              width: 2,
-              height: 50,
+              width: 2.5,
+              height: 70,
               displayValue: false,
               margin: 5
             });
@@ -266,12 +295,23 @@ export default function CatalogoProductos() {
     [generarCodigoBarras],
   );
 
-  // Imprimir todos los códigos de barras
-  const imprimirTodosLosCodigos = useCallback(() => {
+  // Imprimir todos los códigos de barras (con QR incluido)
+  const imprimirTodosLosCodigos = useCallback(async () => {
     setImprimiendoTodos(true);
     const productos = productosFiltrados;
 
-    const ventana = window.open("", "_blank", "width=800,height=600");
+    // Generar QR codes para todos los productos
+    const qrCodes = {};
+    for (const producto of productos) {
+      const codigo = generarCodigoBarras(producto);
+      qrCodes[producto.id] = await QRCode.toDataURL(codigo, {
+        width: 80,
+        margin: 1,
+        color: { dark: "#000000", light: "#ffffff" },
+      });
+    }
+
+    const ventana = window.open("", "_blank", "width=900,height=700");
 
     let etiquetasHTML = "";
     productos.forEach((producto) => {
@@ -280,7 +320,10 @@ export default function CatalogoProductos() {
         <div class="etiqueta">
           <div class="nombre">${producto.nombre}</div>
           <div class="precio">$${formatNumber(producto.precio)}</div>
-          <svg id="barcode-${producto.id}"></svg>
+          <div class="codigos-row">
+            <img src="${qrCodes[producto.id]}" alt="QR" class="qr-mini" />
+            <svg id="barcode-${producto.id}"></svg>
+          </div>
           <div class="codigo-texto">${codigo}</div>
         </div>
       `;
@@ -292,10 +335,10 @@ export default function CatalogoProductos() {
       barcodeScripts += `
         JsBarcode("#barcode-${producto.id}", "${codigo}", {
           format: "CODE128",
-          width: 1.5,
-          height: 40,
+          width: 1.8,
+          height: 45,
           displayValue: false,
-          margin: 3
+          margin: 2
         });
       `;
     });
@@ -319,35 +362,46 @@ export default function CatalogoProductos() {
             .contenedor {
               display: grid;
               grid-template-columns: repeat(3, 1fr);
-              gap: 10px;
+              gap: 12px;
             }
             .etiqueta {
               border: 1px dashed #ccc;
-              padding: 10px;
+              padding: 12px;
               text-align: center;
               page-break-inside: avoid;
             }
             .nombre {
-              font-size: 11px;
+              font-size: 12px;
               font-weight: bold;
-              margin-bottom: 3px;
+              margin-bottom: 4px;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
             }
             .precio {
-              font-size: 14px;
+              font-size: 16px;
               font-weight: bold;
               color: #e65100;
-              margin-bottom: 5px;
+              margin-bottom: 8px;
+            }
+            .codigos-row {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+            }
+            .qr-mini {
+              width: 60px;
+              height: 60px;
             }
             svg {
               max-width: 100%;
             }
             .codigo-texto {
               font-family: monospace;
-              font-size: 10px;
-              margin-top: 3px;
+              font-size: 11px;
+              margin-top: 5px;
+              font-weight: bold;
             }
             @media print {
               body { margin: 0; padding: 5px; }
@@ -886,7 +940,7 @@ function ProductoListItem({
   );
 }
 
-// Componente Modal para ver código de barras
+// Componente Modal para ver código de barras y QR
 function ModalCodigoBarras({
   producto,
   onClose,
@@ -894,29 +948,44 @@ function ModalCodigoBarras({
   generarCodigoBarras,
 }) {
   const barcodeRef = useRef(null);
+  const qrRef = useRef(null);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
   const codigo = generarCodigoBarras(producto);
 
   useEffect(() => {
+    // Generar código de barras
     if (barcodeRef.current) {
       JsBarcode(barcodeRef.current, codigo, {
         format: "CODE128",
-        width: 2,
-        height: 80,
-        displayValue: true,
-        fontSize: 14,
+        width: 3,
+        height: 100,
+        displayValue: false,
         margin: 10,
         background: "#ffffff",
       });
     }
+
+    // Generar QR code como imagen
+    QRCode.toDataURL(codigo, {
+      width: 150,
+      margin: 2,
+      color: { dark: "#000000", light: "#ffffff" },
+    })
+      .then((url) => {
+        setQrDataUrl(url);
+      })
+      .catch((err) => {
+        console.error("Error generando QR:", err);
+      });
   }, [codigo]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary to-primary-600 text-white p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold">📊 Código de Barras</h3>
+            <h3 className="text-lg font-bold">📊 Códigos del Producto</h3>
             <button
               onClick={onClose}
               className="p-1 hover:bg-white/20 rounded-lg transition-colors"
@@ -940,13 +1009,39 @@ function ModalCodigoBarras({
             </p>
           </div>
 
-          {/* Barcode */}
-          <div className="bg-white border-2 border-dashed border-gray-200 rounded-xl p-4 flex justify-center">
-            <svg ref={barcodeRef}></svg>
+          {/* Códigos - QR y Barras */}
+          <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+              {/* QR Code */}
+              <div className="text-center">
+                {qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="QR Code"
+                    className="w-[150px] h-[150px] mx-auto"
+                  />
+                ) : (
+                  <div className="w-[150px] h-[150px] bg-gray-200 animate-pulse rounded flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">Cargando...</span>
+                  </div>
+                )}
+                <p className="text-sm text-gray-600 mt-2 font-medium">
+                  QR Code
+                </p>
+              </div>
+
+              {/* Barcode */}
+              <div className="text-center flex-1">
+                <svg ref={barcodeRef} className="mx-auto"></svg>
+                <p className="text-sm text-gray-600 mt-2 font-medium">
+                  Código de Barras
+                </p>
+              </div>
+            </div>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-3">
-            Código: {codigo}
+          <p className="text-center text-lg font-mono font-bold text-gray-700 mt-4 bg-gray-100 py-2 rounded-lg">
+            {codigo}
           </p>
         </div>
 

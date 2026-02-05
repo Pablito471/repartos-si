@@ -192,6 +192,9 @@ exports.agregarDesdePedido = async (req, res, next) => {
 // POST /api/stock/agregar - Agregar producto manualmente al stock
 exports.agregarProducto = async (req, res, next) => {
   try {
+    console.log("📦 Body recibido:", req.body);
+    console.log("👤 Usuario:", req.usuario?.id);
+
     const {
       nombre,
       cantidad,
@@ -200,6 +203,14 @@ exports.agregarProducto = async (req, res, next) => {
       codigoBarras,
       categoria,
     } = req.body;
+
+    console.log("📝 Datos extraídos:", {
+      nombre,
+      cantidad,
+      precio,
+      codigoBarras,
+      categoria,
+    });
 
     if (!nombre || !cantidad) {
       throw new AppError("Nombre y cantidad son requeridos", 400);
@@ -432,21 +443,29 @@ exports.descontarPorCodigo = async (req, res, next) => {
       throw new AppError("Código de barras requerido", 400);
     }
 
-    // Parsear código de barras (formato: STK000001)
-    const match = codigo.match(/^STK0*(\d+)$/);
-    if (!match) {
-      throw new AppError("Código de barras inválido", 400);
-    }
+    let stockItem = null;
 
-    const stockId = parseInt(match[1]);
-
-    // Buscar el producto en el stock por ID
-    const stockItem = await StockCliente.findOne({
+    // Primero buscar por código de barras personalizado
+    stockItem = await StockCliente.findOne({
       where: {
-        id: stockId,
         clienteId: req.usuario.id,
+        codigoBarras: codigo,
       },
     });
+
+    // Si no encontró, intentar con formato STK000001 (código interno)
+    if (!stockItem) {
+      const match = codigo.match(/^STK0*(\d+)$/);
+      if (match) {
+        const stockId = parseInt(match[1]);
+        stockItem = await StockCliente.findOne({
+          where: {
+            id: stockId,
+            clienteId: req.usuario.id,
+          },
+        });
+      }
+    }
 
     if (!stockItem) {
       throw new AppError("Producto no encontrado en tu stock", 404);

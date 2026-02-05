@@ -26,6 +26,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log(
+      `📤 ${config.method?.toUpperCase()} ${config.url}`,
+      token ? "(con token)" : "(sin token)",
+    );
     return config;
   },
   (error) => {
@@ -36,21 +40,25 @@ api.interceptors.request.use(
 // Interceptor para responses
 api.interceptors.response.use(
   (response) => {
+    // Devolver response.data directamente para mantener compatibilidad
     return response.data;
   },
   (error) => {
     // Manejo global de errores
     if (error.response) {
       const mensaje =
-        error.response.data?.mensaje || error.response.data?.error;
+        error.response.data?.message ||
+        error.response.data?.mensaje ||
+        error.response.data?.error;
 
       switch (error.response.status) {
         case 401:
           // Token expirado o no autorizado
+          console.warn("🔒 Error 401 - No autorizado");
           if (typeof window !== "undefined") {
-            localStorage.removeItem("token");
-            localStorage.removeItem("currentUser");
-            // No redirigir automáticamente, dejar que el contexto maneje esto
+            // Solo limpiar si estamos en una página protegida
+            // localStorage.removeItem("token");
+            // localStorage.removeItem("currentUser");
           }
           break;
         case 403:
@@ -66,8 +74,11 @@ api.interceptors.response.use(
           console.error("Error en la petición:", mensaje);
       }
 
-      // Propagar el error con mensaje del servidor
-      throw new Error(mensaje || "Error en la solicitud");
+      // Propagar el error con más información
+      const customError = new Error(mensaje || "Error en la solicitud");
+      customError.response = error.response;
+      customError.status = error.response.status;
+      throw customError;
     }
     return Promise.reject(error);
   },
