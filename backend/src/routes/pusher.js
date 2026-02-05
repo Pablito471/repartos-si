@@ -2,10 +2,10 @@
 const express = require("express");
 const router = express.Router();
 const { getPusher, isPusherEnabled } = require("../services/pusherService");
-const { verificarToken } = require("../middleware/auth");
+const { auth } = require("../middleware/auth");
 
 // POST /api/pusher/auth - Autenticar canal privado de Pusher
-router.post("/auth", verificarToken, (req, res) => {
+router.post("/auth", auth, (req, res) => {
   // Si Pusher no está habilitado, retornar error amigable
   if (!isPusherEnabled()) {
     return res.status(503).json({
