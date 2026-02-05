@@ -8,6 +8,7 @@ import {
   Html5QrcodeScanner,
   Html5QrcodeScanType,
   Html5Qrcode,
+  Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
 
 export default function EscanerStock() {
@@ -121,7 +122,7 @@ export default function EscanerStock() {
   useEffect(() => {
     if (escaneando && !modoManual) {
       // Dar tiempo al DOM para renderizar el elemento
-      const timer = setTimeout(() => {
+      const timer = setTimeout(async () => {
         const readerElement = document.getElementById("reader");
         if (!readerElement) {
           console.error("Elemento reader no encontrado");
@@ -132,9 +133,10 @@ export default function EscanerStock() {
           return;
         }
 
+        // Limpiar escáner anterior si existe
         if (html5QrcodeScannerRef.current) {
           try {
-            html5QrcodeScannerRef.current.clear();
+            await html5QrcodeScannerRef.current.stop();
           } catch (e) {
             // Ignorar errores de limpieza
           }
@@ -144,33 +146,63 @@ export default function EscanerStock() {
         const screenWidth = window.innerWidth;
         const qrboxSize = Math.min(screenWidth - 60, 300);
 
+        // Formatos de código de barras soportados
+        const formatsToSupport = [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.ITF,
+        ];
+
+        // Usar Html5Qrcode directamente para mejor control de formatos
+        html5QrcodeScannerRef.current = new Html5Qrcode("reader", {
+          formatsToSupport: formatsToSupport,
+          verbose: false,
+        });
+
         const config = {
           fps: 10,
           qrbox: { width: qrboxSize, height: Math.floor(qrboxSize * 0.6) },
-          supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-          rememberLastUsedCamera: true,
-          showTorchButtonIfSupported: true,
-          aspectRatio: 1.0,
-          videoConstraints: {
-            facingMode: "environment", // Usar cámara trasera en móviles
-          },
+          aspectRatio: 1.777778, // 16:9
         };
 
-        html5QrcodeScannerRef.current = new Html5QrcodeScanner(
-          "reader",
-          config,
-          false,
-        );
+        try {
+          await html5QrcodeScannerRef.current.start(
+            { facingMode: "environment" },
+            config,
+            async (decodedText, decodedResult) => {
+              // Código escaneado exitosamente
+              console.log("✅ Código detectado:", decodedText);
+              console.log(
+                "📊 Formato:",
+                decodedResult?.result?.format?.formatName,
+              );
 
-        html5QrcodeScannerRef.current.render(
-          async (decodedText) => {
-            // Código escaneado exitosamente
-            await buscarProducto(decodedText);
-          },
-          (error) => {
-            // Ignorar errores de escaneo continuo
-          },
-        );
+              // Vibrar si el dispositivo lo soporta
+              if (navigator.vibrate) {
+                navigator.vibrate(200);
+              }
+
+              await buscarProducto(decodedText);
+            },
+            (errorMessage) => {
+              // Errores silenciosos de "no code found" son normales
+            },
+          );
+          console.log("🎥 Escáner iniciado correctamente");
+        } catch (err) {
+          console.error("Error al iniciar cámara:", err);
+          setErrorCamara(
+            "No se pudo acceder a la cámara. Verifica los permisos.",
+          );
+          setEscaneando(false);
+        }
       }, 100);
 
       return () => clearTimeout(timer);
@@ -178,10 +210,10 @@ export default function EscanerStock() {
   }, [escaneando, modoManual]);
 
   // Detener escáner
-  const detenerEscaner = useCallback(() => {
+  const detenerEscaner = useCallback(async () => {
     if (html5QrcodeScannerRef.current) {
       try {
-        html5QrcodeScannerRef.current.clear();
+        await html5QrcodeScannerRef.current.stop();
       } catch (e) {
         // Ignorar errores de limpieza
       }
@@ -530,15 +562,27 @@ export default function EscanerStock() {
               </div>
             ) : (
               <div>
+                <p className="text-center text-sm text-gray-600 mb-3">
+                  📷 Apunta al código de barras y mantén el celular estable
+                </p>
                 <div
                   id="reader"
                   ref={scannerRef}
-                  className="w-full rounded-lg overflow-hidden"
-                  style={{ minHeight: "300px" }}
+                  className="w-full rounded-lg overflow-hidden border-2 border-primary"
+                  style={{ minHeight: "350px" }}
                 ></div>
-                <div className="mt-4 flex justify-center">
+                <p className="text-center text-xs text-gray-500 mt-2">
+                  💡 Asegúrate de tener buena iluminación y el código centrado
+                </p>
+                <div className="mt-4 flex justify-center gap-3">
                   <button onClick={detenerEscaner} className="btn-secondary">
-                    ⏹️ Detener Escáner
+                    ⏹️ Detener
+                  </button>
+                  <button
+                    onClick={() => setModoManual(true)}
+                    className="btn-secondary"
+                  >
+                    ⌨️ Ingresar manual
                   </button>
                 </div>
               </div>
