@@ -1,8 +1,16 @@
 import axios from "axios";
+import { API_URL, isLocalBackend } from "../config/api.config";
+
+// Log para desarrollo - muestra qué backend se está usando
+if (typeof window !== "undefined") {
+  console.log(
+    `🔗 API conectada a: ${API_URL} (${isLocalBackend() ? "LOCAL" : "RENDER"})`,
+  );
+}
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL: API_URL,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
