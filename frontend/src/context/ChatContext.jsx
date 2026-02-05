@@ -6,22 +6,21 @@ import {
   useCallback,
   useRef,
 } from "react";
-import Pusher from "pusher-js";
+import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import { chatService } from "@/services/api";
 
 const ChatContext = createContext(null);
 
-// Verificar si Pusher está configurado
-const isPusherConfigured = () => {
-  return !!(
-    process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.NEXT_PUBLIC_PUSHER_CLUSTER
-  );
+// URL del socket (sin /api)
+const getSocketUrl = () => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  return apiUrl.replace("/api", "");
 };
 
 export function ChatProvider({ children }) {
   const { usuario } = useAuth();
-  const [pusher, setPusher] = useState(null);
+  const [socket, setSocket] = useState(null);
   const [conectado, setConectado] = useState(false);
   const [conversacion, setConversacion] = useState(null);
   const [conversaciones, setConversaciones] = useState([]);
@@ -29,7 +28,7 @@ export function ChatProvider({ children }) {
   const [noLeidos, setNoLeidos] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [escribiendo, setEscribiendo] = useState(null);
-  const channelsRef = useRef([]);
+  const escribiendoTimeoutRef = useRef(null);
 
   // Obtener token desde localStorage
   const getToken = () => {
@@ -39,76 +38,47 @@ export function ChatProvider({ children }) {
     return null;
   };
 
-  // Inicializar Pusher
+  // Inicializar Socket.io
   useEffect(() => {
     const token = getToken();
     if (!token || !usuario) return;
 
-    if (!isPusherConfigured()) {
-      console.warn(
-        "Pusher no configurado. Configure NEXT_PUBLIC_PUSHER_KEY y NEXT_PUBLIC_PUSHER_CLUSTER",
-      );
-      return;
-    }
+    const socketUrl = getSocketUrl();
+    console.log("Chat: Conectando a Socket.io en", socketUrl);
 
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
-
-    const pusherInstance = new Pusher(pusherKey, {
-      cluster: pusherCluster,
-      authorizer: (channel) => ({
-        authorize: async (socketId, callback) => {
-          try {
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_API_URL}/pusher/auth`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  socket_id: socketId,
-                  channel_name: channel.name,
-                }),
-              },
-            );
-            const data = await response.json();
-            callback(null, data);
-          } catch (error) {
-            callback(error, null);
-          }
-        },
-      }),
+    const socketInstance = io(socketUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
-    pusherInstance.connection.bind("connected", () => {
-      console.log("Chat: Pusher conectado");
+    socketInstance.on("connect", () => {
+      console.log("Chat: Socket.io conectado");
       setConectado(true);
     });
 
-    pusherInstance.connection.bind("disconnected", () => {
-      console.log("Chat: Pusher desconectado");
+    socketInstance.on("disconnect", () => {
+      console.log("Chat: Socket.io desconectado");
       setConectado(false);
     });
 
-    pusherInstance.connection.bind("error", (error) => {
-      console.error("Chat: Error Pusher:", error);
+    socketInstance.on("connect_error", (error) => {
+      console.error("Chat: Error de conexión Socket.io:", error.message);
       setConectado(false);
     });
 
-    // Suscribirse a canal personal del usuario
-    const userChannel = pusherInstance.subscribe(`private-user-${usuario.id}`);
-    channelsRef.current.push(userChannel);
-
-    userChannel.bind("nuevo_mensaje", (mensaje) => {
+    // Escuchar nuevos mensajes
+    socketInstance.on("nuevo_mensaje", (mensaje) => {
       setMensajes((prev) => {
         if (prev.find((m) => m.id === mensaje.id)) return prev;
         return [...prev, mensaje];
       });
     });
 
-    userChannel.bind("notificacion_mensaje", (data) => {
+    // Notificación de mensaje cuando no está en la conversación
+    socketInstance.on("notificacion_mensaje", (data) => {
       if (!conversacion || conversacion.id !== data.conversacionId) {
         setNoLeidos((prev) => prev + 1);
       }
@@ -129,61 +99,66 @@ export function ChatProvider({ children }) {
       }
     });
 
-    setPusher(pusherInstance);
+    // Usuario escribiendo
+    socketInstance.on("usuario_escribiendo", (data) => {
+      if (data.usuarioId !== usuario?.id) {
+        setEscribiendo(data);
+        
+        // Limpiar escribiendo después de 3 segundos
+        if (escribiendoTimeoutRef.current) {
+          clearTimeout(escribiendoTimeoutRef.current);
+        }
+        escribiendoTimeoutRef.current = setTimeout(() => {
+          setEscribiendo(null);
+        }, 3000);
+      }
+    });
+
+    // Usuario dejó de escribir
+    socketInstance.on("usuario_dejo_escribir", () => {
+      setEscribiendo(null);
+    });
+
+    // Mensajes leídos
+    socketInstance.on("mensajes_leidos", (data) => {
+      setMensajes((prev) =>
+        prev.map((m) =>
+          m.conversacionId === data.conversacionId &&
+          m.remitenteId === usuario?.id
+            ? { ...m, leido: true }
+            : m,
+        ),
+      );
+    });
+
+    setSocket(socketInstance);
 
     return () => {
-      channelsRef.current.forEach((channel) => {
-        channel.unbind_all();
-        pusherInstance.unsubscribe(channel.name);
-      });
-      channelsRef.current = [];
-      pusherInstance.disconnect();
+      if (escribiendoTimeoutRef.current) {
+        clearTimeout(escribiendoTimeoutRef.current);
+      }
+      socketInstance.disconnect();
     };
   }, [usuario]);
 
-  // Suscribirse a canal de conversación
-  const suscribirseAConversacion = useCallback(
+  // Unirse a sala de conversación
+  const unirseAConversacion = useCallback(
     (convId) => {
-      if (!pusher || !convId) return;
-
-      const channelName = `private-conversation-${convId}`;
-      const existingChannel = channelsRef.current.find(
-        (c) => c.name === channelName,
-      );
-      if (existingChannel) return;
-
-      const channel = pusher.subscribe(channelName);
-      channelsRef.current.push(channel);
-
-      channel.bind("nuevo_mensaje", (mensaje) => {
-        setMensajes((prev) => {
-          if (prev.find((m) => m.id === mensaje.id)) return prev;
-          return [...prev, mensaje];
-        });
-      });
-
-      channel.bind("usuario_escribiendo", (data) => {
-        if (data.usuarioId !== usuario?.id) {
-          setEscribiendo(data);
-        }
-      });
-
-      channel.bind("usuario_dejo_escribir", () => {
-        setEscribiendo(null);
-      });
-
-      channel.bind("mensajes_leidos", (data) => {
-        setMensajes((prev) =>
-          prev.map((m) =>
-            m.conversacionId === data.conversacionId &&
-            m.remitenteId === usuario?.id
-              ? { ...m, leido: true }
-              : m,
-          ),
-        );
-      });
+      if (socket && convId) {
+        socket.emit("join_conversacion", convId);
+      }
     },
-    [pusher, usuario],
+    [socket],
+  );
+
+  // Salir de sala de conversación
+  const salirDeConversacion = useCallback(
+    (convId) => {
+      if (socket && convId) {
+        socket.emit("leave_conversacion", convId);
+      }
+    },
+    [socket],
   );
 
   // Cargar cantidad de no leídos
@@ -213,10 +188,8 @@ export function ChatProvider({ children }) {
       setConversacion(conv);
 
       if (conv) {
-        suscribirseAConversacion(conv.id);
-      }
+        unirseAConversacion(conv.id);
 
-      if (conv) {
         try {
           const msgResponse = await chatService.getMensajes(conv.id);
           setMensajes(msgResponse.data || msgResponse || []);
@@ -232,7 +205,7 @@ export function ChatProvider({ children }) {
     } finally {
       setCargando(false);
     }
-  }, [usuario, suscribirseAConversacion]);
+  }, [usuario, unirseAConversacion]);
 
   // Cargar conversaciones (para admin)
   const cargarConversaciones = useCallback(async () => {
@@ -252,21 +225,26 @@ export function ChatProvider({ children }) {
   // Seleccionar conversación (para admin)
   const seleccionarConversacion = useCallback(
     async (conv) => {
+      // Salir de la conversación anterior
+      if (conversacion) {
+        salirDeConversacion(conversacion.id);
+      }
+
       setConversacion(conv);
       setMensajes([]);
 
       if (conv) {
-        suscribirseAConversacion(conv.id);
-      }
+        unirseAConversacion(conv.id);
 
-      try {
-        const response = await chatService.getMensajes(conv.id);
-        setMensajes(response.data || response || []);
-      } catch (error) {
-        console.error("Error al cargar mensajes:", error);
+        try {
+          const response = await chatService.getMensajes(conv.id);
+          setMensajes(response.data || response || []);
+        } catch (error) {
+          console.error("Error al cargar mensajes:", error);
+        }
       }
     },
-    [suscribirseAConversacion],
+    [conversacion, unirseAConversacion, salirDeConversacion],
   );
 
   // Cargar mensajes de la conversación actual
@@ -281,12 +259,13 @@ export function ChatProvider({ children }) {
     }
   }, [conversacion]);
 
-  // Enviar mensaje via API REST (Pusher emitirá en backend)
+  // Enviar mensaje
   const enviarMensaje = useCallback(
     async (contenido) => {
       if (!conversacion || !contenido.trim()) return;
 
       try {
+        // Enviar via API REST, el backend emitirá por socket
         await chatService.enviarMensaje(conversacion.id, contenido.trim());
       } catch (error) {
         console.error("Error al enviar mensaje:", error);
@@ -296,10 +275,16 @@ export function ChatProvider({ children }) {
     [conversacion],
   );
 
-  // Indicar que está escribiendo (no disponible en serverless)
+  // Indicar que está escribiendo
   const indicarEscribiendo = useCallback(() => {
-    // No-op en modo serverless
-  }, []);
+    if (socket && conversacion) {
+      socket.emit("escribiendo", {
+        conversacionId: conversacion.id,
+        usuarioId: usuario?.id,
+        nombre: usuario?.nombre,
+      });
+    }
+  }, [socket, conversacion, usuario]);
 
   // Marcar mensajes como leídos
   const marcarComoLeidos = useCallback(async () => {
@@ -323,10 +308,13 @@ export function ChatProvider({ children }) {
 
   // Salir de la conversación
   const salirConversacion = useCallback(() => {
+    if (conversacion) {
+      salirDeConversacion(conversacion.id);
+    }
     setConversacion(null);
     setMensajes([]);
     setEscribiendo(null);
-  }, []);
+  }, [conversacion, salirDeConversacion]);
 
   const value = {
     conectado,

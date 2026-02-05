@@ -6,21 +6,20 @@ import {
   useCallback,
   useRef,
 } from "react";
-import Pusher from "pusher-js";
+import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 
 const NotificacionContext = createContext(null);
 
-// Verificar si Pusher está configurado
-const isPusherConfigured = () => {
-  return !!(
-    process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.NEXT_PUBLIC_PUSHER_CLUSTER
-  );
+// URL del socket (sin /api)
+const getSocketUrl = () => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  return apiUrl.replace("/api", "");
 };
 
 export function NotificacionProvider({ children }) {
   const { usuario } = useAuth();
-  const [pusher, setPusher] = useState(null);
+  const [socket, setSocket] = useState(null);
   const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
 
@@ -103,64 +102,36 @@ export function NotificacionProvider({ children }) {
     }
   }, [notificaciones, usuario]);
 
-  // Inicializar Pusher para notificaciones
+  // Inicializar Socket.io para notificaciones
   useEffect(() => {
     const token = getToken();
     if (!token || !usuario) return;
 
-    if (!isPusherConfigured()) {
-      console.warn("Pusher no configurado para notificaciones");
-      return;
-    }
+    const socketUrl = getSocketUrl();
+    console.log("Notificaciones: Conectando a Socket.io en", socketUrl);
 
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
-
-    const pusherInstance = new Pusher(pusherKey, {
-      cluster: pusherCluster,
-      authorizer: (channel) => ({
-        authorize: async (socketId, callback) => {
-          try {
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_API_URL}/pusher/auth`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  socket_id: socketId,
-                  channel_name: channel.name,
-                }),
-              },
-            );
-            const data = await response.json();
-            callback(null, data);
-          } catch (error) {
-            callback(error, null);
-          }
-        },
-      }),
+    const socketInstance = io(socketUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
-    pusherInstance.connection.bind("connected", () => {
-      console.log("Notificaciones: Pusher conectado");
+    socketInstance.on("connect", () => {
+      console.log("Notificaciones: Socket.io conectado");
     });
 
-    // Suscribirse a canal personal del usuario
-    const userChannel = pusherInstance.subscribe(`private-user-${usuario.id}`);
+    socketInstance.on("disconnect", () => {
+      console.log("Notificaciones: Socket.io desconectado");
+    });
 
-    // Suscribirse a canal de rol (si aplica)
-    let roleChannel = null;
-    if (usuario.tipoUsuario) {
-      roleChannel = pusherInstance.subscribe(
-        `private-role-${usuario.tipoUsuario}`,
-      );
-    }
+    socketInstance.on("connect_error", (error) => {
+      console.error("Notificaciones: Error de conexión:", error.message);
+    });
 
     // Notificación de nuevo mensaje de chat
-    userChannel.bind("notificacion_mensaje", (data) => {
+    socketInstance.on("notificacion_mensaje", (data) => {
       agregarNotificacionRef.current({
         tipo: "mensaje",
         titulo: "Nuevo mensaje",
@@ -171,7 +142,7 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación de nuevo pedido (para depósitos y admin)
-    const handleNuevoPedido = (data) => {
+    socketInstance.on("nuevo_pedido", (data) => {
       agregarNotificacionRef.current({
         tipo: "pedido",
         titulo: "Nuevo pedido",
@@ -182,15 +153,10 @@ export function NotificacionProvider({ children }) {
       window.dispatchEvent(
         new CustomEvent("socket:nuevo_pedido", { detail: data }),
       );
-    };
-
-    userChannel.bind("nuevo_pedido", handleNuevoPedido);
-    if (roleChannel) {
-      roleChannel.bind("nuevo_pedido", handleNuevoPedido);
-    }
+    });
 
     // Notificación de cambio de estado de pedido
-    userChannel.bind("pedido_actualizado", (data) => {
+    socketInstance.on("pedido_actualizado", (data) => {
       const estadosTexto = {
         pendiente: "está pendiente",
         preparando: "se está preparando",
@@ -212,7 +178,7 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación de nuevo envío asignado (para fletes)
-    userChannel.bind("envio_asignado", (data) => {
+    socketInstance.on("envio_asignado", (data) => {
       agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "Nuevo envío asignado",
@@ -226,7 +192,7 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación de envío en camino (para clientes)
-    userChannel.bind("envio_en_camino", (data) => {
+    socketInstance.on("envio_en_camino", (data) => {
       agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "¡Tu pedido va en camino!",
@@ -240,7 +206,7 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación de envío entregado
-    userChannel.bind("envio_entregado", (data) => {
+    socketInstance.on("envio_entregado", (data) => {
       agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "Pedido entregado",
@@ -254,7 +220,7 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación de envío entregado (para depósitos)
-    userChannel.bind("envio_entregado_deposito", (data) => {
+    socketInstance.on("envio_entregado_deposito", (data) => {
       agregarNotificacionRef.current({
         tipo: "envio",
         titulo: "Envío completado",
@@ -268,7 +234,7 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación de cuenta activada/desactivada
-    userChannel.bind("cuenta_estado", (data) => {
+    socketInstance.on("cuenta_estado", (data) => {
       agregarNotificacionRef.current({
         tipo: "cuenta",
         titulo: data.activo ? "Cuenta activada" : "Cuenta desactivada",
@@ -279,7 +245,7 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación de stock bajo (para depósitos)
-    userChannel.bind("stock_bajo", (data) => {
+    socketInstance.on("stock_bajo", (data) => {
       agregarNotificacionRef.current({
         tipo: "stock",
         titulo: "Stock bajo",
@@ -290,20 +256,14 @@ export function NotificacionProvider({ children }) {
     });
 
     // Notificación genérica
-    userChannel.bind("notificacion", (data) => {
+    socketInstance.on("notificacion", (data) => {
       agregarNotificacionRef.current(data);
     });
 
-    setPusher(pusherInstance);
+    setSocket(socketInstance);
 
     return () => {
-      userChannel.unbind_all();
-      pusherInstance.unsubscribe(`private-user-${usuario.id}`);
-      if (roleChannel) {
-        roleChannel.unbind_all();
-        pusherInstance.unsubscribe(`private-role-${usuario.tipoUsuario}`);
-      }
-      pusherInstance.disconnect();
+      socketInstance.disconnect();
     };
   }, [usuario]);
 
