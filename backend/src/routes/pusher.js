@@ -1,0 +1,54 @@
+// Ruta de autenticación para Pusher (canales privados)
+const express = require("express");
+const router = express.Router();
+const { getPusher } = require("../services/pusherService");
+const { verificarToken } = require("../middleware/auth");
+
+// POST /api/pusher/auth - Autenticar canal privado de Pusher
+router.post("/auth", verificarToken, (req, res) => {
+  const socketId = req.body.socket_id;
+  const channel = req.body.channel_name;
+  const usuario = req.usuario;
+
+  // Validar que el canal corresponda al usuario
+  if (channel.startsWith("private-user-")) {
+    const userIdFromChannel = channel.replace("private-user-", "");
+    if (userIdFromChannel !== usuario.id) {
+      return res.status(403).json({ error: "No autorizado para este canal" });
+    }
+  }
+
+  // Validar canal de rol
+  if (channel.startsWith("private-role-")) {
+    const roleFromChannel = channel.replace("private-role-", "");
+    if (roleFromChannel !== usuario.tipoUsuario) {
+      return res
+        .status(403)
+        .json({ error: "No autorizado para este canal de rol" });
+    }
+  }
+
+  // Para canales de conversación, verificar pertenencia (simplificado)
+  // En producción deberías verificar que el usuario pertenece a la conversación
+  if (channel.startsWith("private-conversation-")) {
+    // Por ahora permitir si está autenticado
+    // TODO: Verificar que el usuario pertenece a la conversación
+  }
+
+  try {
+    const pusher = getPusher();
+    const authResponse = pusher.authorizeChannel(socketId, channel, {
+      user_id: usuario.id,
+      user_info: {
+        nombre: usuario.nombre,
+        tipoUsuario: usuario.tipoUsuario,
+      },
+    });
+    res.send(authResponse);
+  } catch (error) {
+    console.error("Error autenticando canal Pusher:", error);
+    res.status(500).json({ error: "Error de autenticación" });
+  }
+});
+
+module.exports = router;

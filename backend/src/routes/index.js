@@ -12,6 +12,7 @@ const relacionesRoutes = require("./relaciones");
 const chatRoutes = require("./chat");
 const movimientosRoutes = require("./movimientos");
 const stockRoutes = require("./stock");
+const pusherRoutes = require("./pusher");
 
 router.use("/auth", authRoutes);
 router.use("/usuarios", usuariosRoutes);
@@ -24,6 +25,7 @@ router.use("/relaciones", relacionesRoutes);
 router.use("/chat", chatRoutes);
 router.use("/movimientos", movimientosRoutes);
 router.use("/stock", stockRoutes);
+router.use("/pusher", pusherRoutes);
 
 // Ruta de health check
 router.get("/health", (req, res) => {

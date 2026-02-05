@@ -8,7 +8,10 @@ const {
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
-const { emitirNuevoPedido, emitirPedidoActualizado } = require("../socket");
+const {
+  emitirNuevoPedido,
+  emitirPedidoActualizado,
+} = require("../services/pusherService");
 
 // GET /api/pedidos
 exports.getPedidos = async (req, res, next) => {

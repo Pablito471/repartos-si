@@ -4,23 +4,32 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
-import { io } from "socket.io-client";
+import Pusher from "pusher-js";
 import { useAuth } from "./AuthContext";
 import { chatService } from "@/services/api";
 
 const ChatContext = createContext(null);
 
+// Verificar si Pusher está configurado
+const isPusherConfigured = () => {
+  return !!(
+    process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.NEXT_PUBLIC_PUSHER_CLUSTER
+  );
+};
+
 export function ChatProvider({ children }) {
   const { usuario } = useAuth();
-  const [socket, setSocket] = useState(null);
+  const [pusher, setPusher] = useState(null);
   const [conectado, setConectado] = useState(false);
   const [conversacion, setConversacion] = useState(null);
-  const [conversaciones, setConversaciones] = useState([]); // Para admin
+  const [conversaciones, setConversaciones] = useState([]);
   const [mensajes, setMensajes] = useState([]);
   const [noLeidos, setNoLeidos] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [escribiendo, setEscribiendo] = useState(null);
+  const channelsRef = useRef([]);
 
   // Obtener token desde localStorage
   const getToken = () => {
@@ -30,59 +39,87 @@ export function ChatProvider({ children }) {
     return null;
   };
 
-  // Inicializar socket
+  // Inicializar Pusher
   useEffect(() => {
     const token = getToken();
     if (!token || !usuario) return;
 
-    const socketUrl =
-      process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
-      "http://localhost:5000";
+    if (!isPusherConfigured()) {
+      console.warn(
+        "Pusher no configurado. Configure NEXT_PUBLIC_PUSHER_KEY y NEXT_PUBLIC_PUSHER_CLUSTER",
+      );
+      return;
+    }
 
-    const newSocket = io(socketUrl, {
-      auth: { token },
-      transports: ["websocket", "polling"],
+    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+
+    const pusherInstance = new Pusher(pusherKey, {
+      cluster: pusherCluster,
+      authorizer: (channel) => ({
+        authorize: async (socketId, callback) => {
+          try {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/pusher/auth`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  socket_id: socketId,
+                  channel_name: channel.name,
+                }),
+              },
+            );
+            const data = await response.json();
+            callback(null, data);
+          } catch (error) {
+            callback(error, null);
+          }
+        },
+      }),
     });
 
-    newSocket.on("connect", () => {
-      console.log("Socket conectado");
+    pusherInstance.connection.bind("connected", () => {
+      console.log("Chat: Pusher conectado");
       setConectado(true);
     });
 
-    newSocket.on("disconnect", () => {
-      console.log("Socket desconectado");
+    pusherInstance.connection.bind("disconnected", () => {
+      console.log("Chat: Pusher desconectado");
       setConectado(false);
     });
 
-    newSocket.on("connect_error", (error) => {
-      console.error("Error de conexión socket:", error.message);
+    pusherInstance.connection.bind("error", (error) => {
+      console.error("Chat: Error Pusher:", error);
       setConectado(false);
     });
 
-    // Nuevo mensaje
-    newSocket.on("nuevo_mensaje", (mensaje) => {
+    // Suscribirse a canal personal del usuario
+    const userChannel = pusherInstance.subscribe(`private-user-${usuario.id}`);
+    channelsRef.current.push(userChannel);
+
+    userChannel.bind("nuevo_mensaje", (mensaje) => {
       setMensajes((prev) => {
-        // Evitar duplicados
         if (prev.find((m) => m.id === mensaje.id)) return prev;
         return [...prev, mensaje];
       });
     });
 
-    // Notificación de mensaje
-    newSocket.on("notificacion_mensaje", (data) => {
-      // Actualizar contador de no leídos si no estamos en la conversación
+    userChannel.bind("notificacion_mensaje", (data) => {
       if (!conversacion || conversacion.id !== data.conversacionId) {
         setNoLeidos((prev) => prev + 1);
       }
 
-      // Actualizar lista de conversaciones (para admin)
       if (usuario.tipoUsuario === "admin") {
         setConversaciones((prev) =>
           prev.map((c) =>
             c.id === data.conversacionId
               ? {
                   ...c,
-                  ultimoMensaje: data.mensaje.contenido,
+                  ultimoMensaje: data.mensaje?.contenido || "",
                   ultimoMensajeFecha: new Date().toISOString(),
                   mensajesNoLeidosAdmin: (c.mensajesNoLeidosAdmin || 0) + 1,
                 }
@@ -92,33 +129,62 @@ export function ChatProvider({ children }) {
       }
     });
 
-    // Usuario escribiendo
-    newSocket.on("usuario_escribiendo", (data) => {
-      setEscribiendo(data);
-    });
-
-    newSocket.on("usuario_dejo_escribir", () => {
-      setEscribiendo(null);
-    });
-
-    // Mensajes leídos
-    newSocket.on("mensajes_leidos", (data) => {
-      setMensajes((prev) =>
-        prev.map((m) =>
-          m.conversacionId === data.conversacionId &&
-          m.remitenteId === usuario.id
-            ? { ...m, leido: true }
-            : m,
-        ),
-      );
-    });
-
-    setSocket(newSocket);
+    setPusher(pusherInstance);
 
     return () => {
-      newSocket.disconnect();
+      channelsRef.current.forEach((channel) => {
+        channel.unbind_all();
+        pusherInstance.unsubscribe(channel.name);
+      });
+      channelsRef.current = [];
+      pusherInstance.disconnect();
     };
   }, [usuario]);
+
+  // Suscribirse a canal de conversación
+  const suscribirseAConversacion = useCallback(
+    (convId) => {
+      if (!pusher || !convId) return;
+
+      const channelName = `private-conversation-${convId}`;
+      const existingChannel = channelsRef.current.find(
+        (c) => c.name === channelName,
+      );
+      if (existingChannel) return;
+
+      const channel = pusher.subscribe(channelName);
+      channelsRef.current.push(channel);
+
+      channel.bind("nuevo_mensaje", (mensaje) => {
+        setMensajes((prev) => {
+          if (prev.find((m) => m.id === mensaje.id)) return prev;
+          return [...prev, mensaje];
+        });
+      });
+
+      channel.bind("usuario_escribiendo", (data) => {
+        if (data.usuarioId !== usuario?.id) {
+          setEscribiendo(data);
+        }
+      });
+
+      channel.bind("usuario_dejo_escribir", () => {
+        setEscribiendo(null);
+      });
+
+      channel.bind("mensajes_leidos", (data) => {
+        setMensajes((prev) =>
+          prev.map((m) =>
+            m.conversacionId === data.conversacionId &&
+            m.remitenteId === usuario?.id
+              ? { ...m, leido: true }
+              : m,
+          ),
+        );
+      });
+    },
+    [pusher, usuario],
+  );
 
   // Cargar cantidad de no leídos
   useEffect(() => {
@@ -146,12 +212,10 @@ export function ChatProvider({ children }) {
       const conv = response.data || response;
       setConversacion(conv);
 
-      // Unirse a la sala de la conversación
-      if (socket && conv) {
-        socket.emit("unirse_conversacion", conv.id);
+      if (conv) {
+        suscribirseAConversacion(conv.id);
       }
 
-      // Cargar mensajes existentes
       if (conv) {
         try {
           const msgResponse = await chatService.getMensajes(conv.id);
@@ -168,7 +232,7 @@ export function ChatProvider({ children }) {
     } finally {
       setCargando(false);
     }
-  }, [usuario, socket]);
+  }, [usuario, suscribirseAConversacion]);
 
   // Cargar conversaciones (para admin)
   const cargarConversaciones = useCallback(async () => {
@@ -191,11 +255,10 @@ export function ChatProvider({ children }) {
       setConversacion(conv);
       setMensajes([]);
 
-      if (socket && conv) {
-        socket.emit("unirse_conversacion", conv.id);
+      if (conv) {
+        suscribirseAConversacion(conv.id);
       }
 
-      // Cargar mensajes
       try {
         const response = await chatService.getMensajes(conv.id);
         setMensajes(response.data || response || []);
@@ -203,7 +266,7 @@ export function ChatProvider({ children }) {
         console.error("Error al cargar mensajes:", error);
       }
     },
-    [socket],
+    [suscribirseAConversacion],
   );
 
   // Cargar mensajes de la conversación actual
@@ -218,64 +281,54 @@ export function ChatProvider({ children }) {
     }
   }, [conversacion]);
 
-  // Enviar mensaje
+  // Enviar mensaje via API REST (Pusher emitirá en backend)
   const enviarMensaje = useCallback(
     async (contenido) => {
-      if (!socket || !conversacion || !contenido.trim()) return;
+      if (!conversacion || !contenido.trim()) return;
 
-      // Enviar via socket para tiempo real
-      socket.emit("enviar_mensaje", {
-        conversacionId: conversacion.id,
-        contenido: contenido.trim(),
-        tipo: "texto",
-      });
-    },
-    [socket, conversacion],
-  );
-
-  // Indicar que está escribiendo
-  const indicarEscribiendo = useCallback(
-    (escribiendo) => {
-      if (!socket || !conversacion) return;
-
-      if (escribiendo) {
-        socket.emit("escribiendo", { conversacionId: conversacion.id });
-      } else {
-        socket.emit("dejo_escribir", { conversacionId: conversacion.id });
+      try {
+        await chatService.enviarMensaje(conversacion.id, contenido.trim());
+      } catch (error) {
+        console.error("Error al enviar mensaje:", error);
+        throw error;
       }
     },
-    [socket, conversacion],
+    [conversacion],
   );
 
+  // Indicar que está escribiendo (no disponible en serverless)
+  const indicarEscribiendo = useCallback(() => {
+    // No-op en modo serverless
+  }, []);
+
   // Marcar mensajes como leídos
-  const marcarComoLeidos = useCallback(() => {
-    if (!socket || !conversacion) return;
+  const marcarComoLeidos = useCallback(async () => {
+    if (!conversacion) return;
 
-    socket.emit("marcar_leidos", conversacion.id);
-    setNoLeidos(0);
+    try {
+      await chatService.marcarLeidos(conversacion.id);
+      setNoLeidos(0);
 
-    // Actualizar lista de conversaciones (para admin)
-    if (usuario?.tipoUsuario === "admin") {
-      setConversaciones((prev) =>
-        prev.map((c) =>
-          c.id === conversacion.id ? { ...c, mensajesNoLeidosAdmin: 0 } : c,
-        ),
-      );
+      if (usuario?.tipoUsuario === "admin") {
+        setConversaciones((prev) =>
+          prev.map((c) =>
+            c.id === conversacion.id ? { ...c, mensajesNoLeidosAdmin: 0 } : c,
+          ),
+        );
+      }
+    } catch (error) {
+      console.error("Error al marcar como leídos:", error);
     }
-  }, [socket, conversacion, usuario]);
+  }, [conversacion, usuario]);
 
   // Salir de la conversación
   const salirConversacion = useCallback(() => {
-    if (socket && conversacion) {
-      socket.emit("salir_conversacion", conversacion.id);
-    }
     setConversacion(null);
     setMensajes([]);
     setEscribiendo(null);
-  }, [socket, conversacion]);
+  }, []);
 
   const value = {
-    socket,
     conectado,
     conversacion,
     conversaciones,

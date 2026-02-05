@@ -1,5 +1,6 @@
 const { Mensaje, Conversacion, Usuario } = require("../models");
 const { Op } = require("sequelize");
+const { emitirNuevoMensaje } = require("../services/pusherService");
 
 // Obtener o crear conversación con admin
 exports.getOCrearConversacion = async (req, res) => {
@@ -249,6 +250,14 @@ exports.enviarMensaje = async (req, res) => {
         },
       ],
     });
+
+    // Emitir mensaje en tiempo real vía Pusher
+    emitirNuevoMensaje(
+      conversacionId,
+      mensajeCompleto,
+      remitenteId,
+      destinatarioId,
+    );
 
     res.status(201).json({
       success: true,
