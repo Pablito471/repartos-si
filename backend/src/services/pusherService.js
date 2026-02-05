@@ -8,10 +8,13 @@ let pusherEnabled = false;
 
 const initPusher = () => {
   // Verificar si las credenciales están configuradas
-  const { PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER } = process.env;
-  
+  const { PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER } =
+    process.env;
+
   if (!PUSHER_APP_ID || !PUSHER_KEY || !PUSHER_SECRET || !PUSHER_CLUSTER) {
-    console.log("⚠️ Pusher no configurado - notificaciones en tiempo real deshabilitadas");
+    console.log(
+      "⚠️ Pusher no configurado - notificaciones en tiempo real deshabilitadas",
+    );
     pusherEnabled = false;
     return null;
   }

@@ -8,9 +8,9 @@ const { verificarToken } = require("../middleware/auth");
 router.post("/auth", verificarToken, (req, res) => {
   // Si Pusher no está habilitado, retornar error amigable
   if (!isPusherEnabled()) {
-    return res.status(503).json({ 
-      error: "Pusher no configurado", 
-      message: "Notificaciones en tiempo real no disponibles" 
+    return res.status(503).json({
+      error: "Pusher no configurado",
+      message: "Notificaciones en tiempo real no disponibles",
     });
   }
 
