@@ -57,94 +57,114 @@ export default function EscanerDeposito() {
   const [linternaActiva, setLinternaActiva] = useState(false);
   const [linternaDisponible, setLinternaDisponible] = useState(false);
 
-  // Referencia para el contexto de audio
+  // Referencia para el contexto de audio y elemento de audio
   const audioContextRef = useRef(null);
+  const beepAudioRef = useRef(null);
 
   // Función para inicializar/desbloquear el audio (necesario en móviles)
   const inicializarAudio = useCallback(async () => {
     try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (
+      // Crear elemento de audio HTML5 (más compatible con móviles)
+      if (!beepAudioRef.current) {
+        // Crear un beep usando data URI (sonido generado)
+        const audioContext = new (
           window.AudioContext || window.webkitAudioContext
         )();
+        const sampleRate = audioContext.sampleRate;
+        const duration = 0.15;
+        const frequency = 2000;
+        const samples = duration * sampleRate;
+        const buffer = audioContext.createBuffer(1, samples, sampleRate);
+        const channel = buffer.getChannelData(0);
+
+        for (let i = 0; i < samples; i++) {
+          // Onda cuadrada con envolvente
+          const t = i / sampleRate;
+          const envelope = Math.min(1, Math.min(t * 20, (duration - t) * 20));
+          channel[i] =
+            envelope * (Math.sin(2 * Math.PI * frequency * t) > 0 ? 0.8 : -0.8);
+        }
+
+        audioContextRef.current = audioContext;
+
+        // Desbloquear audio en móviles
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+
+        // Reproducir silencio para desbloquear
+        const silentOsc = audioContext.createOscillator();
+        const silentGain = audioContext.createGain();
+        silentGain.gain.value = 0;
+        silentOsc.connect(silentGain);
+        silentGain.connect(audioContext.destination);
+        silentOsc.start();
+        silentOsc.stop(audioContext.currentTime + 0.001);
       }
-      // Desbloquear el contexto de audio (requerido en móviles)
-      if (audioContextRef.current.state === "suspended") {
-        await audioContextRef.current.resume();
-      }
-      // Reproducir un sonido silencioso para "despertar" el audio en iOS
-      const oscillator = audioContextRef.current.createOscillator();
-      const gainNode = audioContextRef.current.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContextRef.current.destination);
-      gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime);
-      oscillator.start();
-      oscillator.stop(audioContextRef.current.currentTime + 0.001);
+
       console.log("🔊 Audio inicializado correctamente");
     } catch (err) {
       console.log("Error al inicializar audio:", err);
     }
   }, []);
 
-  // Función para reproducir sonido de escaneo fuerte
+  // Función para reproducir sonido de escaneo fuerte (PIP)
   const reproducirSonidoEscaneo = useCallback(async () => {
     try {
-      // Crear contexto de audio si no existe
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (
-          window.AudioContext || window.webkitAudioContext
-        )();
-      }
-      const audioContext = audioContextRef.current;
+      // Método 1: Web Audio API con sonido más agresivo
+      let audioContext = audioContextRef.current;
 
-      // Asegurar que el contexto esté activo (importante para móviles)
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContextRef.current = audioContext;
+      }
+
+      // Desbloquear si está suspendido
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
 
-      // Crear un oscilador para el beep
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      // Crear beep fuerte tipo escáner de supermercado
+      const playBeep = (freq, startTime, duration, volume = 1) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-      // Configurar el sonido - frecuencia alta y volumen fuerte
-      oscillator.frequency.setValueAtTime(1800, audioContext.currentTime); // Frecuencia del beep
-      oscillator.type = "square"; // Tipo de onda para sonido más fuerte
+        oscillator.frequency.setValueAtTime(freq, startTime);
+        oscillator.type = "square"; // Onda cuadrada = sonido más fuerte y nítido
 
-      // Volumen fuerte
-      gainNode.gain.setValueAtTime(1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(
-        0.01,
-        audioContext.currentTime + 0.3,
-      );
+        // Volumen máximo con caída rápida
+        gainNode.gain.setValueAtTime(volume, startTime);
+        gainNode.gain.setValueAtTime(volume, startTime + duration * 0.8);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
-      // Reproducir
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration);
+      };
 
-      // Segundo beep más corto para confirmar
-      setTimeout(async () => {
-        if (audioContext.state === "suspended") {
-          await audioContext.resume();
-        }
-        const osc2 = audioContext.createOscillator();
-        const gain2 = audioContext.createGain();
-        osc2.connect(gain2);
-        gain2.connect(audioContext.destination);
-        osc2.frequency.setValueAtTime(2200, audioContext.currentTime);
-        osc2.type = "square";
-        gain2.gain.setValueAtTime(1, audioContext.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(
-          0.01,
-          audioContext.currentTime + 0.15,
-        );
-        osc2.start(audioContext.currentTime);
-        osc2.stop(audioContext.currentTime + 0.15);
-      }, 100);
+      const now = audioContext.currentTime;
+
+      // Beep principal fuerte (tipo scanner)
+      playBeep(1200, now, 0.12, 1);
+      // Segundo tono más agudo para confirmar
+      playBeep(1800, now + 0.08, 0.08, 0.8);
+
+      console.log("🔊 Beep reproducido");
     } catch (err) {
       console.log("Error al reproducir sonido:", err);
+
+      // Fallback: intentar con Audio HTML5
+      try {
+        const audio = new Audio(
+          "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQkSZpmq0MBcFQs+kNPplm4AHlp8p8vLWwoSM3qvw6BRYBA7eaXOuFIMFDFxn7OuTAsTE2KKrLKRPgMXLFqHpKqHLwMUKlV8nKR+JQQTKVBzk5pyHgQSKE1tjo1nGQMSKEtpi4VfFQMRJ0lnhoJZEgMQJ0hkhH9UDwIPJ0dkg31RDQIPJkZjgntPCwIPJkVigXlNCgIPJUViUHlMCQIPJURhf3dKCAIPJENhfnVIBwIPJEJgfXNHBgIPJEFffHFGBQIOI0BefG9FBAIOIz9de21EAwINIj5ce2tDAgINIj1be2lCAgIMITxaemhBAgAMITtZeWZAAgAMIDpYeGU/AQALIDlXd2Q+AQALHzhWdmM9AQAKHzdVdWI8AAAKHjZUdGE7AAAJHTVTc2A6AAAJHTRScl85AAAIHDNRcV44AAAIGzJQcF03AAAHGzFPb1w2AAAHGjBObVs1AAAGGi9NbFo0AAAGGi5Ma1kzAAAFGS1MaFgyAAAFGCxLZ1cxAAAEGCtKZlYwAAAEFypJZVUvAAADFylIZFQuAAADFilHY1MtAAADFShGYlIsAAADFCdGYVErAAACFCdFX1AqAAACEyZEXk8pAAACEiVDXU4oAAACESRCXU0nAAABESRBXEwmAAABECNAW0slAAABECM/WkomAAABDyI+WUgkAAABDyE9WEcjAAAAAB4lQ00mAAAAAB4lQ00mAAAAAB4lQ00mAAAAAB4lQ00mAAA=",
+        );
+        audio.volume = 1;
+        await audio.play();
+      } catch (e) {
+        console.log("Fallback de audio también falló:", e);
+      }
     }
   }, []);
 
