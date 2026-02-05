@@ -9,6 +9,7 @@ export default function Inventario() {
     inventario,
     actualizarStock,
     agregarProducto,
+    editarProducto,
     eliminarProducto,
     eliminarProductoPermanente,
     reactivarProducto,
@@ -24,6 +25,7 @@ export default function Inventario() {
   const [mostrarModalMovimiento, setMostrarModalMovimiento] = useState(false);
   const [mostrarModalInactivos, setMostrarModalInactivos] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+  const [modoEdicion, setModoEdicion] = useState(false);
   const [nuevoProducto, setNuevoProducto] = useState({
     nombre: "",
     categoria: "Categoría 1",
@@ -90,6 +92,112 @@ export default function Inventario() {
   const handleFiltroChange = (setter) => (value) => {
     setter(value);
     setPaginaActual(1);
+  };
+
+  // Abrir modal para agregar nuevo producto
+  const abrirModalAgregar = () => {
+    setModoEdicion(false);
+    setProductoSeleccionado(null);
+    setNuevoProducto({
+      nombre: "",
+      categoria: "Categoría 1",
+      stock: 0,
+      stockMinimo: 10,
+      stockMaximo: 100,
+      precio: 0,
+      costo: 0,
+      ubicacion: "",
+      imagen: "",
+    });
+    setMostrarModal(true);
+  };
+
+  // Abrir modal para editar producto
+  const abrirModalEditar = (producto) => {
+    setModoEdicion(true);
+    setProductoSeleccionado(producto);
+    setNuevoProducto({
+      nombre: producto.nombre || "",
+      categoria: producto.categoria || "Categoría 1",
+      stock: producto.stock || 0,
+      stockMinimo: producto.stockMinimo || 10,
+      stockMaximo: producto.stockMaximo || 100,
+      precio: producto.precio || 0,
+      costo: producto.costo || 0,
+      ubicacion: producto.ubicacion || "",
+      imagen: producto.imagen || "",
+    });
+    setMostrarModal(true);
+  };
+
+  // Cerrar modal y limpiar
+  const cerrarModal = () => {
+    setMostrarModal(false);
+    setModoEdicion(false);
+    setProductoSeleccionado(null);
+    setNuevoProducto({
+      nombre: "",
+      categoria: "Categoría 1",
+      stock: 0,
+      stockMinimo: 10,
+      stockMaximo: 100,
+      precio: 0,
+      costo: 0,
+      ubicacion: "",
+      imagen: "",
+    });
+  };
+
+  const handleGuardarProducto = async (e) => {
+    e.preventDefault();
+
+    if (modoEdicion && productoSeleccionado) {
+      // Modo edición
+      const confirmado = await showConfirmAlert(
+        "Guardar cambios",
+        `¿Guardar los cambios en "${nuevoProducto.nombre}"?`,
+      );
+
+      if (confirmado) {
+        try {
+          await editarProducto(productoSeleccionado.id, nuevoProducto);
+          cerrarModal();
+          showSuccessAlert(
+            "¡Producto actualizado!",
+            "Los cambios se guardaron correctamente",
+          );
+        } catch (error) {
+          showToast(
+            "error",
+            "Error al actualizar producto: " +
+              (error.message || "Error desconocido"),
+          );
+        }
+      }
+    } else {
+      // Modo agregar
+      const confirmado = await showConfirmAlert(
+        "Agregar producto",
+        `¿Agregar "${nuevoProducto.nombre}" al inventario?`,
+      );
+
+      if (confirmado) {
+        try {
+          await agregarProducto(nuevoProducto);
+          cerrarModal();
+          showSuccessAlert(
+            "¡Producto agregado!",
+            "El producto se agregó al inventario",
+          );
+        } catch (error) {
+          showToast(
+            "error",
+            "Error al agregar producto: " +
+              (error.message || "Error desconocido"),
+          );
+        }
+      }
+    }
   };
 
   const handleAgregarProducto = async (e) => {
@@ -272,7 +380,7 @@ export default function Inventario() {
               <span>Inactivos</span>
             </button>
             <button
-              onClick={() => setMostrarModal(true)}
+              onClick={abrirModalAgregar}
               className="btn-primary inline-flex items-center space-x-2"
             >
               <span>➕</span>
@@ -496,7 +604,14 @@ export default function Inventario() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            onClick={() => abrirModalEditar(producto)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar producto"
+                          >
+                            ✏️
+                          </button>
                           <button
                             onClick={() =>
                               abrirModalMovimiento(producto, "entrada")
@@ -606,28 +721,40 @@ export default function Inventario() {
         </div>
       </div>
 
-      {/* Modal Agregar Producto */}
+      {/* Modal Agregar/Editar Producto */}
       {mostrarModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-white">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b dark:border-neutral-700 sticky top-0 bg-white dark:bg-neutral-800">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-800">
-                  Agregar Producto
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+                  {modoEdicion ? "✏️ Editar Producto" : "➕ Agregar Producto"}
                 </h2>
                 <button
-                  onClick={() => setMostrarModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  onClick={cerrarModal}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
                   ✕
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleAgregarProducto} className="p-6 space-y-4">
+            <form onSubmit={handleGuardarProducto} className="p-6 space-y-4">
+              {/* Mostrar código actual en modo edición */}
+              {modoEdicion && productoSeleccionado && (
+                <div className="bg-gray-100 dark:bg-neutral-700 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Código
+                  </p>
+                  <p className="font-mono font-bold text-gray-800 dark:text-white">
+                    {productoSeleccionado.codigo}
+                  </p>
+                </div>
+              )}
+
               {/* Imagen Preview */}
               <div className="flex flex-col items-center space-y-3">
-                <div className="w-32 h-32 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">
+                <div className="w-32 h-32 rounded-xl overflow-hidden bg-gray-100 dark:bg-neutral-700 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-neutral-600">
                   {nuevoProducto.imagen ? (
                     <img
                       src={nuevoProducto.imagen}
@@ -642,7 +769,7 @@ export default function Inventario() {
                   )}
                 </div>
                 <div className="w-full">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     URL de imagen (opcional)
                   </label>
                   <input
@@ -662,7 +789,7 @@ export default function Inventario() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Nombre del producto
                   </label>
                   <input
@@ -819,13 +946,13 @@ export default function Inventario() {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setMostrarModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  onClick={cerrarModal}
+                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button type="submit" className="flex-1 btn-primary">
-                  Agregar Producto
+                  {modoEdicion ? "💾 Guardar Cambios" : "➕ Agregar Producto"}
                 </button>
               </div>
             </form>

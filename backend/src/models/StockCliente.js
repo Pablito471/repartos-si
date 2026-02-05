@@ -56,6 +56,10 @@ const StockCliente = sequelize.define(
       allowNull: true,
       defaultValue: "General",
     },
+    imagen: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
   {
     tableName: "stock_clientes",

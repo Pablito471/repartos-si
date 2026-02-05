@@ -511,6 +511,44 @@ export function DepositoProvider({ children }) {
     };
   }, [usuario?.id]);
 
+  // Función para recargar inventario (usable desde fuera)
+  const recargarInventario = async () => {
+    if (MODO_CONEXION === "api" && usuario?.id) {
+      setCargandoInventario(true);
+      try {
+        console.log("Recargando inventario para depositoId:", usuario.id);
+        const response = await productosService.getByDeposito(usuario.id);
+        const productosBackend = response.data || response || [];
+
+        const inventarioMapeado = productosBackend.map((p) => ({
+          id: p.id,
+          codigo: p.codigo,
+          nombre: p.nombre,
+          categoria: p.categoria || "Sin categoría",
+          stock: p.stock || 0,
+          stockMinimo: p.stockMinimo || p.stock_minimo || 10,
+          stockMaximo: p.stockMaximo || p.stock_maximo || 100,
+          precio: parseFloat(p.precio) || 0,
+          costo: parseFloat(p.costo) || 0,
+          ubicacion: p.ubicacion || "",
+          imagen: p.imagen || "",
+          ultimaActualizacion: p.updatedAt
+            ? p.updatedAt.split("T")[0]
+            : new Date().toISOString().split("T")[0],
+        }));
+
+        setInventario(inventarioMapeado);
+        return inventarioMapeado;
+      } catch (error) {
+        console.error("Error al recargar inventario:", error);
+        throw error;
+      } finally {
+        setCargandoInventario(false);
+      }
+    }
+    return [];
+  };
+
   // Cargar inventario (productos) del depósito desde el backend
   useEffect(() => {
     const cargarInventario = async () => {
@@ -860,6 +898,73 @@ export function DepositoProvider({ children }) {
       };
       setInventario([...inventario, nuevoProducto]);
       return nuevoProducto;
+    }
+  };
+
+  // Editar producto del inventario
+  const editarProducto = async (productoId, datosActualizados) => {
+    if (MODO_CONEXION === "api") {
+      try {
+        if (!usuario?.id) {
+          throw new Error("Usuario no autenticado");
+        }
+
+        console.log("Actualizando producto:", productoId, datosActualizados);
+
+        // Actualizar producto en el backend
+        const response = await productosService.actualizar(
+          productoId,
+          datosActualizados,
+        );
+
+        const productoActualizado = response.data || response;
+
+        // Mapear al formato del inventario
+        const productoMapeado = {
+          id: productoActualizado.id,
+          codigo: productoActualizado.codigo,
+          nombre: productoActualizado.nombre,
+          categoria: productoActualizado.categoria || "Sin categoría",
+          stock: productoActualizado.stock || 0,
+          stockMinimo:
+            productoActualizado.stockMinimo ||
+            productoActualizado.stock_minimo ||
+            10,
+          stockMaximo:
+            productoActualizado.stockMaximo ||
+            productoActualizado.stock_maximo ||
+            100,
+          precio: parseFloat(productoActualizado.precio) || 0,
+          costo: parseFloat(productoActualizado.costo) || 0,
+          ubicacion: productoActualizado.ubicacion || "",
+          imagen: productoActualizado.imagen || "",
+          ultimaActualizacion: new Date().toISOString().split("T")[0],
+        };
+
+        // Actualizar el inventario local
+        setInventario((prev) =>
+          prev.map((p) => (p.id === productoId ? productoMapeado : p)),
+        );
+
+        return productoMapeado;
+      } catch (error) {
+        console.error("Error al actualizar producto:", error);
+        console.error("Error detalle:", error.response?.data || error.message);
+        throw error;
+      }
+    } else {
+      // Modo local (fallback)
+      setInventario((prev) =>
+        prev.map((p) =>
+          p.id === productoId
+            ? {
+                ...p,
+                ...datosActualizados,
+                ultimaActualizacion: new Date().toISOString().split("T")[0],
+              }
+            : p,
+        ),
+      );
     }
   };
 
@@ -1298,6 +1403,7 @@ export function DepositoProvider({ children }) {
     getPedidosPorEstado,
     actualizarStock,
     agregarProducto,
+    editarProducto,
     eliminarProducto,
     eliminarProductoPermanente,
     reactivarProducto,
@@ -1319,6 +1425,7 @@ export function DepositoProvider({ children }) {
     getNotificacionesNoLeidas,
     recibirPedidoCliente,
     cargarFletes,
+    recargarInventario,
   };
 
   return (

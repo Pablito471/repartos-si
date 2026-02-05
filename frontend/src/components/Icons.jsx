@@ -55,6 +55,7 @@ import {
   LifebuoyIcon,
   ChatBubbleLeftRightIcon,
   TrashIcon,
+  CameraIcon,
 } from "@heroicons/react/24/outline";
 
 import { StarIcon as StarFilledIcon } from "@heroicons/react/24/solid";
@@ -219,6 +220,9 @@ const Icons = {
 
   // Basura/Eliminar
   Trash: TrashIcon,
+
+  // Cámara/Escáner
+  Camera: CameraIcon,
 };
 
 export default Icons;

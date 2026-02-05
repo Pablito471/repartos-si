@@ -26,6 +26,11 @@ const menuItems = [
     icon: "ClipboardList",
   },
   {
+    name: "Escáner",
+    href: "/depositos/escaner",
+    icon: "Camera",
+  },
+  {
     name: "Envíos",
     href: "/depositos/envios",
     icon: "MapPin",

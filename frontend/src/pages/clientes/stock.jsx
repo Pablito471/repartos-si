@@ -48,12 +48,37 @@ export default function StockCliente() {
       }
     };
 
+    // Recargar cuando se agrega producto desde el escáner
+    const handleProductoAgregado = (event) => {
+      console.log("Stock: Producto agregado desde escáner", event.detail);
+      cargarDatos();
+    };
+
+    // Recargar cuando se actualiza producto desde el escáner (venta)
+    const handleProductoActualizado = (event) => {
+      console.log("Stock: Producto actualizado desde escáner", event.detail);
+      cargarDatos();
+    };
+
     window.addEventListener("socket:envio_entregado", handleEnvioEntregado);
+    window.addEventListener("stock:producto_agregado", handleProductoAgregado);
+    window.addEventListener(
+      "stock:producto_actualizado",
+      handleProductoActualizado,
+    );
 
     return () => {
       window.removeEventListener(
         "socket:envio_entregado",
         handleEnvioEntregado,
+      );
+      window.removeEventListener(
+        "stock:producto_agregado",
+        handleProductoAgregado,
+      );
+      window.removeEventListener(
+        "stock:producto_actualizado",
+        handleProductoActualizado,
       );
     };
   }, []);

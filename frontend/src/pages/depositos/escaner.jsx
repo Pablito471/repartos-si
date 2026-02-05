@@ -1,19 +1,16 @@
-import ClienteLayout from "@/components/layouts/ClienteLayout";
+import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useAuth } from "@/context/AuthContext";
+import { useDeposito } from "@/context/DepositoContext";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { stockService } from "@/services/api";
+import { productosService } from "@/services/api";
 import { showToast, showConfirmAlert, showSuccessAlert } from "@/utils/alerts";
 import { formatNumber } from "@/utils/formatters";
-import {
-  Html5QrcodeScanner,
-  Html5QrcodeScanType,
-  Html5Qrcode,
-  Html5QrcodeSupportedFormats,
-} from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { createWorker } from "tesseract.js";
 
-export default function EscanerStock() {
-  const { usuario, esMovil, modoEscaner, setModoEscaner } = useAuth();
+export default function EscanerDeposito() {
+  const { usuario, esMovil } = useAuth();
+  const { recargarInventario } = useDeposito();
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
 
@@ -22,9 +19,11 @@ export default function EscanerStock() {
   const [errorCamara, setErrorCamara] = useState(null);
   const [cantidad, setCantidad] = useState(1);
   const [procesando, setProcesando] = useState(false);
-  const [historialVentas, setHistorialVentas] = useState([]);
+  const [historialMovimientos, setHistorialMovimientos] = useState([]);
   const [modoManual, setModoManual] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
+  const [tipoMovimiento, setTipoMovimiento] = useState("entrada"); // entrada o salida
+  const [motivo, setMotivo] = useState("");
 
   // Estados para modo agregar
   const [modoAgregar, setModoAgregar] = useState(false);
@@ -33,14 +32,11 @@ export default function EscanerStock() {
     nombre: "",
     cantidad: 1,
     precio: "",
+    costo: "",
     categoria: "General",
+    ubicacion: "",
     imagen: "",
   });
-
-  // Categorías del usuario
-  const [categorias, setCategorias] = useState(["General"]);
-  const [nuevaCategoria, setNuevaCategoria] = useState("");
-  const [mostrarNuevaCategoria, setMostrarNuevaCategoria] = useState(false);
 
   // Orientación del dispositivo
   const [isLandscape, setIsLandscape] = useState(false);
@@ -72,21 +68,6 @@ export default function EscanerStock() {
       window.removeEventListener("resize", checkOrientation);
       window.removeEventListener("orientationchange", checkOrientation);
     };
-  }, []);
-
-  // Cargar categorías del usuario
-  useEffect(() => {
-    const cargarCategorias = async () => {
-      try {
-        const response = await stockService.obtenerCategorias();
-        if (response.success && response.data?.length > 0) {
-          setCategorias(response.data);
-        }
-      } catch (error) {
-        console.error("Error al cargar categorías:", error);
-      }
-    };
-    cargarCategorias();
   }, []);
 
   // Iniciar escáner - verificar permisos primero
@@ -155,7 +136,6 @@ export default function EscanerStock() {
   // Efecto para inicializar el escáner cuando el elemento DOM existe
   useEffect(() => {
     if (escaneando && !modoManual) {
-      // Dar tiempo al DOM para renderizar el elemento
       const timer = setTimeout(async () => {
         const readerElement = document.getElementById("reader");
         if (!readerElement) {
@@ -167,42 +147,33 @@ export default function EscanerStock() {
           return;
         }
 
-        // Limpiar escáner anterior si existe
         if (html5QrcodeScannerRef.current) {
           try {
             await html5QrcodeScannerRef.current.stop();
-          } catch (e) {
-            // Ignorar errores de limpieza
-          }
+          } catch (e) {}
         }
 
-        // Detectar si es desktop (no tiene cámara trasera típicamente)
         const isDesktop =
           !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
             navigator.userAgent,
           );
 
-        // Calcular tamaño del qrbox basado en orientación y tamaño de pantalla
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
         const isLandscapeMode = screenWidth > screenHeight;
 
-        // Área de escaneo - más grande en desktop para compensar falta de zoom
         const qrboxWidth = isDesktop
-          ? Math.min(screenWidth - 100, 600) // Desktop: área más grande
+          ? Math.min(screenWidth - 100, 600)
           : isLandscapeMode
             ? Math.min(screenWidth - 80, 550)
             : Math.min(screenWidth - 40, 350);
-        // Altura más baja para códigos de barras lineales (son horizontales)
         const qrboxHeight = isDesktop
-          ? Math.floor(qrboxWidth * 0.3) // Desktop: más ancho y bajo para códigos lineales
+          ? Math.floor(qrboxWidth * 0.3)
           : isLandscapeMode
             ? Math.floor(qrboxWidth * 0.35)
             : Math.floor(qrboxWidth * 0.5);
 
-        // Formatos de código de barras soportados - priorizando códigos lineales
         const formatsToSupport = [
-          // Códigos de barras lineales (más comunes en productos)
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
           Html5QrcodeSupportedFormats.UPC_A,
@@ -212,31 +183,25 @@ export default function EscanerStock() {
           Html5QrcodeSupportedFormats.CODE_93,
           Html5QrcodeSupportedFormats.CODABAR,
           Html5QrcodeSupportedFormats.ITF,
-          // QR al final (menor prioridad)
           Html5QrcodeSupportedFormats.QR_CODE,
         ];
 
-        // Usar Html5Qrcode directamente para mejor control de formatos
         html5QrcodeScannerRef.current = new Html5Qrcode("reader", {
           formatsToSupport: formatsToSupport,
           verbose: false,
         });
 
-        // Configuración optimizada - diferente para desktop y móvil
         const config = {
-          fps: isDesktop ? 20 : 15, // Más FPS en desktop (mejor hardware)
+          fps: isDesktop ? 20 : 15,
           qrbox: { width: qrboxWidth, height: qrboxHeight },
           aspectRatio: isLandscapeMode ? 1.777778 : 1.333333,
-          // Configuración experimental para mejor lectura
           experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true, // Usa API nativa si está disponible
+            useBarCodeDetectorIfSupported: true,
           },
-          // Desactivar espejos para mejorar precisión
           disableFlip: false,
         };
 
         try {
-          // Para desktop usamos "user" (webcam frontal), para móvil "environment" (cámara trasera)
           const cameraConfig = isDesktop
             ? { facingMode: "user" }
             : { facingMode: "environment" };
@@ -245,35 +210,23 @@ export default function EscanerStock() {
             cameraConfig,
             config,
             async (decodedText, decodedResult) => {
-              // Código escaneado exitosamente
               console.log("✅ Código detectado:", decodedText);
-              console.log(
-                "📊 Formato:",
-                decodedResult?.result?.format?.formatName,
-              );
-
-              // Vibrar si el dispositivo lo soporta
               if (navigator.vibrate) {
                 navigator.vibrate(200);
               }
-
               await buscarProducto(decodedText);
             },
-            (errorMessage) => {
-              // Errores silenciosos de "no code found" son normales
-            },
+            (errorMessage) => {},
           );
 
-          // Intentar configurar zoom y enfoque para códigos pequeños
+          // Configurar zoom y enfoque
           try {
-            // Esperar un poco a que el video se inicialice
             await new Promise((resolve) => setTimeout(resolve, 500));
             const videoElement = document.querySelector("#reader video");
             if (videoElement && videoElement.srcObject) {
               const track = videoElement.srcObject.getVideoTracks()[0];
               const capabilities = track.getCapabilities();
 
-              // Configurar enfoque continuo si está disponible
               if (
                 capabilities.focusMode &&
                 capabilities.focusMode.includes("continuous")
@@ -281,17 +234,13 @@ export default function EscanerStock() {
                 await track.applyConstraints({
                   advanced: [{ focusMode: "continuous" }],
                 });
-                console.log("📷 Enfoque continuo activado");
               }
 
-              // Configurar zoom
               if (capabilities.zoom) {
                 const minZoom = capabilities.zoom.min || 1;
                 const maxZoomVal = capabilities.zoom.max || 1;
                 setMaxZoom(maxZoomVal);
                 setZoomDisponible(true);
-                // Aplicar zoom más alto por defecto para códigos pequeños
-                // Usar 40% del rango de zoom (mejor para mantener distancia y enfocar)
                 const initialZoom = Math.min(
                   minZoom + (maxZoomVal - minZoom) * 0.4,
                   3,
@@ -300,16 +249,9 @@ export default function EscanerStock() {
                 await track.applyConstraints({
                   advanced: [{ zoom: initialZoom }],
                 });
-                console.log(
-                  "📷 Zoom inicial:",
-                  initialZoom,
-                  "Max:",
-                  maxZoomVal,
-                );
               }
             }
           } catch (zoomErr) {
-            console.log("Zoom/enfoque no disponible:", zoomErr.message);
             setZoomDisponible(false);
           }
 
@@ -335,7 +277,6 @@ export default function EscanerStock() {
         const track = videoElement.srcObject.getVideoTracks()[0];
         await track.applyConstraints({ advanced: [{ zoom: nuevoZoom }] });
         setZoomLevel(nuevoZoom);
-        console.log("📷 Zoom cambiado a:", nuevoZoom);
       }
     } catch (err) {
       console.log("Error al cambiar zoom:", err);
@@ -356,15 +297,13 @@ export default function EscanerStock() {
         },
       });
 
-      // Configurar para reconocer solo números
       await worker.setParameters({
         tessedit_char_whitelist: "0123456789",
-        tessedit_pageseg_mode: "7", // Tratar como línea de texto única
+        tessedit_pageseg_mode: "7",
       });
 
       ocrWorkerRef.current = worker;
       setOcrStatus("OCR listo");
-      console.log("✅ OCR inicializado");
     } catch (err) {
       console.error("Error al inicializar OCR:", err);
       setOcrStatus("Error OCR");
@@ -379,15 +318,11 @@ export default function EscanerStock() {
     if (!videoElement || videoElement.readyState < 2) return;
 
     try {
-      // Crear canvas para capturar frame
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
 
-      // Capturar solo la parte inferior del video (donde están los números)
       const videoWidth = videoElement.videoWidth;
       const videoHeight = videoElement.videoHeight;
-
-      // Capturar el tercio inferior donde suelen estar los números
       const captureHeight = Math.floor(videoHeight * 0.3);
       const captureY = videoHeight - captureHeight;
 
@@ -399,18 +334,16 @@ export default function EscanerStock() {
         0,
         captureY,
         videoWidth,
-        captureHeight, // Fuente
+        captureHeight,
         0,
         0,
         videoWidth,
-        captureHeight, // Destino
+        captureHeight,
       );
 
-      // Mejorar contraste para OCR
       ctx.filter = "contrast(1.5) brightness(1.2)";
       ctx.drawImage(canvas, 0, 0);
 
-      // Convertir a imagen
       const imageData = canvas.toDataURL("image/png");
 
       setOcrStatus("Leyendo números...");
@@ -418,18 +351,12 @@ export default function EscanerStock() {
         data: { text },
       } = await ocrWorkerRef.current.recognize(imageData);
 
-      // Buscar patrones de código de barras en el texto
-      // EAN-13: 13 dígitos, EAN-8: 8 dígitos, UPC-A: 12 dígitos
-      const numeros = text.replace(/\s/g, ""); // Quitar espacios
-
-      // Buscar secuencias de números válidas
+      const numeros = text.replace(/\s/g, "");
       const patronEAN13 = /\d{13}/g;
       const patronEAN8 = /\d{8}/g;
       const patronUPC = /\d{12}/g;
 
       let codigoDetectado = null;
-
-      // Prioridad: EAN-13/UPC > EAN-8
       const ean13Match = numeros.match(patronEAN13);
       const upcMatch = numeros.match(patronUPC);
       const ean8Match = numeros.match(patronEAN8);
@@ -446,14 +373,11 @@ export default function EscanerStock() {
         console.log("🔢 OCR detectó código:", codigoDetectado);
         ultimoCodigoOCR.current = codigoDetectado;
 
-        // Vibrar
         if (navigator.vibrate) {
           navigator.vibrate([100, 50, 100]);
         }
 
         setOcrStatus(`Encontrado: ${codigoDetectado}`);
-
-        // Buscar el producto
         await buscarProducto(codigoDetectado);
       } else {
         setOcrStatus("Buscando números...");
@@ -466,7 +390,6 @@ export default function EscanerStock() {
   // Activar/desactivar OCR
   const toggleOCR = useCallback(async () => {
     if (ocrActivo) {
-      // Desactivar
       if (ocrIntervalRef.current) {
         clearInterval(ocrIntervalRef.current);
         ocrIntervalRef.current = null;
@@ -474,18 +397,15 @@ export default function EscanerStock() {
       setOcrActivo(false);
       setOcrStatus("");
     } else {
-      // Activar
       await inicializarOCR();
       setOcrActivo(true);
-
-      // Ejecutar OCR cada 2 segundos
       ocrIntervalRef.current = setInterval(() => {
         ejecutarOCR();
       }, 2000);
     }
   }, [ocrActivo, inicializarOCR, ejecutarOCR]);
 
-  // Limpiar OCR al desmontar o cambiar estado de escaneo
+  // Limpiar OCR
   useEffect(() => {
     return () => {
       if (ocrIntervalRef.current) {
@@ -494,7 +414,6 @@ export default function EscanerStock() {
     };
   }, []);
 
-  // Detener OCR cuando se encuentra producto
   useEffect(() => {
     if (productoEscaneado && ocrIntervalRef.current) {
       clearInterval(ocrIntervalRef.current);
@@ -509,9 +428,7 @@ export default function EscanerStock() {
     if (html5QrcodeScannerRef.current) {
       try {
         await html5QrcodeScannerRef.current.stop();
-      } catch (e) {
-        // Ignorar errores de limpieza
-      }
+      } catch (e) {}
       html5QrcodeScannerRef.current = null;
     }
     setEscaneando(false);
@@ -523,50 +440,45 @@ export default function EscanerStock() {
     console.log("🔍 Buscando código:", codigo);
 
     try {
-      // Pausar escáner mientras procesamos
       if (html5QrcodeScannerRef.current) {
         html5QrcodeScannerRef.current.pause(true);
       }
 
-      const response = await stockService.buscarPorCodigo(codigo);
+      const response = await productosService.buscarPorCodigo(codigo);
       console.log("📦 Respuesta:", response);
 
-      if (response.success && response.data) {
-        setProductoEscaneado(response.data);
+      if (response.data.success && response.data.data) {
+        setProductoEscaneado(response.data.data);
         setModoAgregar(false);
         setCantidad(1);
-        // Detener el escáner completamente al encontrar producto
+        setMotivo("");
         if (html5QrcodeScannerRef.current) {
           try {
             await html5QrcodeScannerRef.current.stop();
-          } catch (e) {
-            console.log("Error al detener escáner:", e);
-          }
+          } catch (e) {}
         }
-        showToast("success", `Producto encontrado: ${response.data.nombre}`);
+        showToast(
+          "success",
+          `Producto encontrado: ${response.data.data.nombre}`,
+        );
       } else {
-        // Respuesta sin datos - producto no encontrado
         throw new Error("Producto no encontrado");
       }
     } catch (error) {
       console.log("❌ Error o no encontrado:", error);
 
-      // No se encontró en stock - preguntar si quiere agregar
       const quiereAgregar = await showConfirmAlert(
         "Producto no encontrado",
-        `El código "${codigo}" no está en tu stock. ¿Deseas agregar un nuevo producto?`,
+        `El código "${codigo}" no está en tu inventario. ¿Deseas agregar un nuevo producto?`,
         "Sí, agregar",
         "Cancelar",
       );
 
       if (quiereAgregar) {
-        // Detener escáner al agregar producto
         if (html5QrcodeScannerRef.current) {
           try {
             await html5QrcodeScannerRef.current.stop();
-          } catch (e) {
-            console.log("Error al detener escáner:", e);
-          }
+          } catch (e) {}
         }
         setModoAgregar(true);
         setCodigoEscaneado(codigo);
@@ -574,32 +486,26 @@ export default function EscanerStock() {
           nombre: "",
           cantidad: 1,
           precio: "",
+          costo: "",
           categoria: "General",
+          ubicacion: "",
         });
       } else {
-        // Reanudar escáner si cancela
         if (html5QrcodeScannerRef.current) {
           setTimeout(() => {
             try {
               html5QrcodeScannerRef.current?.resume();
-            } catch (e) {
-              console.log("Error al reanudar escáner:", e);
-            }
+            } catch (e) {}
           }, 500);
         }
       }
     }
   };
 
-  // Agregar producto al stock
+  // Agregar producto al inventario
   const agregarProducto = async () => {
     if (!nuevoProducto.nombre.trim()) {
       showToast("warning", "Ingresa el nombre del producto");
-      return;
-    }
-
-    if (nuevoProducto.cantidad < 1) {
-      showToast("warning", "La cantidad debe ser al menos 1");
       return;
     }
 
@@ -611,48 +517,44 @@ export default function EscanerStock() {
     setProcesando(true);
     try {
       const datosProducto = {
+        codigo: codigoEscaneado || `PROD-${Date.now()}`,
         nombre: nuevoProducto.nombre.trim(),
-        cantidad: parseInt(nuevoProducto.cantidad),
+        stock: parseInt(nuevoProducto.cantidad),
         precio: parseFloat(nuevoProducto.precio),
-        codigoBarras: codigoEscaneado || null,
+        costo: nuevoProducto.costo ? parseFloat(nuevoProducto.costo) : null,
         categoria: nuevoProducto.categoria,
+        ubicacion: nuevoProducto.ubicacion || null,
         imagen: nuevoProducto.imagen || null,
-        registrarCompra: false,
       };
 
-      console.log("📦 Enviando producto:", datosProducto);
+      const response = await productosService.crear(datosProducto);
 
-      const response = await stockService.agregarProducto(datosProducto);
-      console.log("📦 Respuesta:", response);
-
-      if (response.success) {
-        // Emitir evento para que otras páginas actualicen su stock
-        window.dispatchEvent(
-          new CustomEvent("stock:producto_agregado", {
-            detail: { producto: response.data },
-          }),
-        );
+      if (response.data?.success || response.success) {
+        // Recargar inventario del contexto
+        try {
+          await recargarInventario();
+        } catch (e) {
+          console.log("Info: no se pudo recargar inventario del contexto");
+        }
 
         await showSuccessAlert(
           "¡Producto agregado!",
-          `${nuevoProducto.cantidad}x ${nuevoProducto.nombre}\nCategoría: ${nuevoProducto.categoria}\nPrecio: $${formatNumber(parseFloat(nuevoProducto.precio))}`,
+          `${nuevoProducto.nombre}\nStock inicial: ${nuevoProducto.cantidad}\nPrecio: $${formatNumber(parseFloat(nuevoProducto.precio))}`,
         );
 
-        // Limpiar y reiniciar escáner
         setModoAgregar(false);
         setCodigoEscaneado("");
-        setMostrarNuevaCategoria(false);
-        setNuevaCategoria("");
         setNuevoProducto({
           nombre: "",
           cantidad: 1,
           precio: "",
+          costo: "",
           categoria: "General",
+          ubicacion: "",
           imagen: "",
         });
         setCodigoManual("");
 
-        // Reiniciar escáner si no estamos en modo manual
         if (!modoManual) {
           setEscaneando(false);
           setTimeout(() => {
@@ -661,12 +563,8 @@ export default function EscanerStock() {
         }
       }
     } catch (error) {
-      console.error("❌ Error al agregar producto:", error);
-      console.error("Response data:", error.response?.data);
       const mensaje =
-        error.response?.data?.message ||
-        error.message ||
-        "Error al agregar producto";
+        error.response?.data?.message || "Error al agregar producto";
       showToast("error", mensaje);
     } finally {
       setProcesando(false);
@@ -677,18 +575,17 @@ export default function EscanerStock() {
   const cancelarAgregar = () => {
     setModoAgregar(false);
     setCodigoEscaneado("");
-    setMostrarNuevaCategoria(false);
-    setNuevaCategoria("");
     setNuevoProducto({
       nombre: "",
       cantidad: 1,
       precio: "",
+      costo: "",
       categoria: "General",
+      ubicacion: "",
       imagen: "",
     });
     setCodigoManual("");
 
-    // Reiniciar escáner si no estamos en modo manual
     if (!modoManual) {
       setEscaneando(false);
       setTimeout(() => {
@@ -706,8 +603,8 @@ export default function EscanerStock() {
     await buscarProducto(codigoManual.trim().toUpperCase());
   };
 
-  // Descontar del stock
-  const descontarProducto = async () => {
+  // Registrar movimiento de stock
+  const registrarMovimiento = async () => {
     if (!productoEscaneado) return;
 
     if (cantidad < 1) {
@@ -715,18 +612,19 @@ export default function EscanerStock() {
       return;
     }
 
-    if (cantidad > productoEscaneado.cantidadDisponible) {
+    if (tipoMovimiento === "salida" && cantidad > productoEscaneado.stock) {
       showToast(
         "error",
-        `Solo hay ${productoEscaneado.cantidadDisponible} unidades disponibles`,
+        `Stock insuficiente. Disponible: ${productoEscaneado.stock}`,
       );
       return;
     }
 
+    const accion = tipoMovimiento === "entrada" ? "Entrada" : "Salida";
     const confirmado = await showConfirmAlert(
-      "Confirmar venta",
-      `¿Descontar ${cantidad} unidad(es) de "${productoEscaneado.nombre}"?\n\nTotal: $${formatNumber(productoEscaneado.precio * cantidad)}`,
-      "Sí, vender",
+      `Confirmar ${accion}`,
+      `¿Registrar ${accion.toLowerCase()} de ${cantidad} unidad(es) de "${productoEscaneado.nombre}"?\n\n${motivo ? `Motivo: ${motivo}` : ""}`,
+      "Sí, confirmar",
       "Cancelar",
     );
 
@@ -734,38 +632,38 @@ export default function EscanerStock() {
 
     setProcesando(true);
     try {
-      const response = await stockService.descontarPorCodigo(
-        productoEscaneado.codigo,
+      const response = await productosService.registrarMovimientoStock(
+        productoEscaneado.id,
         cantidad,
-        "Venta por escáner",
+        tipoMovimiento,
+        motivo || `${accion} por escáner`,
       );
 
-      if (response.success) {
-        // Emitir evento para que otras páginas actualicen su stock
-        window.dispatchEvent(
-          new CustomEvent("stock:producto_actualizado", {
-            detail: { producto: response.data },
-          }),
-        );
+      if (response.data.success) {
+        // Recargar inventario del contexto
+        try {
+          await recargarInventario();
+        } catch (e) {
+          console.log("Info: no se pudo recargar inventario del contexto");
+        }
 
-        const venta = {
-          ...response.data,
+        const movimiento = {
+          ...response.data.data,
           fecha: new Date().toISOString(),
         };
 
-        setHistorialVentas((prev) => [venta, ...prev].slice(0, 20)); // Mantener últimas 20
+        setHistorialMovimientos((prev) => [movimiento, ...prev].slice(0, 20));
 
         await showSuccessAlert(
-          "¡Venta registrada!",
-          `${cantidad}x ${productoEscaneado.nombre}\nTotal: $${formatNumber(response.data.montoVenta)}\nStock restante: ${response.data.stockRestante}`,
+          `¡${accion} registrada!`,
+          `${cantidad}x ${productoEscaneado.nombre}\nStock anterior: ${response.data.data.stockAnterior}\nStock actual: ${response.data.data.stockActual}`,
         );
 
-        // Limpiar y reiniciar escáner
         setProductoEscaneado(null);
         setCantidad(1);
+        setMotivo("");
         setCodigoManual("");
 
-        // Reiniciar escáner si no estamos en modo manual
         if (!modoManual) {
           setEscaneando(false);
           setTimeout(() => {
@@ -775,7 +673,7 @@ export default function EscanerStock() {
       }
     } catch (error) {
       const mensaje =
-        error.response?.data?.message || "Error al procesar la venta";
+        error.response?.data?.message || "Error al registrar movimiento";
       showToast("error", mensaje);
     } finally {
       setProcesando(false);
@@ -786,77 +684,61 @@ export default function EscanerStock() {
   const cancelarEscaneo = () => {
     setProductoEscaneado(null);
     setCantidad(1);
+    setMotivo("");
     setCodigoManual("");
 
-    // El escáner fue detenido, reiniciar si no estamos en modo manual
     if (!modoManual) {
       setEscaneando(false);
-      // Dar tiempo para que se desmonte y luego reiniciar
       setTimeout(() => {
         setEscaneando(true);
       }, 100);
     }
   };
 
-  // Cleanup al desmontar
+  // Cleanup
   useEffect(() => {
     return () => {
       if (html5QrcodeScannerRef.current) {
         try {
           html5QrcodeScannerRef.current.clear();
-        } catch (e) {
-          // Ignorar errores de limpieza
-        }
+        } catch (e) {}
       }
     };
   }, []);
 
-  // Calcular total del día
-  const totalDia = historialVentas.reduce(
-    (sum, v) => sum + (v.montoVenta || 0),
-    0,
-  );
-  const cantidadVentas = historialVentas.length;
+  const entradasHoy = historialMovimientos.filter(
+    (m) => m.tipo === "entrada",
+  ).length;
+  const salidasHoy = historialMovimientos.filter(
+    (m) => m.tipo === "salida",
+  ).length;
 
   return (
-    <ClienteLayout>
+    <DepositoLayout>
       <div className="space-y-6 max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            📷 Escáner de Ventas
+            📷 Escáner de Inventario
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Escanea códigos de barras para registrar ventas
+            Escanea códigos para registrar entradas y salidas
           </p>
-
-          {/* Botón para activar modo escáner (solo en móvil y si no está activo) */}
-          {esMovil && !modoEscaner && (
-            <button
-              onClick={() => setModoEscaner(true)}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
-            >
-              📱 Activar modo escáner
-              <span className="text-xs bg-white/20 px-2 py-1 rounded">
-                Solo escáner
-              </span>
-            </button>
-          )}
         </div>
 
         {/* Stats rápidos */}
         <div className="grid grid-cols-2 gap-4">
           <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white">
-            <p className="text-green-100 text-sm">Ventas esta sesión</p>
-            <p className="text-2xl font-bold">{cantidadVentas}</p>
+            <p className="text-green-100 text-sm">Entradas esta sesión</p>
+            <p className="text-2xl font-bold">{entradasHoy}</p>
           </div>
-          <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-            <p className="text-blue-100 text-sm">Total recaudado</p>
-            <p className="text-2xl font-bold">${formatNumber(totalDia)}</p>
+          <div className="card bg-gradient-to-br from-red-500 to-red-600 text-white">
+            <p className="text-red-100 text-sm">Salidas esta sesión</p>
+            <p className="text-2xl font-bold">{salidasHoy}</p>
           </div>
         </div>
 
-        {/* Selector de modo - oculto cuando hay producto o modo agregar */}
+        {/* Selector de modo */}
         {!productoEscaneado && !modoAgregar && (
           <div className="card">
             <div className="flex gap-2">
@@ -867,8 +749,8 @@ export default function EscanerStock() {
                 }}
                 className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
                   !modoManual
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
                 }`}
               >
                 📷 Cámara
@@ -880,8 +762,8 @@ export default function EscanerStock() {
                 }}
                 className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
                   modoManual
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
                 }`}
               >
                 ⌨️ Manual
@@ -917,91 +799,56 @@ export default function EscanerStock() {
                     ⌨️ Usar modo manual
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-4">
-                  💡 En móviles, asegúrate de permitir el acceso a la cámara
-                  cuando el navegador lo solicite
-                </p>
               </div>
             ) : !escaneando ? (
               <div className="text-center py-8">
                 <span className="text-6xl block mb-4">📷</span>
-                <p className="text-gray-600 mb-4">
-                  {esMovil
-                    ? "Presiona el botón para iniciar la cámara"
-                    : "Elige cómo ingresar el código de barras"}
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Presiona el botón para iniciar la cámara
                 </p>
-
-                <div
-                  className={`flex ${esMovil ? "flex-col" : "flex-row"} justify-center gap-3`}
+                <button
+                  onClick={iniciarEscaner}
+                  className="btn-primary bg-orange-500 hover:bg-orange-600 text-lg px-8 py-3"
                 >
-                  <button
-                    onClick={iniciarEscaner}
-                    className={`btn-primary text-lg px-8 py-3 ${!esMovil && "flex-1 max-w-xs"}`}
-                  >
-                    🎯 {esMovil ? "Iniciar Escáner" : "Usar Webcam"}
-                  </button>
-
-                  {!esMovil && (
-                    <button
-                      onClick={() => setModoManual(true)}
-                      className="btn-secondary text-lg px-8 py-3 flex-1 max-w-xs"
-                    >
-                      ⌨️ Escribir Código
-                    </button>
-                  )}
-                </div>
-
-                <p className="text-xs text-gray-400 mt-4">
-                  {esMovil
-                    ? "📱 Se usará la cámara trasera"
-                    : "💡 Para códigos pequeños o difíciles, usa 'Escribir Código'"}
-                </p>
+                  🎯 Iniciar Escáner
+                </button>
               </div>
             ) : (
               <div>
-                <p className="text-center text-sm text-gray-600 mb-3">
-                  📷 Apunta al código de barras y mantén{" "}
-                  {esMovil ? "el celular" : "la cámara"} estable
-                  {isLandscape && esMovil && (
-                    <span className="block text-xs text-primary mt-1">
-                      📱 Modo horizontal detectado - área ampliada
-                    </span>
-                  )}
+                <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  📷 Apunta al código de barras y mantén estable
                 </p>
 
-                {/* Tips diferentes para móvil y desktop */}
                 {esMovil ? (
-                  <div className="text-center text-xs text-amber-600 bg-amber-50 rounded-lg p-2 mb-3">
-                    💡 <strong>Tip para códigos pequeños:</strong> NO acerques
-                    demasiado el celular (se desenfoca). Mantén ~15cm de
-                    distancia y <strong>aumenta el zoom</strong> abajo ⬇️
+                  <div className="text-center text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded-lg p-2 mb-3">
+                    💡 <strong>Tip:</strong> Mantén ~15cm de distancia y aumenta
+                    el zoom ⬇️
                   </div>
                 ) : (
-                  <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg p-2 mb-3">
-                    💻 <strong>Tip para webcam:</strong> Si el código es muy
-                    pequeño, usa el <strong>modo manual</strong> (botón abajo).
-                    Las webcams no tienen zoom óptico. Acerca el código a ~20cm
-                    de la cámara.
+                  <div className="text-center text-xs text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2 mb-3">
+                    💻 <strong>Tip:</strong> Si el código es pequeño, usa el
+                    modo manual
                   </div>
                 )}
+
                 <div
                   id="reader"
                   ref={scannerRef}
-                  className="w-full rounded-lg overflow-hidden border-2 border-primary"
+                  className="w-full rounded-lg overflow-hidden border-2 border-orange-500"
                   style={{
                     minHeight: isLandscape ? "250px" : "350px",
                     maxHeight: isLandscape ? "60vh" : "auto",
                   }}
                 ></div>
 
-                {/* Control de zoom para códigos pequeños */}
+                {/* Control de zoom */}
                 {zoomDisponible && (
-                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="mt-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-blue-700 font-medium">
-                        🔍 Zoom digital (¡usa esto para códigos pequeños!)
+                      <span className="text-xs text-orange-700 dark:text-orange-300 font-medium">
+                        🔍 Zoom digital
                       </span>
-                      <span className="text-sm text-blue-600 font-bold">
+                      <span className="text-sm text-orange-600 font-bold">
                         {zoomLevel.toFixed(1)}x
                       </span>
                     </div>
@@ -1010,7 +857,7 @@ export default function EscanerStock() {
                         onClick={() =>
                           cambiarZoom(Math.max(1, zoomLevel - 0.5))
                         }
-                        className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
+                        className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 rounded-lg text-sm font-bold hover:bg-orange-50"
                         disabled={zoomLevel <= 1}
                       >
                         −
@@ -1024,34 +871,30 @@ export default function EscanerStock() {
                         onChange={(e) =>
                           cambiarZoom(parseFloat(e.target.value))
                         }
-                        className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                        className="flex-1 h-2 bg-orange-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
                       />
                       <button
                         onClick={() =>
                           cambiarZoom(Math.min(maxZoom, zoomLevel + 0.5))
                         }
-                        className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
+                        className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 rounded-lg text-sm font-bold hover:bg-orange-50"
                         disabled={zoomLevel >= maxZoom}
                       >
                         +
                       </button>
                     </div>
-                    <p className="text-xs text-blue-600 mt-2 text-center font-medium">
-                      📱 Mantén distancia (~15cm) + sube el zoom = código
-                      pequeño enfocado
-                    </p>
                   </div>
                 )}
 
-                {/* OCR para leer números automáticamente */}
-                <div className="mt-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl p-4">
+                {/* OCR */}
+                <div className="mt-3 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-2 border-purple-300 dark:border-purple-700 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <span className="text-sm text-purple-800 font-bold">
+                      <span className="text-sm text-purple-800 dark:text-purple-200 font-bold">
                         🔢 Leer números automáticamente
                       </span>
-                      <p className="text-xs text-purple-600">
-                        Lee los números debajo del código de barras
+                      <p className="text-xs text-purple-600 dark:text-purple-400">
+                        Lee los números debajo del código
                       </p>
                     </div>
                     <button
@@ -1059,7 +902,7 @@ export default function EscanerStock() {
                       className={`px-4 py-2 rounded-lg font-bold transition-all ${
                         ocrActivo
                           ? "bg-purple-600 text-white animate-pulse"
-                          : "bg-white border-2 border-purple-400 text-purple-700 hover:bg-purple-100"
+                          : "bg-white dark:bg-gray-800 border-2 border-purple-400 text-purple-700 dark:text-purple-300 hover:bg-purple-100"
                       }`}
                     >
                       {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
@@ -1076,32 +919,19 @@ export default function EscanerStock() {
                       <span className="text-sm font-medium">{ocrStatus}</span>
                     </div>
                   )}
-                  <p className="text-xs text-purple-500 mt-2 text-center">
-                    💡 Apunta a los{" "}
-                    <strong>números debajo de las barras</strong> (ej:
-                    7790012345678)
-                  </p>
                 </div>
 
-                <p className="text-center text-xs text-gray-500 mt-2">
-                  💡 Asegúrate de tener buena iluminación y el código centrado
-                </p>
-
-                {/* Botón prominente para códigos pequeños */}
-                <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                  <p className="text-center text-amber-800 font-medium mb-3">
+                {/* Botón código pequeño */}
+                <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-4">
+                  <p className="text-center text-amber-800 dark:text-amber-200 font-medium mb-3">
                     🔢 ¿Código muy pequeño o no se lee?
                   </p>
                   <button
                     onClick={() => setModoManual(true)}
-                    className="w-full btn-primary bg-amber-500 hover:bg-amber-600 text-lg py-3 flex items-center justify-center gap-2"
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white text-lg py-3 rounded-lg font-semibold"
                   >
                     ⌨️ Escribir los números del código
                   </button>
-                  <p className="text-center text-xs text-amber-700 mt-2">
-                    👉 Los números aparecen{" "}
-                    <strong>debajo de las barras</strong> (ej: 7790001234567)
-                  </p>
                 </div>
 
                 <div className="mt-3 flex justify-center">
@@ -1118,11 +948,10 @@ export default function EscanerStock() {
         {modoManual && !productoEscaneado && !modoAgregar && (
           <div className="card">
             <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
-              🔢 Escribir números del código de barras
+              🔢 Escribir código de barras
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">
-              Escribe los números que aparecen{" "}
-              <strong>debajo de las barras</strong>
+              Escribe los números que aparecen debajo de las barras
             </p>
             <div className="flex gap-2">
               <input
@@ -1135,95 +964,160 @@ export default function EscanerStock() {
                 className="input-field flex-1 font-mono text-center text-xl tracking-wider"
                 autoFocus
               />
-              <button onClick={buscarCodigoManual} className="btn-primary px-6">
+              <button
+                onClick={buscarCodigoManual}
+                className="btn-primary bg-orange-500 hover:bg-orange-600 px-6"
+              >
                 🔍 Buscar
               </button>
-            </div>
-            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-              <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
-                💡 <strong>Ejemplos de códigos:</strong>
-                <br />• EAN-13: <span className="font-mono">
-                  7790001234567
-                </span>{" "}
-                (13 dígitos)
-                <br />• EAN-8: <span className="font-mono">12345678</span> (8
-                dígitos)
-                <br />• Interno: <span className="font-mono">STK12345678</span>
-              </p>
             </div>
           </div>
         )}
 
         {/* Producto escaneado */}
         {productoEscaneado && (
-          <div className="card border-2 border-primary">
+          <div className="card border-2 border-orange-500">
             <div className="text-center mb-4">
               <span className="text-4xl mb-2 block">✅</span>
-              <h3 className="text-lg font-bold text-gray-800">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
                 Producto Encontrado
               </h3>
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-4">
               <p className="text-xs text-gray-400 font-mono mb-1">
                 {productoEscaneado.codigo}
               </p>
-              <h4 className="text-xl font-bold text-gray-800">
+              <h4 className="text-xl font-bold text-gray-800 dark:text-white">
                 {productoEscaneado.nombre}
               </h4>
               <div className="flex items-center justify-between mt-2">
-                <p className="text-2xl font-bold text-primary">
-                  ${formatNumber(productoEscaneado.precio)}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {productoEscaneado.cantidadDisponible} disponibles
-                </p>
+                <div>
+                  <p className="text-sm text-gray-500">
+                    Precio: ${formatNumber(productoEscaneado.precio)}
+                  </p>
+                  {productoEscaneado.ubicacion && (
+                    <p className="text-xs text-gray-400">
+                      📍 {productoEscaneado.ubicacion}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-orange-600">
+                    {productoEscaneado.stock}
+                  </p>
+                  <p className="text-xs text-gray-500">en stock</p>
+                </div>
               </div>
             </div>
 
-            {/* Selector de cantidad */}
+            {/* Selector de tipo de movimiento */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Cantidad a vender
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tipo de movimiento
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTipoMovimiento("entrada")}
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                    tipoMovimiento === "entrada"
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  📥 Entrada
+                </button>
+                <button
+                  onClick={() => setTipoMovimiento("salida")}
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                    tipoMovimiento === "salida"
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  📤 Salida
+                </button>
+              </div>
+            </div>
+
+            {/* Cantidad */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Cantidad
               </label>
               <div className="flex items-center justify-center gap-4">
                 <button
                   onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                  className="w-12 h-12 rounded-full bg-gray-100 text-gray-700 text-xl font-bold hover:bg-gray-200 transition-colors"
+                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xl font-bold hover:bg-gray-200 transition-colors"
                 >
                   -
                 </button>
                 <input
                   type="number"
                   min="1"
-                  max={productoEscaneado.cantidadDisponible}
+                  max={
+                    tipoMovimiento === "salida" ? productoEscaneado.stock : 9999
+                  }
                   value={cantidad}
                   onChange={(e) =>
                     setCantidad(Math.max(1, parseInt(e.target.value) || 1))
                   }
-                  className="w-20 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg py-2"
+                  className="w-20 text-center text-2xl font-bold border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-800 rounded-lg py-2"
                 />
                 <button
-                  onClick={() =>
-                    setCantidad(
-                      Math.min(
-                        productoEscaneado.cantidadDisponible,
-                        cantidad + 1,
-                      ),
-                    )
-                  }
-                  className="w-12 h-12 rounded-full bg-gray-100 text-gray-700 text-xl font-bold hover:bg-gray-200 transition-colors"
+                  onClick={() => {
+                    const max =
+                      tipoMovimiento === "salida"
+                        ? productoEscaneado.stock
+                        : 9999;
+                    setCantidad(Math.min(max, cantidad + 1));
+                  }}
+                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xl font-bold hover:bg-gray-200 transition-colors"
                 >
                   +
                 </button>
               </div>
             </div>
 
-            {/* Total */}
-            <div className="bg-primary/10 rounded-xl p-4 mb-4 text-center">
-              <p className="text-sm text-gray-600">Total a cobrar</p>
-              <p className="text-3xl font-bold text-primary">
-                ${formatNumber(productoEscaneado.precio * cantidad)}
+            {/* Motivo */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Motivo (opcional)
+              </label>
+              <input
+                type="text"
+                placeholder={
+                  tipoMovimiento === "entrada"
+                    ? "Ej: Recepción de proveedor"
+                    : "Ej: Envío a cliente"
+                }
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                className="input-field w-full"
+              />
+            </div>
+
+            {/* Resumen */}
+            <div
+              className={`rounded-xl p-4 mb-4 text-center ${
+                tipoMovimiento === "entrada"
+                  ? "bg-green-100 dark:bg-green-900/30"
+                  : "bg-red-100 dark:bg-red-900/30"
+              }`}
+            >
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Stock después del movimiento
+              </p>
+              <p
+                className={`text-3xl font-bold ${
+                  tipoMovimiento === "entrada"
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                {tipoMovimiento === "entrada"
+                  ? productoEscaneado.stock + cantidad
+                  : productoEscaneado.stock - cantidad}
               </p>
             </div>
 
@@ -1232,21 +1126,28 @@ export default function EscanerStock() {
               <button
                 onClick={cancelarEscaneo}
                 disabled={procesando}
-                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 ❌ Cancelar
               </button>
               <button
-                onClick={descontarProducto}
+                onClick={registrarMovimiento}
                 disabled={procesando}
-                className="flex-1 py-3 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                className={`flex-1 py-3 px-4 text-white rounded-lg font-semibold disabled:opacity-50 flex items-center justify-center gap-2 ${
+                  tipoMovimiento === "entrada"
+                    ? "bg-green-500 hover:bg-green-600"
+                    : "bg-red-500 hover:bg-red-600"
+                }`}
               >
                 {procesando ? (
                   <>
                     <span className="animate-spin">⏳</span> Procesando...
                   </>
                 ) : (
-                  <>✓ Confirmar Venta</>
+                  <>
+                    ✓ Confirmar{" "}
+                    {tipoMovimiento === "entrada" ? "Entrada" : "Salida"}
+                  </>
                 )}
               </button>
             </div>
@@ -1258,119 +1159,30 @@ export default function EscanerStock() {
           <div className="card border-2 border-orange-400">
             <div className="text-center mb-4">
               <span className="text-4xl mb-2 block">➕</span>
-              <h3 className="text-lg font-bold text-gray-800">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
                 Agregar Nuevo Producto
               </h3>
-              <p className="text-sm text-gray-500">
-                El código escaneado no está en tu stock
-              </p>
             </div>
 
             <div className="space-y-4">
-              {/* Código de barras escaneado */}
               {codigoEscaneado && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    📊 Código de barras escaneado
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    📊 Código escaneado
                   </label>
-                  <div className="bg-gray-100 rounded-lg p-3 font-mono text-center text-lg text-gray-800 border-2 border-dashed border-gray-300">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 font-mono text-center text-lg">
                     {codigoEscaneado}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1 text-center">
-                    Este código se guardará para futuras ventas
-                  </p>
                 </div>
               )}
 
-              {/* Categoría */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  🏷️ Categoría *
-                </label>
-                {!mostrarNuevaCategoria ? (
-                  <div className="space-y-2">
-                    <select
-                      value={nuevoProducto.categoria}
-                      onChange={(e) => {
-                        if (e.target.value === "__nueva__") {
-                          setMostrarNuevaCategoria(true);
-                          setNuevaCategoria("");
-                        } else {
-                          setNuevoProducto((prev) => ({
-                            ...prev,
-                            categoria: e.target.value,
-                          }));
-                        }
-                      }}
-                      className="input-field w-full"
-                    >
-                      {categorias.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                      <option value="__nueva__">
-                        ➕ Crear nueva categoría...
-                      </option>
-                    </select>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nombre de la categoría"
-                        value={nuevaCategoria}
-                        onChange={(e) => setNuevaCategoria(e.target.value)}
-                        className="input-field flex-1"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (nuevaCategoria.trim()) {
-                            const cat = nuevaCategoria.trim();
-                            if (!categorias.includes(cat)) {
-                              setCategorias((prev) => [...prev, cat].sort());
-                            }
-                            setNuevoProducto((prev) => ({
-                              ...prev,
-                              categoria: cat,
-                            }));
-                            setMostrarNuevaCategoria(false);
-                            setNuevaCategoria("");
-                          }
-                        }}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMostrarNuevaCategoria(false);
-                          setNuevaCategoria("");
-                        }}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Escribe el nombre de la nueva categoría
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Nombre del producto */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Nombre del producto *
                 </label>
                 <input
                   type="text"
-                  placeholder="Ej: Nike Air Max 90"
+                  placeholder="Ej: Coca Cola 500ml"
                   value={nuevoProducto.nombre}
                   onChange={(e) =>
                     setNuevoProducto((prev) => ({
@@ -1379,82 +1191,116 @@ export default function EscanerStock() {
                     }))
                   }
                   className="input-field w-full"
-                  autoFocus
                 />
               </div>
 
-              {/* Cantidad */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cantidad inicial *
-                </label>
-                <div className="flex items-center justify-center gap-4">
-                  <button
-                    onClick={() =>
-                      setNuevoProducto((prev) => ({
-                        ...prev,
-                        cantidad: Math.max(1, prev.cantidad - 1),
-                      }))
-                    }
-                    className="w-10 h-10 rounded-full bg-gray-100 text-gray-700 text-xl font-bold hover:bg-gray-200 transition-colors"
-                  >
-                    -
-                  </button>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Precio venta *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={nuevoProducto.precio}
+                      onChange={(e) =>
+                        setNuevoProducto((prev) => ({
+                          ...prev,
+                          precio: e.target.value,
+                        }))
+                      }
+                      className="input-field w-full pl-8"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Costo
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={nuevoProducto.costo}
+                      onChange={(e) =>
+                        setNuevoProducto((prev) => ({
+                          ...prev,
+                          costo: e.target.value,
+                        }))
+                      }
+                      className="input-field w-full pl-8"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Stock inicial
+                  </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={nuevoProducto.cantidad}
                     onChange={(e) =>
                       setNuevoProducto((prev) => ({
                         ...prev,
-                        cantidad: Math.max(1, parseInt(e.target.value) || 1),
+                        cantidad: parseInt(e.target.value) || 0,
                       }))
                     }
-                    className="w-20 text-center text-xl font-bold border-2 border-gray-200 rounded-lg py-2"
+                    className="input-field w-full"
                   />
-                  <button
-                    onClick={() =>
-                      setNuevoProducto((prev) => ({
-                        ...prev,
-                        cantidad: prev.cantidad + 1,
-                      }))
-                    }
-                    className="w-10 h-10 rounded-full bg-gray-100 text-gray-700 text-xl font-bold hover:bg-gray-200 transition-colors"
-                  >
-                    +
-                  </button>
                 </div>
-              </div>
-
-              {/* Precio */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Precio de venta *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                    $
-                  </span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Ubicación
+                  </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={nuevoProducto.precio}
+                    type="text"
+                    placeholder="Ej: A-01"
+                    value={nuevoProducto.ubicacion}
                     onChange={(e) =>
                       setNuevoProducto((prev) => ({
                         ...prev,
-                        precio: e.target.value,
+                        ubicacion: e.target.value,
                       }))
                     }
-                    className="input-field w-full pl-8 text-lg font-bold"
+                    className="input-field w-full"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Categoría
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Bebidas"
+                  value={nuevoProducto.categoria}
+                  onChange={(e) =>
+                    setNuevoProducto((prev) => ({
+                      ...prev,
+                      categoria: e.target.value,
+                    }))
+                  }
+                  className="input-field w-full"
+                />
               </div>
 
               {/* URL de imagen */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   🖼️ URL de imagen (opcional)
                 </label>
                 <input
@@ -1482,58 +1328,64 @@ export default function EscanerStock() {
               </div>
             </div>
 
-            {/* Botones de acción */}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={cancelarAgregar}
                 disabled={procesando}
-                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
               >
                 ❌ Cancelar
               </button>
               <button
                 onClick={agregarProducto}
                 disabled={procesando}
-                className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {procesando ? (
                   <>
                     <span className="animate-spin">⏳</span> Procesando...
                   </>
                 ) : (
-                  <>➕ Agregar al Stock</>
+                  <>➕ Agregar Producto</>
                 )}
               </button>
             </div>
           </div>
         )}
 
-        {/* Historial de ventas de la sesión */}
-        {historialVentas.length > 0 && (
+        {/* Historial de movimientos */}
+        {historialMovimientos.length > 0 && (
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-4">
-              📋 Ventas de esta sesión
+            <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-4">
+              📋 Movimientos de esta sesión
             </h3>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {historialVentas.map((venta, index) => (
+              {historialMovimientos.map((mov, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-gray-800">
-                      {venta.cantidadDescontada}x {venta.producto}
+                    <p className="font-medium text-gray-800 dark:text-white">
+                      {mov.cantidad}x {mov.nombre}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(venta.fecha).toLocaleTimeString()}
+                      {new Date(mov.fecha).toLocaleTimeString()}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-green-600">
-                      +${formatNumber(venta.montoVenta)}
+                    <p
+                      className={`font-bold ${
+                        mov.tipo === "entrada"
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {mov.tipo === "entrada" ? "+" : "-"}
+                      {mov.cantidad}
                     </p>
                     <p className="text-xs text-gray-400">
-                      Quedan: {venta.stockRestante}
+                      Stock: {mov.stockActual}
                     </p>
                   </div>
                 </div>
@@ -1543,18 +1395,18 @@ export default function EscanerStock() {
         )}
 
         {/* Instrucciones */}
-        <div className="card bg-blue-50 border border-blue-200">
-          <h3 className="font-semibold text-blue-800 mb-2">
+        <div className="card bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+          <h3 className="font-semibold text-orange-800 dark:text-orange-200 mb-2">
             💡 ¿Cómo funciona?
           </h3>
-          <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-            <li>Inicia el escáner o ingresa el código manualmente</li>
-            <li>Apunta la cámara al código de barras del producto</li>
-            <li>Selecciona la cantidad a vender</li>
-            <li>Confirma la venta para descontar del stock</li>
+          <ol className="text-sm text-orange-700 dark:text-orange-300 space-y-1 list-decimal list-inside">
+            <li>Escanea el código o ingrésalo manualmente</li>
+            <li>Selecciona el tipo de movimiento (Entrada/Salida)</li>
+            <li>Indica la cantidad y confirma</li>
+            <li>El stock se actualizará automáticamente</li>
           </ol>
         </div>
       </div>
-    </ClienteLayout>
+    </DepositoLayout>
   );
 }

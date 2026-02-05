@@ -18,6 +18,14 @@ router.get(
   productosController.getProductosInactivos,
 );
 
+// Ruta para buscar por código de barras (debe ir antes de /:id)
+router.get(
+  "/buscar-codigo/:codigo",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.buscarPorCodigo,
+);
+
 router.get("/:id", productosController.getProducto);
 
 // Rutas protegidas (solo depósitos y admin)
@@ -46,6 +54,14 @@ router.put(
   auth,
   requireRole("deposito", "admin"),
   productosController.reactivarProducto,
+);
+
+// Registrar movimiento de stock (entrada/salida)
+router.put(
+  "/:id/movimiento-stock",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.registrarMovimientoStock,
 );
 
 // Borrado lógico (soft delete)

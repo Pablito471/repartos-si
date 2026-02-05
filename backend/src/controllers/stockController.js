@@ -202,6 +202,7 @@ exports.agregarProducto = async (req, res, next) => {
       registrarCompra,
       codigoBarras,
       categoria,
+      imagen,
     } = req.body;
 
     console.log("📝 Datos extraídos:", {
@@ -210,6 +211,7 @@ exports.agregarProducto = async (req, res, next) => {
       precio,
       codigoBarras,
       categoria,
+      imagen,
     });
 
     if (!nombre || !cantidad) {
@@ -240,6 +242,7 @@ exports.agregarProducto = async (req, res, next) => {
       precio: precio ? parseFloat(precio) : null,
       codigoBarras: codigoBarras || null,
       categoria: categoria || "General",
+      imagen: imagen || null,
     });
 
     // Registrar movimiento contable de egreso (compra) si tiene precio y se indica

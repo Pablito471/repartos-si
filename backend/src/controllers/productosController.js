@@ -328,3 +328,129 @@ exports.getProductosInactivos = async (req, res, next) => {
     next(error);
   }
 };
+
+// GET /api/productos/buscar-codigo/:codigo - Buscar producto por código de barras
+exports.buscarPorCodigo = async (req, res, next) => {
+  try {
+    const { codigo } = req.params;
+
+    // Solo depósitos pueden usar este endpoint
+    if (
+      req.usuario.tipoUsuario !== "deposito" &&
+      req.usuario.tipoUsuario !== "admin"
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const depositoId =
+      req.usuario.tipoUsuario === "admin"
+        ? req.query.depositoId
+        : req.usuario.id;
+
+    if (!depositoId) {
+      throw new AppError("Se requiere depositoId", 400);
+    }
+
+    // Buscar producto por código exacto o similar
+    const producto = await Producto.findOne({
+      where: {
+        depositoId,
+        activo: true,
+        [Op.or]: [{ codigo: codigo }, { codigo: { [Op.iLike]: codigo } }],
+      },
+    });
+
+    if (!producto) {
+      return res.status(404).json({
+        success: false,
+        message: "Producto no encontrado",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: producto.id,
+        codigo: producto.codigo,
+        nombre: producto.nombre,
+        categoria: producto.categoria,
+        precio: parseFloat(producto.precio),
+        costo: producto.costo ? parseFloat(producto.costo) : null,
+        stock: producto.stock,
+        stockMinimo: producto.stockMinimo,
+        stockMaximo: producto.stockMaximo,
+        ubicacion: producto.ubicacion,
+        imagen: producto.imagen,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/productos/movimiento-stock/:id - Registrar movimiento de stock
+exports.registrarMovimientoStock = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { cantidad, tipo, motivo } = req.body;
+
+    // Solo depósitos pueden usar este endpoint
+    if (
+      req.usuario.tipoUsuario !== "deposito" &&
+      req.usuario.tipoUsuario !== "admin"
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const producto = await Producto.findByPk(id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const cantidadNum = parseInt(cantidad);
+    const stockAnterior = producto.stock;
+    let nuevoStock;
+
+    if (tipo === "entrada") {
+      nuevoStock = stockAnterior + cantidadNum;
+    } else if (tipo === "salida") {
+      if (stockAnterior < cantidadNum) {
+        throw new AppError(
+          `Stock insuficiente. Disponible: ${stockAnterior}`,
+          400,
+        );
+      }
+      nuevoStock = stockAnterior - cantidadNum;
+    } else {
+      throw new AppError("Tipo de movimiento inválido", 400);
+    }
+
+    await producto.update({ stock: nuevoStock });
+
+    res.json({
+      success: true,
+      message: `${tipo === "entrada" ? "Entrada" : "Salida"} registrada`,
+      data: {
+        id: producto.id,
+        codigo: producto.codigo,
+        nombre: producto.nombre,
+        stockAnterior: stockAnterior,
+        cantidad: cantidadNum,
+        tipo,
+        motivo,
+        stockActual: nuevoStock,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

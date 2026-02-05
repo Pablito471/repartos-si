@@ -168,6 +168,13 @@ export const productosService = {
     api.put(`/productos/${id}/stock`, { cantidad, tipo }),
 
   getByDeposito: (depositoId) => api.get(`/productos/deposito/${depositoId}`),
+
+  // Buscar producto por código de barras
+  buscarPorCodigo: (codigo) => api.get(`/productos/buscar-codigo/${codigo}`),
+
+  // Registrar movimiento de stock (entrada/salida)
+  registrarMovimientoStock: (id, cantidad, tipo, motivo) =>
+    api.put(`/productos/${id}/movimiento-stock`, { cantidad, tipo, motivo }),
 };
 
 // ============== PEDIDOS ==============
