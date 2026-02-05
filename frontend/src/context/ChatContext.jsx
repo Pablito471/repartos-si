@@ -103,7 +103,7 @@ export function ChatProvider({ children }) {
     socketInstance.on("usuario_escribiendo", (data) => {
       if (data.usuarioId !== usuario?.id) {
         setEscribiendo(data);
-        
+
         // Limpiar escribiendo después de 3 segundos
         if (escribiendoTimeoutRef.current) {
           clearTimeout(escribiendoTimeoutRef.current);

@@ -87,7 +87,7 @@ const initSocket = (server) => {
     });
 
     // Unirse a una conversación
-    socket.on("unirse_conversacion", (conversacionId) => {
+    socket.on("join_conversacion", (conversacionId) => {
       socket.join(`conversacion_${conversacionId}`);
       console.log(
         `${socket.user.nombre} se unió a conversación ${conversacionId}`,
@@ -95,7 +95,7 @@ const initSocket = (server) => {
     });
 
     // Salir de una conversación
-    socket.on("salir_conversacion", (conversacionId) => {
+    socket.on("leave_conversacion", (conversacionId) => {
       socket.leave(`conversacion_${conversacionId}`);
     });
 
@@ -317,6 +317,26 @@ const emitirStockBajo = (depositoId, producto, cantidad) => {
   }
 };
 
+// Emitir nuevo mensaje de chat
+const emitirNuevoMensaje = (conversacionId, mensaje, remitenteId, destinatarioId) => {
+  if (io) {
+    // Emitir a la sala de la conversación
+    io.to(`conversacion_${conversacionId}`).emit("nuevo_mensaje", mensaje);
+    
+    // Emitir directamente a ambos usuarios para asegurar entrega
+    io.to(`user_${remitenteId}`).emit("nuevo_mensaje", mensaje);
+    io.to(`user_${destinatarioId}`).emit("nuevo_mensaje", mensaje);
+    
+    // Notificar al destinatario
+    io.to(`user_${destinatarioId}`).emit("notificacion_mensaje", {
+      conversacionId,
+      mensaje,
+    });
+  } else {
+    console.warn("Socket.io no inicializado, no se puede emitir nuevo_mensaje");
+  }
+};
+
 module.exports = {
   initSocket,
   getIO,
@@ -328,4 +348,5 @@ module.exports = {
   emitirEnvioEntregado,
   emitirCuentaEstado,
   emitirStockBajo,
+  emitirNuevoMensaje,
 };

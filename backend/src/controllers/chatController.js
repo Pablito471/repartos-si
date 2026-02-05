@@ -1,6 +1,6 @@
 const { Mensaje, Conversacion, Usuario } = require("../models");
 const { Op } = require("sequelize");
-const { emitirNuevoMensaje } = require("../services/pusherService");
+const { emitirNuevoMensaje } = require("../socket");
 
 // Obtener o crear conversación con admin
 exports.getOCrearConversacion = async (req, res) => {
