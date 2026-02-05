@@ -12,7 +12,7 @@ import {
 } from "html5-qrcode";
 
 export default function EscanerStock() {
-  const { usuario } = useAuth();
+  const { usuario, esMovil, modoEscaner, setModoEscaner } = useAuth();
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
 
@@ -540,12 +540,25 @@ export default function EscanerStock() {
       <div className="space-y-6 max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
             📷 Escáner de Ventas
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             Escanea códigos de barras para registrar ventas
           </p>
+
+          {/* Botón para activar modo escáner (solo en móvil y si no está activo) */}
+          {esMovil && !modoEscaner && (
+            <button
+              onClick={() => setModoEscaner(true)}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
+            >
+              📱 Activar modo escáner
+              <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                Solo escáner
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Stats rápidos */}

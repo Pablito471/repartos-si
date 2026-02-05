@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCliente } from "@/context/ClienteContext";
 import { useAuth } from "@/context/AuthContext";
 import { useNotificaciones } from "@/context/NotificacionContext";
@@ -56,7 +56,7 @@ const menuItems = [
 export default function ClienteLayout({ children }) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, modoEscaner, esMovil, setModoEscaner } = useAuth();
   const {
     getCantidadCarrito,
     getTotalCarrito,
@@ -68,6 +68,45 @@ export default function ClienteLayout({ children }) {
   const cantidadCarrito = getCantidadCarrito();
   const totalCarrito = getTotalCarrito();
   const depositosEnCarrito = getDepositosEnCarrito();
+
+  // Auto-redirigir al escáner cuando se activa el modo escáner
+  useEffect(() => {
+    if (modoEscaner && router.pathname !== "/clientes/escaner") {
+      router.push("/clientes/escaner");
+    }
+  }, [modoEscaner, router.pathname]);
+
+  // Si está en modo escáner, mostrar layout simplificado
+  if (modoEscaner) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+        {/* Header mínimo para modo escáner */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Logo className="h-8 w-8" />
+              <span className="font-semibold text-gray-900 dark:text-white">
+                Modo Escáner
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <button
+                onClick={() => setModoEscaner(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+              >
+                <Icons name="ArrowLeft" className="w-4 h-4" />
+                Modo completo
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Contenido principal - solo escáner */}
+        <main className="p-4">{children}</main>
+      </div>
+    );
+  }
 
   // Render icon component from name
   const renderIcon = (iconName, className = "w-5 h-5") => {

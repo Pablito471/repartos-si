@@ -158,7 +158,33 @@ export const AuthProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [modoEscaner, setModoEscaner] = useState(false);
+  const [esMovil, setEsMovil] = useState(false);
   const router = useRouter();
+
+  // Detectar si es dispositivo móvil
+  useEffect(() => {
+    const detectarMovil = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const esMobile =
+        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+          userAgent.toLowerCase(),
+        );
+      const esPantallaChica = window.innerWidth < 768;
+      setEsMovil(esMobile || esPantallaChica);
+    };
+
+    detectarMovil();
+    window.addEventListener("resize", detectarMovil);
+
+    // Cargar preferencia de modo escáner
+    const modoGuardado = localStorage.getItem("modoEscaner");
+    if (modoGuardado === "true") {
+      setModoEscaner(true);
+    }
+
+    return () => window.removeEventListener("resize", detectarMovil);
+  }, []);
 
   // Cargar datos del localStorage al iniciar
   useEffect(() => {
@@ -918,6 +944,12 @@ export const AuthProvider = ({ children }) => {
         cargando,
         estaAutenticado,
         esAdmin,
+        esMovil,
+        modoEscaner,
+        setModoEscaner: (valor) => {
+          setModoEscaner(valor);
+          localStorage.setItem("modoEscaner", valor.toString());
+        },
         login,
         registro,
         logout,
