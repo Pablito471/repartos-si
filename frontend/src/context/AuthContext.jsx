@@ -603,7 +603,6 @@ export const AuthProvider = ({ children }) => {
     if (MODO_CONEXION === "api") {
       try {
         const response = await usuariosService.getAll();
-        console.log("Respuesta de usuarios:", response);
         // El backend devuelve { success, data: [...usuarios] }
         const usuariosBackend = response.data || response.usuarios || response;
         if (!Array.isArray(usuariosBackend)) {

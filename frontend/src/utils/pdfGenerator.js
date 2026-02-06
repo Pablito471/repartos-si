@@ -51,9 +51,7 @@ export const generarPDFEntrega = async (pedido, cliente, deposito, baseUrl) => {
 
   // ============ HEADER ============
   doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 35, "F");
-
-  // Logo/Título
+  doc.rect(0, 0, pageWidth, 35, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");

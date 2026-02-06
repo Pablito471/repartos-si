@@ -11,16 +11,8 @@ const {
 
 const seed = async () => {
   try {
-    console.log("Conectando a la base de datos...");
     await sequelize.authenticate();
-    console.log("✅ Conexión establecida");
-
-    console.log("Sincronizando modelos...");
     await sequelize.sync({ force: true });
-    console.log("✅ Tablas recreadas");
-
-    console.log("Creando usuarios...");
-
     // Admin - Pablo
     const admin = await Usuario.create({
       email: "pabloelleproso@gmail.com",
@@ -30,8 +22,6 @@ const seed = async () => {
       telefono: "",
       esOculto: true,
     });
-    console.log("  ✅ Admin Pablo creado");
-
     // Depósito
     const deposito = await Usuario.create({
       email: "deposito@test.com",
@@ -50,8 +40,6 @@ const seed = async () => {
         razonSocial: "Distribuidora Central S.A.",
       },
     });
-    console.log("  ✅ Depósito creado");
-
     // Depósito Norte
     const depositoNorte = await Usuario.create({
       email: "depositonorte@test.com",
@@ -65,8 +53,6 @@ const seed = async () => {
       diasLaborales: [1, 2, 3, 4, 5, 6],
       tiposEnvio: ["envio", "flete"],
     });
-    console.log("  ✅ Depósito Norte creado");
-
     // Cliente
     const cliente = await Usuario.create({
       email: "cliente@test.com",
@@ -81,8 +67,6 @@ const seed = async () => {
         razonSocial: "María García",
       },
     });
-    console.log("  ✅ Cliente creado");
-
     // Flete
     const flete = await Usuario.create({
       email: "flete@test.com",
@@ -97,10 +81,6 @@ const seed = async () => {
       licenciaTipo: "B2",
       licenciaVencimiento: "2027-12-31",
     });
-    console.log("  ✅ Flete creado");
-
-    console.log("Creando productos para Depósito Central...");
-
     const productos = await Producto.bulkCreate([
       {
         depositoId: deposito.id,
@@ -185,10 +165,6 @@ const seed = async () => {
         ubicacion: "C-02",
       },
     ]);
-    console.log(`  ✅ ${productos.length} productos creados`);
-
-    console.log("Creando productos para Depósito Norte...");
-
     const productosNorte = await Producto.bulkCreate([
       {
         depositoId: depositoNorte.id,
@@ -215,10 +191,6 @@ const seed = async () => {
         ubicacion: "A-02",
       },
     ]);
-    console.log(`  ✅ ${productosNorte.length} productos creados`);
-
-    console.log("Creando pedidos de ejemplo...");
-
     // Pedido 1 - Pendiente
     const pedido1 = await Pedido.create({
       clienteId: cliente.id,
@@ -271,9 +243,6 @@ const seed = async () => {
       subtotal: 1600,
     });
     console.log("  ✅ Pedido 2 creado (entregado)");
-
-    console.log("Creando calificaciones de ejemplo...");
-
     // Calificaciones para el depósito (del cliente y flete)
     await Calificacion.bulkCreate([
       {
@@ -291,8 +260,6 @@ const seed = async () => {
           "Buen depósito, fácil de cargar. A veces hay que esperar un poco.",
       },
     ]);
-    console.log("  ✅ Calificaciones para Depósito Central creadas");
-
     // Calificaciones para el cliente (del depósito y flete)
     await Calificacion.bulkCreate([
       {
@@ -308,8 +275,6 @@ const seed = async () => {
         comentario: "Buena comunicación, dirección fácil de encontrar.",
       },
     ]);
-    console.log("  ✅ Calificaciones para Cliente creadas");
-
     // Calificaciones para el flete (del cliente y depósito)
     await Calificacion.bulkCreate([
       {
@@ -326,18 +291,6 @@ const seed = async () => {
         comentario: "Excelente conductor, siempre puntual y cuidadoso.",
       },
     ]);
-    console.log("  ✅ Calificaciones para Flete creadas");
-
-    console.log("\n========================================");
-    console.log("✅ SEED COMPLETADO EXITOSAMENTE");
-    console.log("========================================\n");
-    console.log("Usuarios de prueba:");
-    console.log("  Admin:    pabloelleproso@gmail.com / P@blo31286370");
-    console.log("  Depósito: deposito@test.com / 123456");
-    console.log("  Cliente:  cliente@test.com / 123456");
-    console.log("  Flete:    flete@test.com / 123456");
-    console.log("========================================\n");
-
     process.exit(0);
   } catch (error) {
     console.error("❌ Error:", error);

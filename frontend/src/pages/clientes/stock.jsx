@@ -45,7 +45,6 @@ export default function StockCliente() {
   useEffect(() => {
     const handleEnvioEntregado = (event) => {
       const data = event.detail;
-      console.log("Stock: Recibido socket:envio_entregado", data);
       if (data.stockActualizado) {
         showToast("success", "📦 Nuevo stock agregado automáticamente");
         cargarDatos();
@@ -54,13 +53,11 @@ export default function StockCliente() {
 
     // Recargar cuando se agrega producto desde el escáner
     const handleProductoAgregado = (event) => {
-      console.log("Stock: Producto agregado desde escáner", event.detail);
       cargarDatos();
     };
 
     // Recargar cuando se actualiza producto desde el escáner (venta)
     const handleProductoActualizado = (event) => {
-      console.log("Stock: Producto actualizado desde escáner", event.detail);
       cargarDatos();
     };
 

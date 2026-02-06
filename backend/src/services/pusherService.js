@@ -12,9 +12,6 @@ const initPusher = () => {
     process.env;
 
   if (!PUSHER_APP_ID || !PUSHER_KEY || !PUSHER_SECRET || !PUSHER_CLUSTER) {
-    console.log(
-      "⚠️ Pusher no configurado - notificaciones en tiempo real deshabilitadas",
-    );
     pusherEnabled = false;
     return null;
   }
@@ -28,7 +25,6 @@ const initPusher = () => {
       useTLS: true,
     });
     pusherEnabled = true;
-    console.log("✅ Pusher inicializado correctamente");
   }
   return pusher;
 };
@@ -80,10 +76,6 @@ const emitirNotificacion = (usuarioId, notificacion) => {
 };
 
 const emitirNuevoPedido = (depositoId, pedido) => {
-  console.log(
-    `[Pusher] Emitiendo nuevo_pedido a user_${depositoId}:`,
-    pedido.id,
-  );
   // Emitir al depósito específico
   emitirAUsuario(depositoId, "nuevo_pedido", pedido);
   // También a los admins
@@ -91,32 +83,22 @@ const emitirNuevoPedido = (depositoId, pedido) => {
 };
 
 const emitirPedidoActualizado = (clienteId, pedido) => {
-  console.log(
-    `[Pusher] Emitiendo pedido_actualizado a user_${clienteId}:`,
-    pedido.id,
-  );
   emitirAUsuario(clienteId, "pedido_actualizado", pedido);
 };
 
 const emitirEnvioAsignado = (fleteId, envio) => {
-  console.log(`[Pusher] Emitiendo envio_asignado a user_${fleteId}:`, envio.id);
   emitirAUsuario(fleteId, "envio_asignado", envio);
 };
 
 const emitirEnvioEnCamino = (clienteId, envio) => {
-  console.log(`[Pusher] Emitiendo envio_en_camino a user_${clienteId}`);
   emitirAUsuario(clienteId, "envio_en_camino", envio);
 };
 
 const emitirEnvioEntregado = (clienteId, envio) => {
-  console.log(`[Pusher] Emitiendo envio_entregado a user_${clienteId}`);
   emitirAUsuario(clienteId, "envio_entregado", envio);
 };
 
 const emitirEnvioEntregadoDeposito = (depositoId, envio) => {
-  console.log(
-    `[Pusher] Emitiendo envio_entregado_deposito a user_${depositoId}`,
-  );
   emitirAUsuario(depositoId, "envio_entregado_deposito", envio);
 };
 

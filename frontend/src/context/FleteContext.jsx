@@ -151,8 +151,6 @@ export function FleteProvider({ children }) {
     if (MODO_CONEXION !== "api" || !usuario?.id) return;
 
     const handleEnvioAsignado = async (event) => {
-      console.log("FleteContext: Recibido socket:envio_asignado", event.detail);
-
       // Recargar los envíos desde el backend para tener la info completa
       try {
         const response = await enviosService.getAll();

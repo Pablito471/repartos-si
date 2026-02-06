@@ -118,9 +118,7 @@ const Icons = {
   Bell: BellIcon,
 
   // Configuración/Engranaje
-  Cog: Cog6ToothIcon,
-
-  // Salir/Logout
+  Cog: Cog6ToothIcon,
   Logout: ArrowRightStartOnRectangleIcon,
 
   // Alerta/Advertencia

@@ -299,10 +299,6 @@ export function DepositoProvider({ children }) {
         const response = await relacionesService.getMisFletes();
         // response ya es response.data por el interceptor, así que response.data es el array real
         const fletesData = response?.data || response || [];
-
-        console.log("Response fletes:", response);
-        console.log("Fletes data:", fletesData);
-
         const fletesMapeados = Array.isArray(fletesData)
           ? fletesData.map((f) => ({
               id: f.id,
@@ -318,7 +314,6 @@ export function DepositoProvider({ children }) {
           : [];
 
         setFletes(fletesMapeados);
-        console.log("Fletes cargados:", fletesMapeados.length);
       } catch (error) {
         console.error("Error al cargar fletes:", error);
         setFletes([]);
@@ -331,7 +326,6 @@ export function DepositoProvider({ children }) {
   };
 
   useEffect(() => {
-    console.log("useEffect cargarFletes - usuario?.id:", usuario?.id);
     if (usuario?.id) {
       cargarFletes();
     }
@@ -394,11 +388,6 @@ export function DepositoProvider({ children }) {
     if (MODO_CONEXION !== "api" || !usuario?.id) return;
 
     const handleNuevoPedido = async (event) => {
-      console.log(
-        "DepositoContext: Recibido socket:nuevo_pedido",
-        event.detail,
-      );
-
       // Recargar pedidos desde el backend para tener datos completos
       try {
         const response = await pedidosService.getAll();
@@ -432,11 +421,6 @@ export function DepositoProvider({ children }) {
 
     const handleEnvioEntregado = async (event) => {
       const data = event.detail;
-      console.log(
-        "DepositoContext: Recibido socket:envio_entregado_deposito",
-        data,
-      );
-
       // Buscar el pedido para obtener el total
       const pedido = pedidos.find(
         (p) => String(p.id) === String(data.pedidoId),
@@ -461,10 +445,6 @@ export function DepositoProvider({ children }) {
             categoria: "ventas",
             notas: `Pedido ID: ${pedido.id}`,
           });
-          console.log(
-            "Movimiento contable de venta registrado para pedido:",
-            pedido.id,
-          );
         } catch (movError) {
           console.error("Error al registrar movimiento de venta:", movError);
         }
@@ -474,11 +454,6 @@ export function DepositoProvider({ children }) {
     // Handler para cuando el flete marca el envío como "en camino"
     const handleEnvioEnCamino = (event) => {
       const data = event.detail;
-      console.log(
-        "DepositoContext: Recibido socket:envio_en_camino_deposito",
-        data,
-      );
-
       // Actualizar el estado del pedido a "enviado"
       setPedidos((prev) =>
         prev.map((p) =>
@@ -491,7 +466,6 @@ export function DepositoProvider({ children }) {
 
     // Escuchar evento de nuevo movimiento contable para actualizar automáticamente
     const handleMovimientoCreado = () => {
-      console.log("DepositoContext: Recibido contabilidad:movimiento_creado");
       recargarMovimientos();
     };
 
@@ -531,7 +505,6 @@ export function DepositoProvider({ children }) {
     if (MODO_CONEXION === "api" && usuario?.id) {
       setCargandoInventario(true);
       try {
-        console.log("Recargando inventario para depositoId:", usuario.id);
         const response = await productosService.getByDeposito(usuario.id);
         const productosBackend = response.data || response || [];
 
@@ -570,12 +543,8 @@ export function DepositoProvider({ children }) {
       if (MODO_CONEXION === "api" && usuario?.id) {
         setCargandoInventario(true);
         try {
-          console.log("Cargando inventario para depositoId:", usuario.id);
           const response = await productosService.getByDeposito(usuario.id);
-          console.log("Respuesta del backend:", response);
           const productosBackend = response.data || response || [];
-          console.log("Productos a mapear:", productosBackend.length);
-
           // Mapear productos del backend al formato del inventario
           const inventarioMapeado = productosBackend.map((p) => ({
             id: p.id,
@@ -710,7 +679,6 @@ export function DepositoProvider({ children }) {
     // Verificar que no sea el mismo estado
     const pedidoActual = pedidos.find((p) => String(p.id) === String(id));
     if (pedidoActual && pedidoActual.estado === nuevoEstado) {
-      console.log(`El pedido ya está en estado ${nuevoEstado}, ignorando`);
       return true;
     }
 
@@ -910,9 +878,6 @@ export function DepositoProvider({ children }) {
           codigo,
           depositoId: usuario.id,
         };
-
-        console.log("Enviando producto al backend:", datosProducto);
-
         // Crear producto en el backend
         const response = await productosService.crear(datosProducto);
 
@@ -970,9 +935,6 @@ export function DepositoProvider({ children }) {
         if (!usuario?.id) {
           throw new Error("Usuario no autenticado");
         }
-
-        console.log("Actualizando producto:", productoId, datosActualizados);
-
         // Actualizar producto en el backend
         const response = await productosService.actualizar(
           productoId,

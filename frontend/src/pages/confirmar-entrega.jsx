@@ -146,7 +146,6 @@ export default function ConfirmarEntrega() {
     try {
       // Intentar agregar desde el pedido usando la API
       await stockService.agregarDesdePedido(pedidoId);
-      console.log("Productos agregados al stock vía API");
     } catch (error) {
       console.error("Error agregando productos al stock vía API:", error);
       // Fallback: agregar productos manualmente si el método del pedido falla
@@ -158,7 +157,6 @@ export default function ConfirmarEntrega() {
             precio: producto.precioUnitario || producto.precio,
           });
         }
-        console.log("Productos agregados al stock manualmente");
       } catch (fallbackError) {
         console.error("Error en fallback:", fallbackError);
         showToast(

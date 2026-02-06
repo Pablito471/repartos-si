@@ -25,9 +25,7 @@ const createTransporter = () => {
         pass: process.env.GMAIL_APP_PASSWORD,
       },
     });
-  }
-
-  // Modo desarrollo - solo loguea
+  }
   console.log(
     "⚠️ Email service en modo desarrollo (no se envían emails reales)",
   );
@@ -168,12 +166,8 @@ const enviarEmailCuentaActivada = async (usuario) => {
 
 // Función genérica para enviar emails
 const enviarEmail = async ({ to, subject, html, text }) => {
-  try {
-    // Si no hay transporter configurado, solo loguear
+  try {
     if (!transporter) {
-      console.log("\n📧 Email simulado:");
-      console.log(`   Para: ${to}`);
-      console.log(`   Asunto: ${subject}`);
       console.log(
         "   (Configura variables de entorno para enviar emails reales)\n",
       );
@@ -187,8 +181,6 @@ const enviarEmail = async ({ to, subject, html, text }) => {
       html,
       text: text || subject,
     });
-
-    console.log(`📧 Email enviado a ${to}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error(`❌ Error enviando email a ${to}:`, error.message);

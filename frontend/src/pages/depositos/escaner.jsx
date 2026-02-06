@@ -75,8 +75,6 @@ export default function EscanerDeposito() {
   // Función para inicializar el audio (DEBE llamarse en interacción del usuario)
   const inicializarAudio = useCallback(async () => {
     try {
-      console.log("🔊 Inicializando audio...");
-
       // 1. Crear AudioContext y desbloquearlo
       if (!audioContextRef.current) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -85,7 +83,6 @@ export default function EscanerDeposito() {
 
       if (audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
-        console.log("🔊 AudioContext desbloqueado");
       }
 
       // 2. Reproducir un beep silencioso para desbloquear el audio
@@ -113,17 +110,12 @@ export default function EscanerDeposito() {
           setTimeout(resolve, 1000); // Timeout de seguridad
         });
       }
-
-      console.log("🔊 Audio inicializado completamente");
     } catch (err) {
-      console.log("Error al inicializar audio:", err);
     }
   }, []);
 
   // Función para reproducir sonido de escaneo fuerte (PIP)
   const reproducirSonidoEscaneo = useCallback(async () => {
-    console.log("🔊 Reproduciendo beep...");
-
     // Método 1: Web Audio API (más confiable en móviles)
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -153,11 +145,8 @@ export default function EscanerDeposito() {
 
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.15);
-
-      console.log("🔊 Beep Web Audio OK");
       return;
     } catch (e) {
-      console.log("Web Audio falló:", e);
     }
 
     // Método 2: Audio HTML5 precargado
@@ -167,10 +156,8 @@ export default function EscanerDeposito() {
         audio.currentTime = 0;
         audio.volume = 1.0;
         await audio.play();
-        console.log("🔊 Beep HTML5 OK");
         return;
       } catch (e) {
-        console.log("Audio HTML5 falló:", e);
       }
     }
 
@@ -179,9 +166,7 @@ export default function EscanerDeposito() {
       const audio = new Audio("/beep.wav");
       audio.volume = 1.0;
       await audio.play();
-      console.log("🔊 Beep nuevo OK");
     } catch (e) {
-      console.log("Audio nuevo falló:", e);
     }
   }, []);
 
@@ -345,7 +330,6 @@ export default function EscanerDeposito() {
             cameraConfig,
             config,
             async (decodedText, decodedResult) => {
-              console.log("✅ Código detectado:", decodedText);
               // Reproducir sonido fuerte de escaneo
               reproducirSonidoEscaneo();
               if (navigator.vibrate) {
@@ -400,8 +384,6 @@ export default function EscanerDeposito() {
             setZoomDisponible(false);
             setLinternaDisponible(false);
           }
-
-          console.log("🎥 Escáner iniciado correctamente");
         } catch (err) {
           console.error("Error al iniciar cámara:", err);
           setErrorCamara(
@@ -425,7 +407,6 @@ export default function EscanerDeposito() {
         setZoomLevel(nuevoZoom);
       }
     } catch (err) {
-      console.log("Error al cambiar zoom:", err);
     }
   };
 
@@ -442,7 +423,6 @@ export default function EscanerDeposito() {
         setLinternaActiva(nuevoEstado);
       }
     } catch (err) {
-      console.log("Error al cambiar linterna:", err);
     }
   };
 
@@ -533,7 +513,6 @@ export default function EscanerDeposito() {
       }
 
       if (codigoDetectado && codigoDetectado !== ultimoCodigoOCR.current) {
-        console.log("🔢 OCR detectó código:", codigoDetectado);
         ultimoCodigoOCR.current = codigoDetectado;
 
         // Reproducir sonido fuerte de escaneo
@@ -548,7 +527,6 @@ export default function EscanerDeposito() {
         setOcrStatus("Buscando números...");
       }
     } catch (err) {
-      console.log("Error en OCR:", err.message);
     }
   }, [productoEscaneado, reproducirSonidoEscaneo]);
 
@@ -615,16 +593,12 @@ export default function EscanerDeposito() {
 
   // Buscar producto por código
   const buscarProducto = async (codigo) => {
-    console.log("🔍 Buscando código:", codigo);
-
     try {
       if (html5QrcodeScannerRef.current) {
         html5QrcodeScannerRef.current.pause(true);
       }
 
       const response = await productosService.buscarPorCodigo(codigo);
-      console.log("📦 Respuesta:", response);
-
       // El interceptor de axios ya devuelve response.data, así que accedemos directamente
       if (response.success && response.data) {
         const producto = response.data;
@@ -691,7 +665,6 @@ export default function EscanerDeposito() {
             try {
               html5QrcodeScannerRef.current.resume();
             } catch (e) {
-              console.log("Error al reanudar escáner:", e);
               setEscaneando(false);
               setTimeout(() => setEscaneando(true), 100);
             }
@@ -714,8 +687,6 @@ export default function EscanerDeposito() {
         throw new Error("Producto no encontrado");
       }
     } catch (error) {
-      console.log("❌ Error o no encontrado:", error);
-
       const quiereAgregar = await showConfirmAlert(
         "Producto no encontrado",
         `El código "${codigo}" no está en tu inventario. ¿Deseas agregar un nuevo producto?`,
@@ -783,7 +754,6 @@ export default function EscanerDeposito() {
         try {
           await recargarInventario();
         } catch (e) {
-          console.log("Info: no se pudo recargar inventario del contexto");
         }
 
         await showSuccessAlert(
@@ -895,7 +865,6 @@ export default function EscanerDeposito() {
         try {
           await recargarInventario();
         } catch (e) {
-          console.log("Info: no se pudo recargar inventario del contexto");
         }
 
         // Emitir evento para actualizar contabilidad
@@ -1095,7 +1064,6 @@ export default function EscanerDeposito() {
     try {
       await recargarInventario();
     } catch (e) {
-      console.log("Info: no se pudo recargar inventario del contexto");
     }
 
     // Emitir evento para actualizar contabilidad

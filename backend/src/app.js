@@ -78,8 +78,6 @@ const startServer = async () => {
   try {
     // Conectar a la base de datos
     await sequelize.authenticate();
-    console.log("✅ Conexión a PostgreSQL establecida");
-
     // Sincronizar modelos (solo en desarrollo)
     // NOTA: Las tablas ya fueron creadas con el seed, no usar alter: true
     // ya que causa problemas con columnas SERIAL
@@ -92,13 +90,8 @@ const startServer = async () => {
 
     // Inicializar Socket.io
     initSocket(server);
-    console.log("✅ Socket.io inicializado");
-
     // Iniciar servidor HTTP con Socket.io
     server.listen(PORT, () => {
-      console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-      console.log(`📚 API disponible en http://localhost:${PORT}/api`);
-      console.log(`💬 WebSocket disponible en ws://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("❌ Error al iniciar el servidor:", error);

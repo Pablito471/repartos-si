@@ -80,10 +80,6 @@ exports.getProducto = async (req, res, next) => {
 // POST /api/productos
 exports.crearProducto = async (req, res, next) => {
   try {
-    console.log("=== CREAR PRODUCTO ===");
-    console.log("Body recibido:", req.body);
-    console.log("Usuario:", req.usuario?.id, req.usuario?.tipoUsuario);
-
     // Solo depósitos pueden crear productos
     if (
       req.usuario.tipoUsuario !== "deposito" &&
@@ -107,13 +103,6 @@ exports.crearProducto = async (req, res, next) => {
     };
 
     const producto = await Producto.create(datosProducto);
-    console.log(
-      "Producto creado:",
-      producto.id,
-      producto.codigo,
-      producto.nombre,
-    );
-
     // Registrar movimiento contable de egreso (compra) si tiene costo y stock inicial
     // Usar costo en lugar de precio de venta para el egreso
     const costoProducto = producto.costo || producto.precio || 0;
@@ -367,8 +356,6 @@ exports.getProductosInactivos = async (req, res, next) => {
 exports.buscarPorCodigo = async (req, res, next) => {
   try {
     const { codigo } = req.params;
-    console.log("🔍 Buscando código:", codigo);
-
     // Solo depósitos pueden usar este endpoint
     if (
       req.usuario.tipoUsuario !== "deposito" &&
@@ -381,9 +368,6 @@ exports.buscarPorCodigo = async (req, res, next) => {
       req.usuario.tipoUsuario === "admin"
         ? req.query.depositoId
         : req.usuario.id;
-
-    console.log("📦 depositoId:", depositoId);
-
     if (!depositoId) {
       throw new AppError("Se requiere depositoId", 400);
     }
@@ -396,12 +380,6 @@ exports.buscarPorCodigo = async (req, res, next) => {
         [Op.or]: [{ codigo: codigo }, { codigo: { [Op.iLike]: codigo } }],
       },
     });
-
-    console.log(
-      "📦 Producto encontrado:",
-      producto ? producto.codigo : "ninguno",
-    );
-
     if (!producto) {
       return res.status(404).json({
         success: false,

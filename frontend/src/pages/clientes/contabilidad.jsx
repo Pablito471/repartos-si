@@ -21,7 +21,6 @@ export default function Contabilidad() {
   // Escuchar eventos de movimientos creados para recargar automáticamente
   useEffect(() => {
     const handleMovimientoCreado = () => {
-      console.log("💰 Recargando movimientos por evento...");
       recargarMovimientos();
     };
 

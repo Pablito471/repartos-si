@@ -1,7 +1,6 @@
 import axios from "axios";
 import { API_URL, isLocalBackend } from "../config/api.config";
 
-// Log para desarrollo - muestra qué backend se está usando
 if (typeof window !== "undefined") {
   console.log(
     `🔗 API conectada a: ${API_URL} (${isLocalBackend() ? "LOCAL" : "RENDER"})`,

@@ -228,9 +228,6 @@ exports.agregarDesdePedido = async (req, res, next) => {
 // POST /api/stock/agregar - Agregar producto manualmente al stock
 exports.agregarProducto = async (req, res, next) => {
   try {
-    console.log("📦 Body recibido:", req.body);
-    console.log("👤 Usuario:", req.usuario?.id);
-
     const {
       nombre,
       cantidad,
@@ -242,18 +239,6 @@ exports.agregarProducto = async (req, res, next) => {
       categoria,
       imagen,
     } = req.body;
-
-    console.log("📝 Datos extraídos:", {
-      nombre,
-      cantidad,
-      precio,
-      precioCosto,
-      precioVenta,
-      codigoBarras,
-      categoria,
-      imagen,
-    });
-
     if (!nombre || !cantidad) {
       throw new AppError("Nombre y cantidad son requeridos", 400);
     }

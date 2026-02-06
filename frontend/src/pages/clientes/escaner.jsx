@@ -76,8 +76,6 @@ export default function EscanerStock() {
   // Función para inicializar el audio (DEBE llamarse en interacción del usuario)
   const inicializarAudio = useCallback(async () => {
     try {
-      console.log("🔊 Inicializando audio...");
-
       // 1. Crear AudioContext y desbloquearlo
       if (!audioContextRef.current) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -86,7 +84,6 @@ export default function EscanerStock() {
 
       if (audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
-        console.log("🔊 AudioContext desbloqueado");
       }
 
       // 2. Reproducir un beep silencioso para desbloquear el audio
@@ -114,17 +111,11 @@ export default function EscanerStock() {
           setTimeout(resolve, 1000); // Timeout de seguridad
         });
       }
-
-      console.log("🔊 Audio inicializado completamente");
-    } catch (err) {
-      console.log("Error al inicializar audio:", err);
-    }
+    } catch (err) {}
   }, []);
 
   // Función para reproducir sonido de escaneo fuerte (PIP)
   const reproducirSonidoEscaneo = useCallback(async () => {
-    console.log("🔊 Reproduciendo beep...");
-
     // Método 1: Web Audio API (más confiable en móviles)
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -154,12 +145,8 @@ export default function EscanerStock() {
 
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.15);
-
-      console.log("🔊 Beep Web Audio OK");
       return;
-    } catch (e) {
-      console.log("Web Audio falló:", e);
-    }
+    } catch (e) {}
 
     // Método 2: Audio HTML5 precargado
     if (beepAudioRef.current) {
@@ -168,11 +155,8 @@ export default function EscanerStock() {
         audio.currentTime = 0;
         audio.volume = 1.0;
         await audio.play();
-        console.log("🔊 Beep HTML5 OK");
         return;
-      } catch (e) {
-        console.log("Audio HTML5 falló:", e);
-      }
+      } catch (e) {}
     }
 
     // Método 3: Nuevo elemento Audio
@@ -180,10 +164,7 @@ export default function EscanerStock() {
       const audio = new Audio("/beep.wav");
       audio.volume = 1.0;
       await audio.play();
-      console.log("🔊 Beep nuevo OK");
-    } catch (e) {
-      console.log("Audio nuevo falló:", e);
-    }
+    } catch (e) {}
   }, []);
 
   // Detectar cambios de orientación
@@ -386,12 +367,6 @@ export default function EscanerStock() {
             config,
             async (decodedText, decodedResult) => {
               // Código escaneado exitosamente
-              console.log("✅ Código detectado:", decodedText);
-              console.log(
-                "📊 Formato:",
-                decodedResult?.result?.format?.formatName,
-              );
-
               // Reproducir sonido fuerte de escaneo
               reproducirSonidoEscaneo();
 
@@ -424,7 +399,6 @@ export default function EscanerStock() {
                 await track.applyConstraints({
                   advanced: [{ focusMode: "continuous" }],
                 });
-                console.log("📷 Enfoque continuo activado");
               }
 
               // Configurar zoom
@@ -443,26 +417,16 @@ export default function EscanerStock() {
                 await track.applyConstraints({
                   advanced: [{ zoom: initialZoom }],
                 });
-                console.log(
-                  "📷 Zoom inicial:",
-                  initialZoom,
-                  "Max:",
-                  maxZoomVal,
-                );
               }
 
               // Verificar si la linterna está disponible
               if (capabilities.torch) {
                 setLinternaDisponible(true);
-                console.log("🔦 Linterna disponible");
               }
             }
           } catch (zoomErr) {
-            console.log("Zoom/enfoque no disponible:", zoomErr.message);
             setZoomDisponible(false);
           }
-
-          console.log("🎥 Escáner iniciado correctamente");
         } catch (err) {
           console.error("Error al iniciar cámara:", err);
           setErrorCamara(
@@ -484,11 +448,8 @@ export default function EscanerStock() {
         const track = videoElement.srcObject.getVideoTracks()[0];
         await track.applyConstraints({ advanced: [{ zoom: nuevoZoom }] });
         setZoomLevel(nuevoZoom);
-        console.log("📷 Zoom cambiado a:", nuevoZoom);
       }
-    } catch (err) {
-      console.log("Error al cambiar zoom:", err);
-    }
+    } catch (err) {}
   };
 
   // Función para encender/apagar la linterna
@@ -500,10 +461,8 @@ export default function EscanerStock() {
         const nuevoEstado = !linternaActiva;
         await track.applyConstraints({ advanced: [{ torch: nuevoEstado }] });
         setLinternaActiva(nuevoEstado);
-        console.log("🔦 Linterna:", nuevoEstado ? "encendida" : "apagada");
       }
     } catch (err) {
-      console.log("Error al controlar linterna:", err);
       showToast("No se pudo controlar la linterna", "error");
     }
   };
@@ -530,7 +489,6 @@ export default function EscanerStock() {
 
       ocrWorkerRef.current = worker;
       setOcrStatus("OCR listo");
-      console.log("✅ OCR inicializado");
     } catch (err) {
       console.error("Error al inicializar OCR:", err);
       setOcrStatus("Error OCR");
@@ -609,7 +567,6 @@ export default function EscanerStock() {
       }
 
       if (codigoDetectado && codigoDetectado !== ultimoCodigoOCR.current) {
-        console.log("🔢 OCR detectó código:", codigoDetectado);
         ultimoCodigoOCR.current = codigoDetectado;
 
         // Reproducir sonido fuerte de escaneo
@@ -627,9 +584,7 @@ export default function EscanerStock() {
       } else {
         setOcrStatus("Buscando números...");
       }
-    } catch (err) {
-      console.log("Error en OCR:", err.message);
-    }
+    } catch (err) {}
   }, [productoEscaneado, reproducirSonidoEscaneo]);
 
   // Activar/desactivar OCR
@@ -689,8 +644,6 @@ export default function EscanerStock() {
 
   // Buscar producto por código
   const buscarProducto = async (codigo) => {
-    console.log("🔍 Buscando código:", codigo);
-
     try {
       // Pausar escáner mientras procesamos
       if (html5QrcodeScannerRef.current) {
@@ -698,8 +651,6 @@ export default function EscanerStock() {
       }
 
       const response = await stockService.buscarPorCodigo(codigo);
-      console.log("📦 Respuesta:", response);
-
       if (response.success && response.data) {
         const producto = response.data;
 
@@ -763,7 +714,6 @@ export default function EscanerStock() {
           try {
             html5QrcodeScannerRef.current.resume();
           } catch (e) {
-            console.log("Error al reanudar escáner:", e);
             // Si falla resume, reiniciar completamente
             setEscaneando(false);
             setTimeout(() => setEscaneando(true), 100);
@@ -774,8 +724,6 @@ export default function EscanerStock() {
         throw new Error("Producto no encontrado");
       }
     } catch (error) {
-      console.log("❌ Error o no encontrado:", error);
-
       // No se encontró en stock - preguntar si quiere agregar
       const quiereAgregar = await showConfirmAlert(
         "Producto no encontrado",
@@ -789,9 +737,7 @@ export default function EscanerStock() {
         if (html5QrcodeScannerRef.current) {
           try {
             await html5QrcodeScannerRef.current.stop();
-          } catch (e) {
-            console.log("Error al detener escáner:", e);
-          }
+          } catch (e) {}
         }
         setModoAgregar(true);
         setCodigoEscaneado(codigo);
@@ -808,9 +754,7 @@ export default function EscanerStock() {
           setTimeout(() => {
             try {
               html5QrcodeScannerRef.current?.resume();
-            } catch (e) {
-              console.log("Error al reanudar escáner:", e);
-            }
+            } catch (e) {}
           }, 500);
         }
       }
@@ -851,12 +795,7 @@ export default function EscanerStock() {
         imagen: nuevoProducto.imagen || null,
         registrarCompra: nuevoProducto.precioCosto ? true : false,
       };
-
-      console.log("📦 Enviando producto:", datosProducto);
-
       const response = await stockService.agregarProducto(datosProducto);
-      console.log("📦 Respuesta:", response);
-
       if (response.success) {
         // Emitir evento para que otras páginas actualicen su stock
         window.dispatchEvent(

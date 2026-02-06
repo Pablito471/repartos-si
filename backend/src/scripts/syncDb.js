@@ -3,11 +3,7 @@ const { sequelize } = require("../models");
 
 const syncDatabase = async () => {
   try {
-    console.log("Conectando a la base de datos...");
     await sequelize.authenticate();
-    console.log("✅ Conexión establecida");
-
-    console.log("Sincronizando modelos...");
     await sequelize.sync({ force: true }); // ⚠️ Esto borra todos los datos
     console.log("✅ Modelos sincronizados (tablas recreadas)");
 

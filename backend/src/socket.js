@@ -127,10 +127,6 @@ const initSocket = (server) => {
               });
             });
           });
-
-          console.log(
-            `Marcados ${mensajesPendientes.length} mensajes como entregados para ${socket.user.nombre}`,
-          );
         }
       } catch (error) {
         // Silenciar errores si las columnas no existen aún
@@ -146,16 +142,12 @@ const initSocket = (server) => {
     // Unirse a salas según tipo de usuario
     if (socket.user.tipoUsuario === "admin") {
       socket.join("admins");
-      console.log(`${socket.user.nombre} se unió a sala admins`);
     } else if (socket.user.tipoUsuario === "deposito") {
       socket.join("depositos");
-      console.log(`${socket.user.nombre} se unió a sala depositos`);
     } else if (socket.user.tipoUsuario === "flete") {
       socket.join("fletes");
-      console.log(`${socket.user.nombre} se unió a sala fletes`);
     } else if (socket.user.tipoUsuario === "cliente") {
       socket.join("clientes");
-      console.log(`${socket.user.nombre} se unió a sala clientes`);
     }
 
     // Emitir estado de conexión
@@ -168,9 +160,6 @@ const initSocket = (server) => {
     // Unirse a una conversación
     socket.on("join_conversacion", (conversacionId) => {
       socket.join(`conversacion_${conversacionId}`);
-      console.log(
-        `${socket.user.nombre} se unió a conversación ${conversacionId}`,
-      );
     });
 
     // Salir de una conversación
@@ -195,9 +184,6 @@ const initSocket = (server) => {
 
         // Verificar si el destinatario está conectado ANTES de crear el mensaje
         const destinatarioConectado = usuariosConectados.has(destinatarioId);
-        console.log(
-          `Destinatario ${destinatarioId} conectado: ${destinatarioConectado}`,
-        );
         console.log(
           `Usuarios conectados:`,
           Array.from(usuariosConectados.keys()),
@@ -243,11 +229,6 @@ const initSocket = (server) => {
           entregado: mensajeCompleto.entregado,
           leido: mensajeCompleto.leido,
         };
-
-        console.log(
-          `Mensaje enviado - entregado: ${mensajeConEstado.entregado}, leido: ${mensajeConEstado.leido}`,
-        );
-
         // Emitir a la sala de la conversación
         io.to(`conversacion_${conversacionId}`).emit(
           "nuevo_mensaje",
@@ -382,10 +363,6 @@ const initSocket = (server) => {
 
     // Solicitar videollamada
     socket.on("videollamada_solicitar", (data) => {
-      console.log(
-        `Videollamada solicitada: ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
-      );
-
       // Enviar notificación al destinatario
       io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_entrante", {
         conversacionId: data.conversacionId,
@@ -397,10 +374,6 @@ const initSocket = (server) => {
 
     // Aceptar videollamada
     socket.on("videollamada_aceptar", (data) => {
-      console.log(
-        `Videollamada aceptada por ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
-      );
-
       io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_aceptada", {
         conversacionId: data.conversacionId,
         usuarioId: socket.user.id,
@@ -410,10 +383,6 @@ const initSocket = (server) => {
 
     // Rechazar videollamada
     socket.on("videollamada_rechazar", (data) => {
-      console.log(
-        `Videollamada rechazada por ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
-      );
-
       io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_rechazada", {
         conversacionId: data.conversacionId,
         usuarioId: socket.user.id,
@@ -422,10 +391,6 @@ const initSocket = (server) => {
 
     // Terminar videollamada
     socket.on("videollamada_terminar", (data) => {
-      console.log(
-        `Videollamada terminada por ${socket.user.nombre} -> Usuario ${data.usuarioDestinoId}`,
-      );
-
       io.to(`user_${data.usuarioDestinoId}`).emit("videollamada_terminada", {
         conversacionId: data.conversacionId,
         usuarioId: socket.user.id,
@@ -442,7 +407,6 @@ const initSocket = (server) => {
 
     // Desconexión
     socket.on("disconnect", () => {
-      console.log(`Usuario desconectado: ${socket.user.nombre}`);
       usuariosConectados.delete(socket.user.id);
       io.emit("usuario_desconectado", {
         userId: socket.user.id,
@@ -469,7 +433,6 @@ const emitirNotificacion = (usuarioId, notificacion) => {
 
 const emitirNuevoPedido = (depositoId, pedido) => {
   if (io) {
-    console.log(`Emitiendo nuevo_pedido a user_${depositoId}:`, pedido);
     // Emitir al depósito específico
     io.to(`user_${depositoId}`).emit("nuevo_pedido", pedido);
     // También a los admins
@@ -481,7 +444,6 @@ const emitirNuevoPedido = (depositoId, pedido) => {
 
 const emitirPedidoActualizado = (clienteId, pedido) => {
   if (io) {
-    console.log(`Emitiendo pedido_actualizado a user_${clienteId}:`, pedido);
     io.to(`user_${clienteId}`).emit("pedido_actualizado", pedido);
   } else {
     console.warn(
@@ -492,7 +454,6 @@ const emitirPedidoActualizado = (clienteId, pedido) => {
 
 const emitirEnvioAsignado = (fleteId, envio) => {
   if (io) {
-    console.log(`Emitiendo envio_asignado a user_${fleteId}:`, envio);
     io.to(`user_${fleteId}`).emit("envio_asignado", envio);
   } else {
     console.warn(
@@ -503,7 +464,6 @@ const emitirEnvioAsignado = (fleteId, envio) => {
 
 const emitirEnvioEnCamino = (clienteId, envio) => {
   if (io) {
-    console.log(`Emitiendo envio_en_camino a user_${clienteId}:`, envio);
     io.to(`user_${clienteId}`).emit("envio_en_camino", envio);
   } else {
     console.warn(
@@ -514,7 +474,6 @@ const emitirEnvioEnCamino = (clienteId, envio) => {
 
 const emitirEnvioEntregado = (clienteId, envio) => {
   if (io) {
-    console.log(`Emitiendo envio_entregado a user_${clienteId}:`, envio);
     io.to(`user_${clienteId}`).emit("envio_entregado", envio);
   } else {
     console.warn(

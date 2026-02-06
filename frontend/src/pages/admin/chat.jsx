@@ -204,9 +204,7 @@ export default function AdminChat() {
       inputRef.current.focus();
       marcarComoLeidos();
     }
-  }, [conversacion, marcarComoLeidos]);
-
-  // Si no hay usuario, no renderizar nada (se redirigirá al login)
+  }, [conversacion, marcarComoLeidos]);
   if (!usuario) {
     return null;
   }

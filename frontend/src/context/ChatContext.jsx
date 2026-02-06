@@ -108,7 +108,6 @@ export function ChatProvider({ children }) {
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log("ICE Connection State:", pc.iceConnectionState);
         if (
           pc.iceConnectionState === "disconnected" ||
           pc.iceConnectionState === "failed"
@@ -282,8 +281,6 @@ export function ChatProvider({ children }) {
     if (!token || !usuario) return;
 
     const socketUrl = getSocketUrl();
-    console.log("Chat: Conectando a Socket.io en", socketUrl);
-
     const socketInstance = io(socketUrl, {
       auth: { token },
       transports: ["websocket", "polling"],
@@ -293,12 +290,10 @@ export function ChatProvider({ children }) {
     });
 
     socketInstance.on("connect", () => {
-      console.log("Chat: Socket.io conectado");
       setConectado(true);
     });
 
     socketInstance.on("disconnect", () => {
-      console.log("Chat: Socket.io desconectado");
       setConectado(false);
     });
 
@@ -403,13 +398,11 @@ export function ChatProvider({ children }) {
 
     // Videollamada entrante
     socketInstance.on("videollamada_entrante", (data) => {
-      console.log("Videollamada entrante:", data);
       setLlamadaEntrante(data);
     });
 
     // Videollamada aceptada
     socketInstance.on("videollamada_aceptada", async (data) => {
-      console.log("Videollamada aceptada:", data);
       try {
         if (peerConnectionRef.current && data.answer) {
           await peerConnectionRef.current.setRemoteDescription(
@@ -434,14 +427,12 @@ export function ChatProvider({ children }) {
 
     // Videollamada rechazada
     socketInstance.on("videollamada_rechazada", () => {
-      console.log("Videollamada rechazada");
       alert("La llamada fue rechazada");
       limpiarLlamada();
     });
 
     // Videollamada terminada
     socketInstance.on("videollamada_terminada", () => {
-      console.log("Videollamada terminada por el otro usuario");
       limpiarLlamada();
     });
 

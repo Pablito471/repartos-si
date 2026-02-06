@@ -487,9 +487,6 @@ export function ClienteProvider({ children }) {
         try {
           const response = await pedidosService.getAll();
           const pedidosBackend = response.data || response || [];
-
-          console.log("Pedidos del cliente cargados:", pedidosBackend.length);
-
           // Mapear pedidos del backend al formato del frontend
           const pedidosMapeados = pedidosBackend.map((pedido) => ({
             id: pedido.id,
@@ -537,7 +534,6 @@ export function ClienteProvider({ children }) {
 
     const handlePedidoActualizado = (event) => {
       const data = event.detail;
-      console.log("ClienteContext: Recibido socket:pedido_actualizado", data);
       setPedidos((prevPedidos) =>
         prevPedidos.map((p) =>
           String(p.id) === String(data.id) ? { ...p, estado: data.estado } : p,
@@ -547,7 +543,6 @@ export function ClienteProvider({ children }) {
 
     const handleEnvioEnCamino = (event) => {
       const data = event.detail;
-      console.log("ClienteContext: Recibido socket:envio_en_camino", data);
       setPedidos((prevPedidos) =>
         prevPedidos.map((p) =>
           String(p.id) === String(data.pedidoId)
@@ -559,7 +554,6 @@ export function ClienteProvider({ children }) {
 
     const handleEnvioEntregado = (event) => {
       const data = event.detail;
-      console.log("ClienteContext: Recibido socket:envio_entregado", data);
       setPedidos((prevPedidos) =>
         prevPedidos.map((p) =>
           String(p.id) === String(data.pedidoId)
@@ -571,7 +565,6 @@ export function ClienteProvider({ children }) {
 
     // Escuchar evento de nuevo movimiento contable para actualizar automáticamente
     const handleMovimientoCreado = () => {
-      console.log("ClienteContext: Recibido contabilidad:movimiento_creado");
       recargarMovimientos();
     };
 
@@ -777,14 +770,8 @@ export function ClienteProvider({ children }) {
             precio: p.precio,
           })),
         };
-
-        console.log("Enviando pedido al backend:", pedidoBackend);
-
         const response = await pedidosService.crear(pedidoBackend);
         const pedidoCreado = response.data || response;
-
-        console.log("Pedido creado:", pedidoCreado);
-
         // Agregar al estado local
         const pedidoMapeado = {
           id: pedidoCreado.id,

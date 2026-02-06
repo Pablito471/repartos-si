@@ -314,9 +314,6 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
               imagen: producto.producto?.imagen || null,
             });
           }
-          console.log(
-            `Stock actualizado para cliente ${envio.pedido.clienteId} - Pedido ${envio.pedido.id}`,
-          );
         }
       } catch (stockError) {
         console.error("Error al agregar productos al stock:", stockError);

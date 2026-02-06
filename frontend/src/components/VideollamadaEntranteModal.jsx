@@ -55,15 +55,12 @@ export default function VideollamadaEntranteModal() {
         osc2.stop();
       }, 1000);
     } catch (e) {
-      console.log("Error Web Audio ringtone:", e);
     }
   }, []);
 
   // Reproducir ringtone cuando hay llamada entrante
   useEffect(() => {
     if (llamadaEntrante) {
-      console.log("📞 Llamada entrante detectada:", llamadaEntrante);
-
       // Variables locales para cleanup
       let ringtoneAudio = null;
       let webAudioIntId = null;
@@ -80,7 +77,6 @@ export default function VideollamadaEntranteModal() {
             vibrate: [400, 200, 400, 500],
           });
         } catch (e) {
-          console.log("Error mostrando notificación:", e);
         }
       }
 
@@ -99,12 +95,7 @@ export default function VideollamadaEntranteModal() {
 
           // Intentar reproducir
           await audio.play();
-          console.log("🔔 Ringtone HTML5 reproduciendo");
         } catch (e) {
-          console.log(
-            "Error reproduciendo ringtone HTML5, usando Web Audio:",
-            e,
-          );
           // Usar Web Audio API como fallback
           reproducirTonoWebAudio();
           webAudioIntId = setInterval(reproducirTonoWebAudio, 1500);

@@ -46,9 +46,7 @@ exports.registro = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-};
-
-// POST /api/auth/login
+};
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
