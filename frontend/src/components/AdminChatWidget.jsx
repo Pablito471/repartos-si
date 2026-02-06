@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { useChat } from "@/context/ChatContext";
 import { useAuth } from "@/context/AuthContext";
 import Icons from "./Icons";
@@ -235,12 +236,13 @@ export default function AdminChatWidget() {
                           : ""
                       }`}
                     >
-                      <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                         {conv.usuario?.foto ? (
-                          <img
+                          <Image
                             src={conv.usuario.foto}
-                            alt={conv.usuario.nombre}
-                            className="w-full h-full object-cover"
+                            alt={conv.usuario.nombre || "Usuario"}
+                            fill
+                            className="object-cover"
                           />
                         ) : (
                           <Icons.User className="w-5 h-5 text-neutral-500" />
@@ -289,12 +291,13 @@ export default function AdminChatWidget() {
                 >
                   <Icons.ChevronLeft className="w-5 h-5" />
                 </button>
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden relative">
                   {conversacion.usuario?.foto ? (
-                    <img
+                    <Image
                       src={conversacion.usuario.foto}
-                      alt={conversacion.usuario.nombre}
-                      className="w-full h-full object-cover"
+                      alt={conversacion.usuario.nombre || "Usuario"}
+                      fill
+                      className="object-cover"
                     />
                   ) : (
                     <Icons.User className="w-4 h-4" />
