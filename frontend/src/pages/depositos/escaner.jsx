@@ -26,6 +26,9 @@ export default function EscanerDeposito() {
   const [tipoMovimiento, setTipoMovimiento] = useState("entrada"); // entrada o salida
   const [motivo, setMotivo] = useState("");
 
+  // Estado para precio de venta modificado (para calcular ganancia)
+  const [precioVenta, setPrecioVenta] = useState("");
+
   // Estados para modo agregar
   const [modoAgregar, setModoAgregar] = useState(false);
   const [codigoEscaneado, setCodigoEscaneado] = useState("");
@@ -617,6 +620,7 @@ export default function EscanerDeposito() {
 
       if (response.data.success && response.data.data) {
         setProductoEscaneado(response.data.data);
+        setPrecioVenta(response.data.data.precio?.toString() || "");
         setModoAgregar(false);
         setCantidad(1);
         setMotivo("");
@@ -856,6 +860,7 @@ export default function EscanerDeposito() {
     setCantidad(1);
     setMotivo("");
     setCodigoManual("");
+    setPrecioVenta("");
 
     if (!modoManual) {
       setEscaneando(false);
@@ -1189,9 +1194,11 @@ export default function EscanerDeposito() {
               </h4>
               <div className="flex items-center justify-between mt-2">
                 <div>
-                  <p className="text-sm text-gray-500">
-                    Precio: ${formatNumber(productoEscaneado.precio)}
-                  </p>
+                  {productoEscaneado.costo && (
+                    <p className="text-sm text-gray-500">
+                      Costo: ${formatNumber(productoEscaneado.costo)}
+                    </p>
+                  )}
                   {productoEscaneado.ubicacion && (
                     <p className="text-xs text-gray-400">
                       📍 {productoEscaneado.ubicacion}
@@ -1205,6 +1212,111 @@ export default function EscanerDeposito() {
                   <p className="text-xs text-gray-500">en stock</p>
                 </div>
               </div>
+            </div>
+
+            {/* Precio de venta editable y cálculo de ganancia */}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 mb-4">
+              <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-2">
+                💰 Precio de venta
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Ingresa el precio de venta"
+                    value={precioVenta}
+                    onChange={(e) => setPrecioVenta(e.target.value)}
+                    className="input-field w-full pl-8 text-lg font-bold text-center"
+                  />
+                </div>
+              </div>
+
+              {/* Mostrar ganancia si hay costo y precio de venta */}
+              {productoEscaneado.costo &&
+                precioVenta &&
+                parseFloat(precioVenta) > 0 && (
+                  <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-green-700 dark:text-green-300">
+                        Ganancia por unidad:
+                      </span>
+                      <span
+                        className={`text-xl font-bold ${
+                          parseFloat(precioVenta) -
+                            parseFloat(productoEscaneado.costo) >=
+                          0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        $
+                        {formatNumber(
+                          parseFloat(precioVenta) -
+                            parseFloat(productoEscaneado.costo),
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-sm text-green-700 dark:text-green-300">
+                        Margen:
+                      </span>
+                      <span
+                        className={`text-sm font-bold ${
+                          parseFloat(precioVenta) -
+                            parseFloat(productoEscaneado.costo) >=
+                          0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {(
+                          ((parseFloat(precioVenta) -
+                            parseFloat(productoEscaneado.costo)) /
+                            parseFloat(productoEscaneado.costo)) *
+                          100
+                        ).toFixed(1)}
+                        %
+                      </span>
+                    </div>
+                    {/* Ganancia total según cantidad */}
+                    {cantidad > 1 && (
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-200 dark:border-green-700">
+                        <span className="text-sm text-green-700 dark:text-green-300">
+                          Ganancia total ({cantidad} unidades):
+                        </span>
+                        <span
+                          className={`text-lg font-bold ${
+                            parseFloat(precioVenta) -
+                              parseFloat(productoEscaneado.costo) >=
+                            0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          $
+                          {formatNumber(
+                            (parseFloat(precioVenta) -
+                              parseFloat(productoEscaneado.costo)) *
+                              cantidad,
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              {/* Mensaje si no hay costo registrado */}
+              {!productoEscaneado.costo && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  ⚠️ Este producto no tiene costo registrado. Agrégalo en el
+                  inventario para calcular la ganancia.
+                </p>
+              )}
             </div>
 
             {/* Selector de tipo de movimiento */}
