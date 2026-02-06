@@ -7,11 +7,14 @@ async function limpiarDB() {
     await sequelize.authenticate();
     console.log("Conexión establecida.");
 
-    // Limpiar todas las tablas relacionadas
+    // Limpiar todas las tablas relacionadas (excepto usuarios)
     console.log("\nLimpiando tablas...");
     await sequelize.query("TRUNCATE TABLE calificaciones CASCADE");
     await sequelize.query("TRUNCATE TABLE mensajes CASCADE");
     await sequelize.query("TRUNCATE TABLE conversaciones CASCADE");
+    await sequelize.query("TRUNCATE TABLE stock_clientes CASCADE");
+    await sequelize.query("TRUNCATE TABLE entregas CASCADE");
+    await sequelize.query("TRUNCATE TABLE movimientos CASCADE");
     await sequelize.query("TRUNCATE TABLE envios CASCADE");
     await sequelize.query("TRUNCATE TABLE pedido_productos CASCADE");
     await sequelize.query("TRUNCATE TABLE pedidos CASCADE");
