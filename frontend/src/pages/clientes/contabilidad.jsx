@@ -1,7 +1,8 @@
 import ClienteLayout from "@/components/layouts/ClienteLayout";
 import { useCliente } from "@/context/ClienteContext";
 import CalendarioContabilidad from "@/components/CalendarioContabilidad";
-import { useState, useMemo } from "react";
+import EstadisticasGrafico from "@/components/EstadisticasGrafico";
+import { useState, useMemo, useEffect } from "react";
 import { showSuccessAlert, showConfirmAlert, showToast } from "@/utils/alerts";
 
 export default function Contabilidad() {
@@ -14,7 +15,28 @@ export default function Contabilidad() {
     calcularTotales,
     cargandoMovimientos,
     cargandoPedidos,
+    recargarMovimientos,
   } = useCliente();
+
+  // Escuchar eventos de movimientos creados para recargar automáticamente
+  useEffect(() => {
+    const handleMovimientoCreado = () => {
+      console.log("💰 Recargando movimientos por evento...");
+      recargarMovimientos();
+    };
+
+    window.addEventListener(
+      "contabilidad:movimiento_creado",
+      handleMovimientoCreado,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "contabilidad:movimiento_creado",
+        handleMovimientoCreado,
+      );
+    };
+  }, [recargarMovimientos]);
 
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
@@ -69,18 +91,23 @@ export default function Contabilidad() {
 
   // Calcular totales incluyendo pedidos
   const totales = useMemo(() => {
-    const totalesBase = calcularTotales();
+    // Calcular directamente desde los movimientos para evitar problemas de dependencias
+    const ingresos = movimientos
+      .filter((m) => m.tipo === "ingreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+    const egresos = movimientos
+      .filter((m) => m.tipo === "egreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
     const totalPedidos = pedidosComoGastos.reduce((sum, p) => sum + p.monto, 0);
 
     return {
-      ingresos: totalesBase.ingresos || 0,
-      egresos: (totalesBase.egresos || 0) + totalPedidos,
-      balance:
-        (totalesBase.ingresos || 0) - (totalesBase.egresos || 0) - totalPedidos,
+      ingresos,
+      egresos: egresos + totalPedidos,
+      balance: ingresos - egresos - totalPedidos,
       totalPedidos,
       cantidadPedidos: pedidosComoGastos.length,
     };
-  }, [calcularTotales, pedidosComoGastos]);
+  }, [movimientos, pedidosComoGastos]);
 
   const movimientosFiltrados = todosLosMovimientos.filter((mov) => {
     const cumpleTipo = filtroTipo === "todos" || mov.tipo === filtroTipo;
@@ -376,6 +403,14 @@ export default function Contabilidad() {
           colorPrimary="blue"
         />
 
+        {/* Gráficos de Estadísticas */}
+        <div className="card">
+          <EstadisticasGrafico
+            movimientos={todosLosMovimientos}
+            titulo="Estadísticas de Movimientos"
+          />
+        </div>
+
         {/* Category Summary */}
         <div className="card">
           <h3 className="font-semibold text-gray-800 mb-4">
@@ -485,9 +520,24 @@ export default function Contabilidad() {
                     <tr>
                       <td
                         colSpan={7}
-                        className="py-8 text-center text-gray-500"
+                        className="py-12 text-center text-gray-500"
                       >
-                        No hay movimientos con los filtros aplicados
+                        <span className="text-4xl mb-2 block">📋</span>
+                        <p className="font-medium mb-2">
+                          No hay movimientos registrados
+                        </p>
+                        <p className="text-sm text-gray-400 max-w-md mx-auto">
+                          Los movimientos se generan automáticamente al vender
+                          productos desde el escáner (con precio), o puedes
+                          registrarlos manualmente.
+                        </p>
+                        <button
+                          onClick={() => setMostrarModal(true)}
+                          className="mt-4 btn-primary inline-flex items-center space-x-2"
+                        >
+                          <span>➕</span>
+                          <span>Registrar primer movimiento</span>
+                        </button>
                       </td>
                     </tr>
                   ) : (

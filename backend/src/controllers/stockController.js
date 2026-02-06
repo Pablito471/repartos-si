@@ -31,16 +31,26 @@ exports.obtenerStock = async (req, res, next) => {
             parseFloat(item.precioVenta) || parseFloat(item.precio) || 0,
           precio: parseFloat(item.precioVenta) || parseFloat(item.precio) || 0, // Mantener para compatibilidad
           categoria: item.categoria || "General",
+          imagen: item.imagen || null,
+          codigoBarras: item.codigoBarras || null,
           ultimaActualizacion: item.updatedAt,
         };
       }
       stockAgrupado[item.nombre].cantidad += item.cantidad;
-      // Mantener la fecha más reciente
+      // Mantener la fecha más reciente y la imagen si existe
       if (
         new Date(item.updatedAt) >
         new Date(stockAgrupado[item.nombre].ultimaActualizacion)
       ) {
         stockAgrupado[item.nombre].ultimaActualizacion = item.updatedAt;
+      }
+      // Si el item actual tiene imagen y el agrupado no, usar la del item
+      if (item.imagen && !stockAgrupado[item.nombre].imagen) {
+        stockAgrupado[item.nombre].imagen = item.imagen;
+      }
+      // Si el item actual tiene código de barras y el agrupado no, usar el del item
+      if (item.codigoBarras && !stockAgrupado[item.nombre].codigoBarras) {
+        stockAgrupado[item.nombre].codigoBarras = item.codigoBarras;
       }
     });
 
@@ -279,7 +289,7 @@ exports.agregarProducto = async (req, res, next) => {
 
     const stockItem = await StockCliente.create({
       clienteId: req.usuario.id,
-      nombre,
+      nombre: nombreMayusculas,
       cantidad: parseInt(cantidad),
       precioCosto: costoParsed,
       precioVenta: ventaParsed,
@@ -296,7 +306,7 @@ exports.agregarProducto = async (req, res, next) => {
       await Movimiento.create({
         usuarioId: req.usuario.id,
         tipo: "egreso",
-        concepto: `Compra: ${cantidad}x ${nombre}`,
+        concepto: `Compra: ${cantidad}x ${nombreMayusculas}`,
         monto: montoCompra,
         categoria: "compras",
         notas: "Ingreso manual de stock",
@@ -346,7 +356,7 @@ exports.actualizarStock = async (req, res, next) => {
           : precio !== undefined
             ? parseFloat(precio)
             : stockItem.precio,
-      nombre: nombre || stockItem.nombre,
+      nombre: nombre ? nombre.trim().toUpperCase() : stockItem.nombre,
     });
 
     res.json({
@@ -663,6 +673,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
         codigo: stockItem.codigoBarras || codigo,
         nombre: stockItem.nombre,
         precio: parseFloat(stockItem.precio) || 0,
+        costo: parseFloat(stockItem.precioCosto) || 0,
         cantidadDisponible: totalDisponible,
         categoria: stockItem.categoria || "General",
       },

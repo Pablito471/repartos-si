@@ -2,6 +2,7 @@ import { useState } from "react";
 import FleteLayout from "@/components/layouts/FleteLayout";
 import { useFlete } from "@/context/FleteContext";
 import CalendarioContabilidad from "@/components/CalendarioContabilidad";
+import EstadisticasGrafico from "@/components/EstadisticasGrafico";
 import { formatNumber, formatDate } from "@/utils/formatters";
 import Swal from "sweetalert2";
 
@@ -282,6 +283,14 @@ export default function FleteContabilidad() {
           movimientos={movimientos}
           colorPrimary="orange"
         />
+
+        {/* Gráficos de Estadísticas */}
+        <div className="card">
+          <EstadisticasGrafico
+            movimientos={movimientos}
+            titulo="Estadísticas del Flete"
+          />
+        </div>
 
         {/* Formulario de nuevo movimiento */}
         {mostrarFormulario && (

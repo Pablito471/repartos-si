@@ -62,6 +62,7 @@ import {
   MicrophoneIcon,
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
+  LightBulbIcon,
 } from "@heroicons/react/24/outline";
 
 import { StarIcon as StarFilledIcon } from "@heroicons/react/24/solid";
@@ -247,6 +248,9 @@ const Icons = {
 
   // Chevron izquierda (volver)
   ChevronLeft: ChevronLeftIcon,
+
+  // Linterna/Bombilla
+  LightBulb: LightBulbIcon,
 };
 
 export default Icons;

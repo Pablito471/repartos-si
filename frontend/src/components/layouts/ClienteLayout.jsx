@@ -95,7 +95,7 @@ export default function ClienteLayout({ children }) {
                 onClick={() => setModoEscaner(false)}
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
               >
-                <Icons name="ArrowLeft" className="w-4 h-4" />
+                <Icons.ChevronLeft className="w-4 h-4" />
                 Modo completo
               </button>
             </div>

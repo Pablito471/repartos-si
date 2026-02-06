@@ -494,7 +494,7 @@ export function ClienteProvider({ children }) {
           const pedidosMapeados = pedidosBackend.map((pedido) => ({
             id: pedido.id,
             fecha: pedido.createdAt
-              ? pedido.createdAt.split("T")[0]
+              ? toLocalDateString(pedido.createdAt)
               : pedido.fecha,
             productos:
               pedido.productos?.map((p) => ({
@@ -789,8 +789,8 @@ export function ClienteProvider({ children }) {
         const pedidoMapeado = {
           id: pedidoCreado.id,
           fecha: pedidoCreado.createdAt
-            ? pedidoCreado.createdAt.split("T")[0]
-            : new Date().toISOString().split("T")[0],
+            ? toLocalDateString(pedidoCreado.createdAt)
+            : toLocalDateString(new Date()),
           productos: nuevoPedido.productos,
           deposito: nuevoPedido.deposito,
           depositoId: nuevoPedido.depositoId,
@@ -812,7 +812,7 @@ export function ClienteProvider({ children }) {
       const pedido = {
         ...nuevoPedido,
         id: pedidos.length + 1,
-        fecha: new Date().toISOString().split("T")[0],
+        fecha: toLocalDateString(new Date()),
         estado: "pendiente",
       };
       setPedidos([pedido, ...pedidos]);
@@ -962,7 +962,7 @@ export function ClienteProvider({ children }) {
       const nuevoMovimiento = {
         ...movimiento,
         id: movimientos.length + 1,
-        fecha: new Date().toISOString().split("T")[0],
+        fecha: toLocalDateString(new Date()),
       };
       setMovimientos([nuevoMovimiento, ...movimientos]);
       return { success: true, data: nuevoMovimiento };
@@ -1095,11 +1095,30 @@ export function ClienteProvider({ children }) {
 
   // Calcular totales de contabilidad
   const calcularTotales = () => {
-    // Si tenemos totales del backend, usarlos
-    if (
-      (MODO_CONEXION === "api" && totalesContables.ingresos > 0) ||
-      totalesContables.egresos > 0
-    ) {
+    // Si estamos en modo API, usar los totales del backend
+    if (MODO_CONEXION === "api") {
+      // Si hay totales del backend O hay movimientos cargados, calcular
+      if (
+        totalesContables.ingresos > 0 ||
+        totalesContables.egresos > 0 ||
+        movimientos.length > 0
+      ) {
+        // Recalcular desde movimientos para asegurar consistencia
+        const ingresosCalculados = movimientos
+          .filter((m) => m.tipo === "ingreso")
+          .reduce((sum, m) => sum + m.monto, 0);
+        const egresosCalculados = movimientos
+          .filter((m) => m.tipo === "egreso")
+          .reduce((sum, m) => sum + m.monto, 0);
+
+        return {
+          ingresos: ingresosCalculados,
+          egresos: egresosCalculados,
+          balance: ingresosCalculados - egresosCalculados,
+          categorias: totalesContables.categorias || {},
+          porMes: totalesContables.porMes || {},
+        };
+      }
       return totalesContables;
     }
 

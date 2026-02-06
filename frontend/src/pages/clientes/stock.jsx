@@ -435,15 +435,33 @@ export default function StockCliente() {
                         className="border-b last:border-0 hover:bg-gray-50"
                       >
                         <td className="py-4">
-                          <p className="font-medium text-gray-800">
-                            {producto.nombre}
-                          </p>
-                          {producto.categoria &&
-                            producto.categoria !== "General" && (
-                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                                {producto.categoria}
-                              </span>
+                          <div className="flex items-center gap-3">
+                            {producto.imagen ? (
+                              <img
+                                src={producto.imagen}
+                                alt={producto.nombre}
+                                className="w-10 h-10 rounded-lg object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                                📦
+                              </div>
                             )}
+                            <div>
+                              <p className="font-medium text-gray-800">
+                                {producto.nombre}
+                              </p>
+                              {producto.categoria &&
+                                producto.categoria !== "General" && (
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                    {producto.categoria}
+                                  </span>
+                                )}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-4 text-center">
                           <span className="bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">

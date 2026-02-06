@@ -26,6 +26,10 @@ export default function EscanerStock() {
   const [modoManual, setModoManual] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
 
+  // Modo consulta de precios (solo ver info sin vender)
+  const [modoConsulta, setModoConsulta] = useState(false);
+  const [productoConsultado, setProductoConsultado] = useState(null);
+
   // Carrito de ventas múltiples
   const [carritoVentas, setCarritoVentas] = useState([]);
 
@@ -53,6 +57,10 @@ export default function EscanerStock() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [maxZoom, setMaxZoom] = useState(1);
   const [zoomDisponible, setZoomDisponible] = useState(false);
+
+  // Control de linterna para escanear en oscuridad
+  const [linternaActiva, setLinternaActiva] = useState(false);
+  const [linternaDisponible, setLinternaDisponible] = useState(false);
 
   // OCR para leer números debajo del código de barras
   const [ocrActivo, setOcrActivo] = useState(false);
@@ -276,6 +284,14 @@ export default function EscanerStock() {
     }
   }, [inicializarAudio]);
 
+  // Efecto para apagar la linterna cuando se detiene el escáner
+  useEffect(() => {
+    if (!escaneando && linternaActiva) {
+      setLinternaActiva(false);
+      setLinternaDisponible(false);
+    }
+  }, [escaneando]);
+
   // Efecto para inicializar el escáner cuando el elemento DOM existe
   useEffect(() => {
     if (escaneando && !modoManual) {
@@ -434,6 +450,12 @@ export default function EscanerStock() {
                   maxZoomVal,
                 );
               }
+
+              // Verificar si la linterna está disponible
+              if (capabilities.torch) {
+                setLinternaDisponible(true);
+                console.log("🔦 Linterna disponible");
+              }
             }
           } catch (zoomErr) {
             console.log("Zoom/enfoque no disponible:", zoomErr.message);
@@ -466,6 +488,23 @@ export default function EscanerStock() {
       }
     } catch (err) {
       console.log("Error al cambiar zoom:", err);
+    }
+  };
+
+  // Función para encender/apagar la linterna
+  const toggleLinterna = async () => {
+    try {
+      const videoElement = document.querySelector("#reader video");
+      if (videoElement && videoElement.srcObject) {
+        const track = videoElement.srcObject.getVideoTracks()[0];
+        const nuevoEstado = !linternaActiva;
+        await track.applyConstraints({ advanced: [{ torch: nuevoEstado }] });
+        setLinternaActiva(nuevoEstado);
+        console.log("🔦 Linterna:", nuevoEstado ? "encendida" : "apagada");
+      }
+    } catch (err) {
+      console.log("Error al controlar linterna:", err);
+      showToast("No se pudo controlar la linterna", "error");
     }
   };
 
@@ -663,6 +702,19 @@ export default function EscanerStock() {
 
       if (response.success && response.data) {
         const producto = response.data;
+
+        // Si estamos en modo consulta, mostrar info sin agregar al carrito
+        if (modoConsulta) {
+          setProductoConsultado(producto);
+          showToast("success", `${producto.nombre} encontrado`);
+          // Detener escáner mientras se muestra la consulta
+          if (html5QrcodeScannerRef.current) {
+            try {
+              await html5QrcodeScannerRef.current.stop();
+            } catch (e) {}
+          }
+          return;
+        }
 
         // Agregar automáticamente al carrito
         const enCarrito = carritoVentas.find(
@@ -1143,6 +1195,11 @@ export default function EscanerStock() {
     // Vaciar carrito
     setCarritoVentas([]);
 
+    // Emitir evento para actualizar contabilidad si hubo ventas exitosas
+    if (ventasExitosas > 0) {
+      window.dispatchEvent(new CustomEvent("contabilidad:movimiento_creado"));
+    }
+
     setProcesando(false);
 
     if (ventasFallidas === 0) {
@@ -1232,8 +1289,32 @@ export default function EscanerStock() {
           </div>
         </div>
 
+        {/* Botón de consulta de precios */}
+        {!productoEscaneado && !modoAgregar && !productoConsultado && (
+          <button
+            onClick={() => {
+              setModoConsulta(!modoConsulta);
+              if (!modoConsulta) {
+                showToast("info", "Escanea un producto para ver sus precios");
+              }
+            }}
+            className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+              modoConsulta
+                ? "bg-purple-600 text-white shadow-lg shadow-purple-200"
+                : "bg-purple-50 text-purple-700 border-2 border-purple-200 hover:bg-purple-100"
+            }`}
+          >
+            🔍 {modoConsulta ? "Modo Consulta ACTIVO" : "Consultar Precios"}
+            {modoConsulta && (
+              <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                Toca aquí para desactivar
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Selector de modo - oculto cuando hay producto o modo agregar */}
-        {!productoEscaneado && !modoAgregar && (
+        {!productoEscaneado && !modoAgregar && !productoConsultado && (
           <div className="card">
             <div className="flex gap-2">
               <button
@@ -1267,265 +1348,470 @@ export default function EscanerStock() {
         )}
 
         {/* Escáner de cámara */}
-        {!modoManual && !productoEscaneado && !modoAgregar && (
-          <div className="card">
-            {errorCamara ? (
-              <div className="text-center py-8">
-                <span className="text-6xl block mb-4">⚠️</span>
-                <p className="text-red-600 mb-4 font-medium">{errorCamara}</p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <button
-                    onClick={() => {
-                      setErrorCamara(null);
-                      iniciarEscaner();
-                    }}
-                    className="btn-primary px-6 py-2"
-                  >
-                    🔄 Reintentar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setErrorCamara(null);
-                      setModoManual(true);
-                    }}
-                    className="btn-secondary px-6 py-2"
-                  >
-                    ⌨️ Usar modo manual
-                  </button>
+        {!modoManual &&
+          !productoEscaneado &&
+          !modoAgregar &&
+          !productoConsultado && (
+            <div className="card">
+              {errorCamara ? (
+                <div className="text-center py-8">
+                  <span className="text-6xl block mb-4">⚠️</span>
+                  <p className="text-red-600 mb-4 font-medium">{errorCamara}</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => {
+                        setErrorCamara(null);
+                        iniciarEscaner();
+                      }}
+                      className="btn-primary px-6 py-2"
+                    >
+                      🔄 Reintentar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setErrorCamara(null);
+                        setModoManual(true);
+                      }}
+                      className="btn-secondary px-6 py-2"
+                    >
+                      ⌨️ Usar modo manual
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-4">
+                    💡 En móviles, asegúrate de permitir el acceso a la cámara
+                    cuando el navegador lo solicite
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-4">
-                  💡 En móviles, asegúrate de permitir el acceso a la cámara
-                  cuando el navegador lo solicite
-                </p>
-              </div>
-            ) : !escaneando ? (
-              <div className="text-center py-8">
-                <span className="text-6xl block mb-4">📷</span>
-                <p className="text-gray-600 mb-4">
-                  {esMovil
-                    ? "Presiona el botón para iniciar la cámara"
-                    : "Elige cómo ingresar el código de barras"}
-                </p>
+              ) : !escaneando ? (
+                <div className="text-center py-8">
+                  <span className="text-6xl block mb-4">📷</span>
+                  <p className="text-gray-600 mb-4">
+                    {esMovil
+                      ? "Presiona el botón para iniciar la cámara"
+                      : "Elige cómo ingresar el código de barras"}
+                  </p>
 
-                <div
-                  className={`flex ${esMovil ? "flex-col" : "flex-row"} justify-center gap-3`}
-                >
-                  <button
-                    onClick={iniciarEscaner}
-                    className={`btn-primary text-lg px-8 py-3 ${!esMovil && "flex-1 max-w-xs"}`}
+                  <div
+                    className={`flex ${esMovil ? "flex-col" : "flex-row"} justify-center gap-3`}
                   >
-                    🎯 {esMovil ? "Iniciar Escáner" : "Usar Webcam"}
-                  </button>
+                    <button
+                      onClick={iniciarEscaner}
+                      className={`btn-primary text-lg px-8 py-3 ${!esMovil && "flex-1 max-w-xs"}`}
+                    >
+                      🎯 {esMovil ? "Iniciar Escáner" : "Usar Webcam"}
+                    </button>
 
-                  {!esMovil && (
+                    {!esMovil && (
+                      <button
+                        onClick={() => setModoManual(true)}
+                        className="btn-secondary text-lg px-8 py-3 flex-1 max-w-xs"
+                      >
+                        ⌨️ Escribir Código
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-400 mt-4">
+                    {esMovil
+                      ? "📱 Se usará la cámara trasera"
+                      : "💡 Para códigos pequeños o difíciles, usa 'Escribir Código'"}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-center text-sm text-gray-600 mb-3">
+                    📷 Apunta al código de barras y mantén{" "}
+                    {esMovil ? "el celular" : "la cámara"} estable
+                    {isLandscape && esMovil && (
+                      <span className="block text-xs text-primary mt-1">
+                        📱 Modo horizontal detectado - área ampliada
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Tips diferentes para móvil y desktop */}
+                  {esMovil ? (
+                    <div className="text-center text-xs text-amber-600 bg-amber-50 rounded-lg p-2 mb-3">
+                      💡 <strong>Tip para códigos pequeños:</strong> NO acerques
+                      demasiado el celular (se desenfoca). Mantén ~15cm de
+                      distancia y <strong>aumenta el zoom</strong> abajo ⬇️
+                    </div>
+                  ) : (
+                    <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg p-2 mb-3">
+                      💻 <strong>Tip para webcam:</strong> Si el código es muy
+                      pequeño, usa el <strong>modo manual</strong> (botón
+                      abajo). Las webcams no tienen zoom óptico. Acerca el
+                      código a ~20cm de la cámara.
+                    </div>
+                  )}
+                  <div
+                    id="reader"
+                    ref={scannerRef}
+                    className="w-full rounded-lg overflow-hidden border-2 border-primary"
+                    style={{
+                      minHeight: isLandscape ? "250px" : "350px",
+                      maxHeight: isLandscape ? "60vh" : "auto",
+                    }}
+                  ></div>
+
+                  {/* Control de zoom para códigos pequeños */}
+                  {zoomDisponible && (
+                    <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-blue-700 font-medium">
+                          🔍 Zoom digital (¡usa esto para códigos pequeños!)
+                        </span>
+                        <span className="text-sm text-blue-600 font-bold">
+                          {zoomLevel.toFixed(1)}x
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() =>
+                            cambiarZoom(Math.max(1, zoomLevel - 0.5))
+                          }
+                          className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
+                          disabled={zoomLevel <= 1}
+                        >
+                          −
+                        </button>
+                        <input
+                          type="range"
+                          min="1"
+                          max={maxZoom}
+                          step="0.1"
+                          value={zoomLevel}
+                          onChange={(e) =>
+                            cambiarZoom(parseFloat(e.target.value))
+                          }
+                          className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                        />
+                        <button
+                          onClick={() =>
+                            cambiarZoom(Math.min(maxZoom, zoomLevel + 0.5))
+                          }
+                          className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
+                          disabled={zoomLevel >= maxZoom}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-2 text-center font-medium">
+                        📱 Mantén distancia (~15cm) + sube el zoom = código
+                        pequeño enfocado
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Control de linterna para escanear en oscuridad */}
+                  {linternaDisponible && (
+                    <div className="mt-3 bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🔦</span>
+                          <div>
+                            <span className="text-sm text-yellow-800 font-medium">
+                              Linterna
+                            </span>
+                            <p className="text-xs text-yellow-600">
+                              Para escanear en lugares oscuros
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={toggleLinterna}
+                          className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                            linternaActiva
+                              ? "bg-yellow-500 text-white shadow-lg shadow-yellow-300"
+                              : "bg-white border-2 border-yellow-400 text-yellow-700 hover:bg-yellow-100"
+                          }`}
+                        >
+                          {linternaActiva ? "💡 Encendida" : "Encender"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OCR para leer números automáticamente */}
+                  <div className="mt-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="text-sm text-purple-800 font-bold">
+                          🔢 Leer números automáticamente
+                        </span>
+                        <p className="text-xs text-purple-600">
+                          Lee los números debajo del código de barras
+                        </p>
+                      </div>
+                      <button
+                        onClick={toggleOCR}
+                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                          ocrActivo
+                            ? "bg-purple-600 text-white animate-pulse"
+                            : "bg-white border-2 border-purple-400 text-purple-700 hover:bg-purple-100"
+                        }`}
+                      >
+                        {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
+                      </button>
+                    </div>
+                    {ocrStatus && (
+                      <div
+                        className={`text-center py-2 px-3 rounded-lg mt-2 ${
+                          ocrStatus.includes("Encontrado")
+                            ? "bg-green-100 text-green-700"
+                            : "bg-purple-100 text-purple-700"
+                        }`}
+                      >
+                        <span className="text-sm font-medium">{ocrStatus}</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-purple-500 mt-2 text-center">
+                      💡 Apunta a los{" "}
+                      <strong>números debajo de las barras</strong> (ej:
+                      7790012345678)
+                    </p>
+                  </div>
+
+                  <p className="text-center text-xs text-gray-500 mt-2">
+                    💡 Asegúrate de tener buena iluminación y el código centrado
+                  </p>
+
+                  {/* Botón prominente para códigos pequeños */}
+                  <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
+                    <p className="text-center text-amber-800 font-medium mb-3">
+                      🔢 ¿Código muy pequeño o no se lee?
+                    </p>
                     <button
                       onClick={() => setModoManual(true)}
-                      className="btn-secondary text-lg px-8 py-3 flex-1 max-w-xs"
+                      className="w-full btn-primary bg-amber-500 hover:bg-amber-600 text-lg py-3 flex items-center justify-center gap-2"
                     >
-                      ⌨️ Escribir Código
+                      ⌨️ Escribir los números del código
                     </button>
-                  )}
-                </div>
+                    <p className="text-center text-xs text-amber-700 mt-2">
+                      👉 Los números aparecen{" "}
+                      <strong>debajo de las barras</strong> (ej: 7790001234567)
+                    </p>
+                  </div>
 
-                <p className="text-xs text-gray-400 mt-4">
-                  {esMovil
-                    ? "📱 Se usará la cámara trasera"
-                    : "💡 Para códigos pequeños o difíciles, usa 'Escribir Código'"}
+                  <div className="mt-3 flex justify-center">
+                    <button onClick={detenerEscaner} className="btn-secondary">
+                      ⏹️ Detener cámara
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+        {/* Entrada manual */}
+        {modoManual &&
+          !productoEscaneado &&
+          !modoAgregar &&
+          !productoConsultado && (
+            <div className="card">
+              <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                🔢 Escribir números del código de barras
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">
+                Escribe los números que aparecen{" "}
+                <strong>debajo de las barras</strong>
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Ej: 7790001234567"
+                  value={codigoManual}
+                  onChange={(e) =>
+                    setCodigoManual(e.target.value.toUpperCase())
+                  }
+                  onKeyPress={(e) => e.key === "Enter" && buscarCodigoManual()}
+                  className="input-field flex-1 font-mono text-center text-xl tracking-wider"
+                  autoFocus
+                />
+                <button
+                  onClick={buscarCodigoManual}
+                  className="btn-primary px-6"
+                >
+                  🔍 Buscar
+                </button>
+              </div>
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
+                  💡 <strong>Ejemplos de códigos:</strong>
+                  <br />• EAN-13:{" "}
+                  <span className="font-mono">7790001234567</span> (13 dígitos)
+                  <br />• EAN-8: <span className="font-mono">12345678</span> (8
+                  dígitos)
+                  <br />• Interno:{" "}
+                  <span className="font-mono">STK12345678</span>
                 </p>
               </div>
-            ) : (
-              <div>
-                <p className="text-center text-sm text-gray-600 mb-3">
-                  📷 Apunta al código de barras y mantén{" "}
-                  {esMovil ? "el celular" : "la cámara"} estable
-                  {isLandscape && esMovil && (
-                    <span className="block text-xs text-primary mt-1">
-                      📱 Modo horizontal detectado - área ampliada
-                    </span>
-                  )}
-                </p>
+            </div>
+          )}
 
-                {/* Tips diferentes para móvil y desktop */}
-                {esMovil ? (
-                  <div className="text-center text-xs text-amber-600 bg-amber-50 rounded-lg p-2 mb-3">
-                    💡 <strong>Tip para códigos pequeños:</strong> NO acerques
-                    demasiado el celular (se desenfoca). Mantén ~15cm de
-                    distancia y <strong>aumenta el zoom</strong> abajo ⬇️
-                  </div>
-                ) : (
-                  <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg p-2 mb-3">
-                    💻 <strong>Tip para webcam:</strong> Si el código es muy
-                    pequeño, usa el <strong>modo manual</strong> (botón abajo).
-                    Las webcams no tienen zoom óptico. Acerca el código a ~20cm
-                    de la cámara.
-                  </div>
-                )}
-                <div
-                  id="reader"
-                  ref={scannerRef}
-                  className="w-full rounded-lg overflow-hidden border-2 border-primary"
-                  style={{
-                    minHeight: isLandscape ? "250px" : "350px",
-                    maxHeight: isLandscape ? "60vh" : "auto",
-                  }}
-                ></div>
+        {/* Producto consultado (solo info, sin vender) */}
+        {productoConsultado && (
+          <div className="card border-2 border-purple-500 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-gray-800">
+            <div className="text-center mb-4">
+              <span className="text-4xl mb-2 block">🔍</span>
+              <h3 className="text-lg font-bold text-purple-800 dark:text-purple-300">
+                Consulta de Precio
+              </h3>
+            </div>
 
-                {/* Control de zoom para códigos pequeños */}
-                {zoomDisponible && (
-                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-blue-700 font-medium">
-                        🔍 Zoom digital (¡usa esto para códigos pequeños!)
-                      </span>
-                      <span className="text-sm text-blue-600 font-bold">
-                        {zoomLevel.toFixed(1)}x
-                      </span>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+              <p className="text-xs text-gray-400 font-mono mb-1">
+                {productoConsultado.codigo}
+              </p>
+              <h4 className="text-2xl font-bold text-gray-800 dark:text-white">
+                {productoConsultado.nombre}
+              </h4>
+
+              {/* Precios */}
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                  <div>
+                    <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                      💰 Precio de Venta
+                    </p>
+                  </div>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    ${formatNumber(productoConsultado.precio)}
+                  </p>
+                </div>
+
+                {productoConsultado.costo > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        📦 Costo
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() =>
-                          cambiarZoom(Math.max(1, zoomLevel - 0.5))
-                        }
-                        className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
-                        disabled={zoomLevel <= 1}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="range"
-                        min="1"
-                        max={maxZoom}
-                        step="0.1"
-                        value={zoomLevel}
-                        onChange={(e) =>
-                          cambiarZoom(parseFloat(e.target.value))
-                        }
-                        className="flex-1 h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
-                      <button
-                        onClick={() =>
-                          cambiarZoom(Math.min(maxZoom, zoomLevel + 0.5))
-                        }
-                        className="px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold hover:bg-blue-50"
-                        disabled={zoomLevel >= maxZoom}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <p className="text-xs text-blue-600 mt-2 text-center font-medium">
-                      📱 Mantén distancia (~15cm) + sube el zoom = código
-                      pequeño enfocado
+                    <p className="text-2xl font-bold text-gray-700 dark:text-gray-300">
+                      ${formatNumber(productoConsultado.costo)}
                     </p>
                   </div>
                 )}
 
-                {/* OCR para leer números automáticamente */}
-                <div className="mt-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
+                {productoConsultado.costo > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                     <div>
-                      <span className="text-sm text-purple-800 font-bold">
-                        🔢 Leer números automáticamente
-                      </span>
-                      <p className="text-xs text-purple-600">
-                        Lee los números debajo del código de barras
+                      <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                        📈 Ganancia
                       </p>
                     </div>
-                    <button
-                      onClick={toggleOCR}
-                      className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                        ocrActivo
-                          ? "bg-purple-600 text-white animate-pulse"
-                          : "bg-white border-2 border-purple-400 text-purple-700 hover:bg-purple-100"
+                    <p
+                      className={`text-2xl font-bold ${
+                        productoConsultado.precio - productoConsultado.costo >=
+                        0
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-red-600 dark:text-red-400"
                       }`}
                     >
-                      {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
-                    </button>
+                      $
+                      {formatNumber(
+                        productoConsultado.precio - productoConsultado.costo,
+                      )}
+                      <span className="text-sm ml-1">
+                        (
+                        {(
+                          ((productoConsultado.precio -
+                            productoConsultado.costo) /
+                            productoConsultado.costo) *
+                          100
+                        ).toFixed(0)}
+                        %)
+                      </span>
+                    </p>
                   </div>
-                  {ocrStatus && (
-                    <div
-                      className={`text-center py-2 px-3 rounded-lg mt-2 ${
-                        ocrStatus.includes("Encontrado")
-                          ? "bg-green-100 text-green-700"
-                          : "bg-purple-100 text-purple-700"
-                      }`}
-                    >
-                      <span className="text-sm font-medium">{ocrStatus}</span>
-                    </div>
-                  )}
-                  <p className="text-xs text-purple-500 mt-2 text-center">
-                    💡 Apunta a los{" "}
-                    <strong>números debajo de las barras</strong> (ej:
-                    7790012345678)
-                  </p>
-                </div>
+                )}
+              </div>
 
-                <p className="text-center text-xs text-gray-500 mt-2">
-                  💡 Asegúrate de tener buena iluminación y el código centrado
-                </p>
-
-                {/* Botón prominente para códigos pequeños */}
-                <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
-                  <p className="text-center text-amber-800 font-medium mb-3">
-                    🔢 ¿Código muy pequeño o no se lee?
-                  </p>
-                  <button
-                    onClick={() => setModoManual(true)}
-                    className="w-full btn-primary bg-amber-500 hover:bg-amber-600 text-lg py-3 flex items-center justify-center gap-2"
-                  >
-                    ⌨️ Escribir los números del código
-                  </button>
-                  <p className="text-center text-xs text-amber-700 mt-2">
-                    👉 Los números aparecen{" "}
-                    <strong>debajo de las barras</strong> (ej: 7790001234567)
-                  </p>
-                </div>
-
-                <div className="mt-3 flex justify-center">
-                  <button onClick={detenerEscaner} className="btn-secondary">
-                    ⏹️ Detener cámara
-                  </button>
+              {/* Stock disponible */}
+              <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Stock disponible:
+                  </span>
+                  <span className="text-xl font-bold text-gray-800 dark:text-white">
+                    {productoConsultado.cantidadDisponible} unidades
+                  </span>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Entrada manual */}
-        {modoManual && !productoEscaneado && !modoAgregar && (
-          <div className="card">
-            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
-              🔢 Escribir números del código de barras
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">
-              Escribe los números que aparecen{" "}
-              <strong>debajo de las barras</strong>
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="Ej: 7790001234567"
-                value={codigoManual}
-                onChange={(e) => setCodigoManual(e.target.value.toUpperCase())}
-                onKeyPress={(e) => e.key === "Enter" && buscarCodigoManual()}
-                className="input-field flex-1 font-mono text-center text-xl tracking-wider"
-                autoFocus
-              />
-              <button onClick={buscarCodigoManual} className="btn-primary px-6">
-                🔍 Buscar
-              </button>
             </div>
-            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-              <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
-                💡 <strong>Ejemplos de códigos:</strong>
-                <br />• EAN-13: <span className="font-mono">
-                  7790001234567
-                </span>{" "}
-                (13 dígitos)
-                <br />• EAN-8: <span className="font-mono">12345678</span> (8
-                dígitos)
-                <br />• Interno: <span className="font-mono">STK12345678</span>
-              </p>
+
+            {/* Botones */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setProductoConsultado(null);
+                  // Reiniciar escáner
+                  if (!modoManual) {
+                    setEscaneando(false);
+                    setTimeout(() => setEscaneando(true), 100);
+                  }
+                }}
+                className="flex-1 py-3 px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                🔍 Consultar otro
+              </button>
+              <button
+                onClick={() => {
+                  // Agregar al carrito y salir de modo consulta
+                  const producto = productoConsultado;
+                  const enCarrito = carritoVentas.find(
+                    (item) => item.codigo === producto.codigo,
+                  );
+                  const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+
+                  if (cantidadEnCarrito + 1 > producto.cantidadDisponible) {
+                    showToast(
+                      "error",
+                      `Stock insuficiente. Disponible: ${producto.cantidadDisponible}`,
+                    );
+                    return;
+                  }
+
+                  if (enCarrito) {
+                    setCarritoVentas((prev) =>
+                      prev.map((item) =>
+                        item.codigo === producto.codigo
+                          ? { ...item, cantidad: item.cantidad + 1 }
+                          : item,
+                      ),
+                    );
+                  } else {
+                    setCarritoVentas((prev) => [
+                      ...prev,
+                      {
+                        id: producto.id,
+                        codigo: producto.codigo,
+                        nombre: producto.nombre,
+                        precio: producto.precio,
+                        cantidad: 1,
+                        stockDisponible: producto.cantidadDisponible,
+                      },
+                    ]);
+                  }
+
+                  setProductoConsultado(null);
+                  setModoConsulta(false);
+                  showToast(
+                    "success",
+                    `${producto.nombre} agregado al carrito`,
+                  );
+
+                  // Reiniciar escáner
+                  if (!modoManual) {
+                    setEscaneando(false);
+                    setTimeout(() => setEscaneando(true), 100);
+                  }
+                }}
+                className="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+              >
+                🛒 Agregar al carrito
+              </button>
             </div>
           </div>
         )}
@@ -1548,9 +1834,28 @@ export default function EscanerStock() {
                 {productoEscaneado.nombre}
               </h4>
               <div className="flex items-center justify-between mt-2">
-                <p className="text-2xl font-bold text-primary">
-                  ${formatNumber(productoEscaneado.precio)}
-                </p>
+                <div>
+                  <p className="text-2xl font-bold text-primary">
+                    ${formatNumber(productoEscaneado.precio)}
+                  </p>
+                  <p className="text-xs text-gray-500">Precio de venta</p>
+                </div>
+                {productoEscaneado.costo > 0 && (
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-gray-600">
+                      ${formatNumber(productoEscaneado.costo)}
+                    </p>
+                    <p className="text-xs text-gray-400">Costo</p>
+                    <p className="text-xs text-green-600 font-medium">
+                      Ganancia: $
+                      {formatNumber(
+                        productoEscaneado.precio - productoEscaneado.costo,
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-2 pt-2 border-t border-gray-200">
                 <p className="text-sm text-gray-500">
                   {productoEscaneado.cantidadDisponible} disponibles
                 </p>

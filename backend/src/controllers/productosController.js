@@ -1,4 +1,4 @@
-const { Producto, Usuario } = require("../models");
+const { Producto, Usuario, Movimiento } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
 
@@ -97,10 +97,38 @@ exports.crearProducto = async (req, res, next) => {
         ? req.body.depositoId
         : req.usuario.id;
 
-    const producto = await Producto.create({
+    // Convertir nombre a mayúsculas
+    const datosProducto = {
       ...req.body,
       depositoId,
-    });
+      nombre: req.body.nombre
+        ? req.body.nombre.trim().toUpperCase()
+        : req.body.nombre,
+    };
+
+    const producto = await Producto.create(datosProducto);
+    console.log(
+      "Producto creado:",
+      producto.id,
+      producto.codigo,
+      producto.nombre,
+    );
+
+    // Registrar movimiento contable de egreso (compra) si tiene costo y stock inicial
+    // Usar costo en lugar de precio de venta para el egreso
+    const costoProducto = producto.costo || producto.precio || 0;
+    const stockInicial = producto.stock || 0;
+    if (costoProducto > 0 && stockInicial > 0) {
+      const montoCompra = costoProducto * stockInicial;
+      await Movimiento.create({
+        usuarioId: depositoId,
+        tipo: "egreso",
+        concepto: `Compra inicial: ${stockInicial}x ${producto.nombre}`,
+        monto: montoCompra,
+        categoria: "compras",
+        notas: `Producto agregado al inventario`,
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -129,7 +157,13 @@ exports.actualizarProducto = async (req, res, next) => {
       throw new AppError("No autorizado", 403);
     }
 
-    await producto.update(req.body);
+    // Convertir nombre a mayúsculas si se está actualizando
+    const datosActualizados = { ...req.body };
+    if (datosActualizados.nombre) {
+      datosActualizados.nombre = datosActualizados.nombre.trim().toUpperCase();
+    }
+
+    await producto.update(datosActualizados);
 
     res.json({
       success: true,
@@ -333,6 +367,7 @@ exports.getProductosInactivos = async (req, res, next) => {
 exports.buscarPorCodigo = async (req, res, next) => {
   try {
     const { codigo } = req.params;
+    console.log("🔍 Buscando código:", codigo);
 
     // Solo depósitos pueden usar este endpoint
     if (
@@ -347,6 +382,8 @@ exports.buscarPorCodigo = async (req, res, next) => {
         ? req.query.depositoId
         : req.usuario.id;
 
+    console.log("📦 depositoId:", depositoId);
+
     if (!depositoId) {
       throw new AppError("Se requiere depositoId", 400);
     }
@@ -359,6 +396,11 @@ exports.buscarPorCodigo = async (req, res, next) => {
         [Op.or]: [{ codigo: codigo }, { codigo: { [Op.iLike]: codigo } }],
       },
     });
+
+    console.log(
+      "📦 Producto encontrado:",
+      producto ? producto.codigo : "ninguno",
+    );
 
     if (!producto) {
       return res.status(404).json({
@@ -435,6 +477,37 @@ exports.registrarMovimientoStock = async (req, res, next) => {
     }
 
     await producto.update({ stock: nuevoStock });
+
+    // Registrar movimiento contable
+    const precioProducto = producto.precio || producto.precioCosto || 0;
+    if (precioProducto > 0) {
+      const montoMovimiento = precioProducto * cantidadNum;
+      if (tipo === "entrada") {
+        // Entrada = compra = egreso
+        await Movimiento.create({
+          usuarioId: producto.depositoId,
+          tipo: "egreso",
+          concepto: `Compra: ${cantidadNum}x ${producto.nombre}`,
+          monto: montoMovimiento,
+          categoria: "compras",
+          notas: motivo || "Entrada de stock",
+        });
+      } else if (tipo === "salida") {
+        // Salida = venta = ingreso
+        const precioVenta = producto.precioVenta || producto.precio || 0;
+        const montoVenta = precioVenta * cantidadNum;
+        if (montoVenta > 0) {
+          await Movimiento.create({
+            usuarioId: producto.depositoId,
+            tipo: "ingreso",
+            concepto: `Venta: ${cantidadNum}x ${producto.nombre}`,
+            monto: montoVenta,
+            categoria: "ventas",
+            notas: motivo || "Salida de stock",
+          });
+        }
+      }
+    }
 
     res.json({
       success: true,

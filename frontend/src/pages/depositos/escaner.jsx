@@ -26,6 +26,10 @@ export default function EscanerDeposito() {
   const [tipoMovimiento, setTipoMovimiento] = useState("entrada"); // entrada o salida
   const [motivo, setMotivo] = useState("");
 
+  // Modo consulta de precios (solo ver info sin mover stock)
+  const [modoConsulta, setModoConsulta] = useState(false);
+  const [productoConsultado, setProductoConsultado] = useState(null);
+
   // Carrito de salidas/ventas múltiples
   const [carritoSalidas, setCarritoSalidas] = useState([]);
 
@@ -621,8 +625,22 @@ export default function EscanerDeposito() {
       const response = await productosService.buscarPorCodigo(codigo);
       console.log("📦 Respuesta:", response);
 
-      if (response.data.success && response.data.data) {
-        const producto = response.data.data;
+      // El interceptor de axios ya devuelve response.data, así que accedemos directamente
+      if (response.success && response.data) {
+        const producto = response.data;
+
+        // Si estamos en modo consulta, mostrar info sin hacer nada más
+        if (modoConsulta) {
+          setProductoConsultado(producto);
+          showToast("success", `${producto.nombre} encontrado`);
+          // Detener escáner mientras se muestra la consulta
+          if (html5QrcodeScannerRef.current) {
+            try {
+              await html5QrcodeScannerRef.current.stop();
+            } catch (e) {}
+          }
+          return;
+        }
 
         // Si es modo SALIDA, agregar automáticamente al carrito
         if (tipoMovimiento === "salida") {
@@ -880,6 +898,9 @@ export default function EscanerDeposito() {
           console.log("Info: no se pudo recargar inventario del contexto");
         }
 
+        // Emitir evento para actualizar contabilidad
+        window.dispatchEvent(new CustomEvent("contabilidad:movimiento_creado"));
+
         const movimiento = {
           ...response.data.data,
           fecha: new Date().toISOString(),
@@ -1077,6 +1098,11 @@ export default function EscanerDeposito() {
       console.log("Info: no se pudo recargar inventario del contexto");
     }
 
+    // Emitir evento para actualizar contabilidad
+    if (exitosas > 0) {
+      window.dispatchEvent(new CustomEvent("contabilidad:movimiento_creado"));
+    }
+
     // Agregar al historial
     setHistorialMovimientos((prev) =>
       [...nuevosMovimientos, ...prev].slice(0, 50),
@@ -1156,8 +1182,32 @@ export default function EscanerDeposito() {
           </div>
         </div>
 
+        {/* Botón de consulta de precios */}
+        {!productoEscaneado && !modoAgregar && !productoConsultado && (
+          <button
+            onClick={() => {
+              setModoConsulta(!modoConsulta);
+              if (!modoConsulta) {
+                showToast("info", "Escanea un producto para ver sus precios");
+              }
+            }}
+            className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+              modoConsulta
+                ? "bg-purple-600 text-white shadow-lg shadow-purple-200 dark:shadow-purple-900"
+                : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+            }`}
+          >
+            🔍 {modoConsulta ? "Modo Consulta ACTIVO" : "Consultar Precios"}
+            {modoConsulta && (
+              <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                Toca aquí para desactivar
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Selector de modo */}
-        {!productoEscaneado && !modoAgregar && (
+        {!productoEscaneado && !modoAgregar && !productoConsultado && (
           <div className="card">
             <div className="flex gap-2">
               <button
@@ -1191,230 +1241,360 @@ export default function EscanerDeposito() {
         )}
 
         {/* Escáner de cámara */}
-        {!modoManual && !productoEscaneado && !modoAgregar && (
-          <div className="card">
-            {errorCamara ? (
-              <div className="text-center py-8">
-                <span className="text-6xl block mb-4">⚠️</span>
-                <p className="text-red-600 mb-4 font-medium">{errorCamara}</p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        {!modoManual &&
+          !productoEscaneado &&
+          !modoAgregar &&
+          !productoConsultado && (
+            <div className="card">
+              {errorCamara ? (
+                <div className="text-center py-8">
+                  <span className="text-6xl block mb-4">⚠️</span>
+                  <p className="text-red-600 mb-4 font-medium">{errorCamara}</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => {
+                        setErrorCamara(null);
+                        iniciarEscaner();
+                      }}
+                      className="btn-primary px-6 py-2"
+                    >
+                      🔄 Reintentar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setErrorCamara(null);
+                        setModoManual(true);
+                      }}
+                      className="btn-secondary px-6 py-2"
+                    >
+                      ⌨️ Usar modo manual
+                    </button>
+                  </div>
+                </div>
+              ) : !escaneando ? (
+                <div className="text-center py-8">
+                  <span className="text-6xl block mb-4">📷</span>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Presiona el botón para iniciar la cámara
+                  </p>
                   <button
-                    onClick={() => {
-                      setErrorCamara(null);
-                      iniciarEscaner();
-                    }}
-                    className="btn-primary px-6 py-2"
+                    onClick={iniciarEscaner}
+                    className="btn-primary bg-orange-500 hover:bg-orange-600 text-lg px-8 py-3"
                   >
-                    🔄 Reintentar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setErrorCamara(null);
-                      setModoManual(true);
-                    }}
-                    className="btn-secondary px-6 py-2"
-                  >
-                    ⌨️ Usar modo manual
+                    🎯 Iniciar Escáner
                   </button>
                 </div>
-              </div>
-            ) : !escaneando ? (
-              <div className="text-center py-8">
-                <span className="text-6xl block mb-4">📷</span>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  Presiona el botón para iniciar la cámara
-                </p>
-                <button
-                  onClick={iniciarEscaner}
-                  className="btn-primary bg-orange-500 hover:bg-orange-600 text-lg px-8 py-3"
-                >
-                  🎯 Iniciar Escáner
-                </button>
-              </div>
-            ) : (
-              <div>
-                <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  📷 Apunta al código de barras y mantén estable
-                </p>
+              ) : (
+                <div>
+                  <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    📷 Apunta al código de barras y mantén estable
+                  </p>
 
-                {esMovil ? (
-                  <div className="text-center text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded-lg p-2 mb-3">
-                    💡 <strong>Tip:</strong> Mantén ~15cm de distancia y aumenta
-                    el zoom ⬇️
-                  </div>
-                ) : (
-                  <div className="text-center text-xs text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2 mb-3">
-                    💻 <strong>Tip:</strong> Si el código es pequeño, usa el
-                    modo manual
-                  </div>
-                )}
-
-                <div
-                  id="reader"
-                  ref={scannerRef}
-                  className="w-full rounded-lg overflow-hidden border-2 border-orange-500"
-                  style={{
-                    minHeight: isLandscape ? "250px" : "350px",
-                    maxHeight: isLandscape ? "60vh" : "auto",
-                  }}
-                ></div>
-
-                {/* Control de zoom */}
-                {zoomDisponible && (
-                  <div className="mt-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-orange-700 dark:text-orange-300 font-medium">
-                        🔍 Zoom digital
-                      </span>
-                      <span className="text-sm text-orange-600 font-bold">
-                        {zoomLevel.toFixed(1)}x
-                      </span>
+                  {esMovil ? (
+                    <div className="text-center text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded-lg p-2 mb-3">
+                      💡 <strong>Tip:</strong> Mantén ~15cm de distancia y
+                      aumenta el zoom ⬇️
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() =>
-                          cambiarZoom(Math.max(1, zoomLevel - 0.5))
-                        }
-                        className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 rounded-lg text-sm font-bold hover:bg-orange-50"
-                        disabled={zoomLevel <= 1}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="range"
-                        min="1"
-                        max={maxZoom}
-                        step="0.1"
-                        value={zoomLevel}
-                        onChange={(e) =>
-                          cambiarZoom(parseFloat(e.target.value))
-                        }
-                        className="flex-1 h-2 bg-orange-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
-                      />
-                      <button
-                        onClick={() =>
-                          cambiarZoom(Math.min(maxZoom, zoomLevel + 0.5))
-                        }
-                        className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 rounded-lg text-sm font-bold hover:bg-orange-50"
-                        disabled={zoomLevel >= maxZoom}
-                      >
-                        +
-                      </button>
+                  ) : (
+                    <div className="text-center text-xs text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-2 mb-3">
+                      💻 <strong>Tip:</strong> Si el código es pequeño, usa el
+                      modo manual
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Control de linterna */}
-                {linternaDisponible && (
-                  <div className="mt-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm text-yellow-800 dark:text-yellow-200 font-bold">
-                          🔦 Linterna
+                  <div
+                    id="reader"
+                    ref={scannerRef}
+                    className="w-full rounded-lg overflow-hidden border-2 border-orange-500"
+                    style={{
+                      minHeight: isLandscape ? "250px" : "350px",
+                      maxHeight: isLandscape ? "60vh" : "auto",
+                    }}
+                  ></div>
+
+                  {/* Control de zoom */}
+                  {zoomDisponible && (
+                    <div className="mt-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-orange-700 dark:text-orange-300 font-medium">
+                          🔍 Zoom digital
                         </span>
-                        <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                          Enciende la luz para lugares oscuros
+                        <span className="text-sm text-orange-600 font-bold">
+                          {zoomLevel.toFixed(1)}x
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() =>
+                            cambiarZoom(Math.max(1, zoomLevel - 0.5))
+                          }
+                          className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 rounded-lg text-sm font-bold hover:bg-orange-50"
+                          disabled={zoomLevel <= 1}
+                        >
+                          −
+                        </button>
+                        <input
+                          type="range"
+                          min="1"
+                          max={maxZoom}
+                          step="0.1"
+                          value={zoomLevel}
+                          onChange={(e) =>
+                            cambiarZoom(parseFloat(e.target.value))
+                          }
+                          className="flex-1 h-2 bg-orange-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                        />
+                        <button
+                          onClick={() =>
+                            cambiarZoom(Math.min(maxZoom, zoomLevel + 0.5))
+                          }
+                          className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 rounded-lg text-sm font-bold hover:bg-orange-50"
+                          disabled={zoomLevel >= maxZoom}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Control de linterna */}
+                  {linternaDisponible && (
+                    <div className="mt-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm text-yellow-800 dark:text-yellow-200 font-bold">
+                            🔦 Linterna
+                          </span>
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                            Enciende la luz para lugares oscuros
+                          </p>
+                        </div>
+                        <button
+                          onClick={toggleLinterna}
+                          className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                            linternaActiva
+                              ? "bg-yellow-500 text-white shadow-lg shadow-yellow-500/50"
+                              : "bg-white dark:bg-gray-800 border-2 border-yellow-400 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100"
+                          }`}
+                        >
+                          {linternaActiva ? "💡 Encendida" : "🔦 Encender"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OCR */}
+                  <div className="mt-3 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-2 border-purple-300 dark:border-purple-700 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="text-sm text-purple-800 dark:text-purple-200 font-bold">
+                          🔢 Leer números automáticamente
+                        </span>
+                        <p className="text-xs text-purple-600 dark:text-purple-400">
+                          Lee los números debajo del código
                         </p>
                       </div>
                       <button
-                        onClick={toggleLinterna}
+                        onClick={toggleOCR}
                         className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                          linternaActiva
-                            ? "bg-yellow-500 text-white shadow-lg shadow-yellow-500/50"
-                            : "bg-white dark:bg-gray-800 border-2 border-yellow-400 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100"
+                          ocrActivo
+                            ? "bg-purple-600 text-white animate-pulse"
+                            : "bg-white dark:bg-gray-800 border-2 border-purple-400 text-purple-700 dark:text-purple-300 hover:bg-purple-100"
                         }`}
                       >
-                        {linternaActiva ? "💡 Encendida" : "🔦 Encender"}
+                        {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
                       </button>
                     </div>
+                    {ocrStatus && (
+                      <div
+                        className={`text-center py-2 px-3 rounded-lg mt-2 ${
+                          ocrStatus.includes("Encontrado")
+                            ? "bg-green-100 text-green-700"
+                            : "bg-purple-100 text-purple-700"
+                        }`}
+                      >
+                        <span className="text-sm font-medium">{ocrStatus}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botón código pequeño */}
+                  <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-4">
+                    <p className="text-center text-amber-800 dark:text-amber-200 font-medium mb-3">
+                      🔢 ¿Código muy pequeño o no se lee?
+                    </p>
+                    <button
+                      onClick={() => setModoManual(true)}
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-white text-lg py-3 rounded-lg font-semibold"
+                    >
+                      ⌨️ Escribir los números del código
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex justify-center">
+                    <button onClick={detenerEscaner} className="btn-secondary">
+                      ⏹️ Detener cámara
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+        {/* Entrada manual */}
+        {modoManual &&
+          !productoEscaneado &&
+          !modoAgregar &&
+          !productoConsultado && (
+            <div className="card">
+              <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                🔢 Escribir código de barras
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">
+                Escribe los números que aparecen debajo de las barras
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Ej: 7790001234567"
+                  value={codigoManual}
+                  onChange={(e) =>
+                    setCodigoManual(e.target.value.toUpperCase())
+                  }
+                  onKeyPress={(e) => e.key === "Enter" && buscarCodigoManual()}
+                  className="input-field flex-1 font-mono text-center text-xl tracking-wider"
+                  autoFocus
+                />
+                <button
+                  onClick={buscarCodigoManual}
+                  className="btn-primary bg-orange-500 hover:bg-orange-600 px-6"
+                >
+                  🔍 Buscar
+                </button>
+              </div>
+            </div>
+          )}
+
+        {/* Producto consultado (solo info, sin mover stock) */}
+        {productoConsultado && (
+          <div className="card border-2 border-purple-500 bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/20 dark:to-gray-800">
+            <div className="text-center mb-4">
+              <span className="text-4xl mb-2 block">🔍</span>
+              <h3 className="text-lg font-bold text-purple-800 dark:text-purple-300">
+                Consulta de Precio
+              </h3>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+              <p className="text-xs text-gray-400 font-mono mb-1">
+                {productoConsultado.codigo}
+              </p>
+              <h4 className="text-2xl font-bold text-gray-800 dark:text-white">
+                {productoConsultado.nombre}
+              </h4>
+
+              {/* Precios */}
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                  <div>
+                    <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                      💰 Precio de Venta
+                    </p>
+                  </div>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    ${formatNumber(productoConsultado.precio)}
+                  </p>
+                </div>
+
+                {productoConsultado.costo > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        📦 Costo
+                      </p>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-700 dark:text-gray-300">
+                      ${formatNumber(productoConsultado.costo)}
+                    </p>
                   </div>
                 )}
 
-                {/* OCR */}
-                <div className="mt-3 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-2 border-purple-300 dark:border-purple-700 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <span className="text-sm text-purple-800 dark:text-purple-200 font-bold">
-                        🔢 Leer números automáticamente
-                      </span>
-                      <p className="text-xs text-purple-600 dark:text-purple-400">
-                        Lee los números debajo del código
+                {productoConsultado.costo > 0 &&
+                  productoConsultado.precio > 0 && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                      <div>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                          📈 Ganancia
+                        </p>
+                      </div>
+                      <p
+                        className={`text-2xl font-bold ${
+                          productoConsultado.precio -
+                            productoConsultado.costo >=
+                          0
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        $
+                        {formatNumber(
+                          productoConsultado.precio - productoConsultado.costo,
+                        )}
+                        <span className="text-sm ml-1">
+                          (
+                          {productoConsultado.costo > 0
+                            ? (
+                                ((productoConsultado.precio -
+                                  productoConsultado.costo) /
+                                  productoConsultado.costo) *
+                                100
+                              ).toFixed(0)
+                            : 0}
+                          %)
+                        </span>
                       </p>
                     </div>
-                    <button
-                      onClick={toggleOCR}
-                      className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                        ocrActivo
-                          ? "bg-purple-600 text-white animate-pulse"
-                          : "bg-white dark:bg-gray-800 border-2 border-purple-400 text-purple-700 dark:text-purple-300 hover:bg-purple-100"
-                      }`}
-                    >
-                      {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
-                    </button>
-                  </div>
-                  {ocrStatus && (
-                    <div
-                      className={`text-center py-2 px-3 rounded-lg mt-2 ${
-                        ocrStatus.includes("Encontrado")
-                          ? "bg-green-100 text-green-700"
-                          : "bg-purple-100 text-purple-700"
-                      }`}
-                    >
-                      <span className="text-sm font-medium">{ocrStatus}</span>
-                    </div>
                   )}
-                </div>
-
-                {/* Botón código pequeño */}
-                <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-4">
-                  <p className="text-center text-amber-800 dark:text-amber-200 font-medium mb-3">
-                    🔢 ¿Código muy pequeño o no se lee?
-                  </p>
-                  <button
-                    onClick={() => setModoManual(true)}
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white text-lg py-3 rounded-lg font-semibold"
-                  >
-                    ⌨️ Escribir los números del código
-                  </button>
-                </div>
-
-                <div className="mt-3 flex justify-center">
-                  <button onClick={detenerEscaner} className="btn-secondary">
-                    ⏹️ Detener cámara
-                  </button>
-                </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Entrada manual */}
-        {modoManual && !productoEscaneado && !modoAgregar && (
-          <div className="card">
-            <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
-              🔢 Escribir código de barras
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">
-              Escribe los números que aparecen debajo de las barras
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="Ej: 7790001234567"
-                value={codigoManual}
-                onChange={(e) => setCodigoManual(e.target.value.toUpperCase())}
-                onKeyPress={(e) => e.key === "Enter" && buscarCodigoManual()}
-                className="input-field flex-1 font-mono text-center text-xl tracking-wider"
-                autoFocus
-              />
-              <button
-                onClick={buscarCodigoManual}
-                className="btn-primary bg-orange-500 hover:bg-orange-600 px-6"
-              >
-                🔍 Buscar
-              </button>
+              {/* Stock disponible */}
+              <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Stock disponible:
+                  </span>
+                  <span className="text-xl font-bold text-gray-800 dark:text-white">
+                    {productoConsultado.stock} unidades
+                  </span>
+                </div>
+                {productoConsultado.ubicacion && (
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Ubicación:
+                    </span>
+                    <span className="text-gray-800 dark:text-white">
+                      📍 {productoConsultado.ubicacion}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Botón para cerrar */}
+            <button
+              onClick={() => {
+                setProductoConsultado(null);
+                // Reiniciar escáner
+                if (!modoManual) {
+                  setEscaneando(false);
+                  setTimeout(() => setEscaneando(true), 100);
+                }
+              }}
+              className="w-full py-3 px-4 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+            >
+              🔍 Consultar otro producto
+            </button>
           </div>
         )}
 

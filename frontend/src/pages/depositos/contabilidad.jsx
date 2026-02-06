@@ -1,8 +1,9 @@
 import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useDeposito } from "@/context/DepositoContext";
 import CalendarioContabilidad from "@/components/CalendarioContabilidad";
+import EstadisticasGrafico from "@/components/EstadisticasGrafico";
 import { formatNumber } from "@/utils/formatters";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { showSuccessAlert, showConfirmAlert, showToast } from "@/utils/alerts";
 
 export default function Contabilidad() {
@@ -15,7 +16,28 @@ export default function Contabilidad() {
     eliminarMovimiento,
     calcularTotales,
     cargandoMovimientos,
+    recargarMovimientos,
   } = useDeposito();
+
+  // Escuchar eventos de movimientos creados para recargar automáticamente
+  useEffect(() => {
+    const handleMovimientoCreado = () => {
+      console.log("💰 Recargando movimientos por evento...");
+      recargarMovimientos();
+    };
+
+    window.addEventListener(
+      "contabilidad:movimiento_creado",
+      handleMovimientoCreado,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "contabilidad:movimiento_creado",
+        handleMovimientoCreado,
+      );
+    };
+  }, [recargarMovimientos]);
 
   const [periodo, setPeriodo] = useState("mes");
   const [tipoMovimiento, setTipoMovimiento] = useState("todos");
@@ -79,21 +101,27 @@ export default function Contabilidad() {
 
   // Calcular totales (solo movimientos reales, pedidos pendientes no se suman)
   const totales = useMemo(() => {
-    const totalesBase = calcularTotales();
+    // Calcular directamente desde los movimientos para evitar problemas de dependencias
+    const ingresos = movimientos
+      .filter((m) => m.tipo === "ingreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+    const egresos = movimientos
+      .filter((m) => m.tipo === "egreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
     const totalPendiente = pedidosPendientes.reduce(
       (sum, p) => sum + p.monto,
       0,
     );
 
     return {
-      ingresos: totalesBase.ingresos || 0,
-      egresos: totalesBase.egresos || 0,
-      balance: (totalesBase.ingresos || 0) - (totalesBase.egresos || 0),
+      ingresos,
+      egresos,
+      balance: ingresos - egresos,
       totalPendiente, // Pedidos por cobrar (no entregados aún)
       cantidadPendientes: pedidosPendientes.length,
       pedidosEntregados: pedidos.filter((p) => p.estado === "entregado").length,
     };
-  }, [calcularTotales, pedidosPendientes, pedidos]);
+  }, [movimientos, pedidosPendientes, pedidos]);
 
   // Filtrar movimientos
   const movimientosFiltrados = todosLosMovimientos.filter((mov) => {
@@ -487,6 +515,14 @@ export default function Contabilidad() {
           colorPrimary="green"
         />
 
+        {/* Gráficos de Estadísticas */}
+        <div className="card">
+          <EstadisticasGrafico
+            movimientos={todosLosMovimientos}
+            titulo="Estadísticas del Depósito"
+          />
+        </div>
+
         {/* Operations Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="card">
@@ -575,11 +611,28 @@ export default function Contabilidad() {
             {cargandoMovimientos ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span className="ml-3 text-gray-500">
+                  Cargando movimientos...
+                </span>
               </div>
             ) : movimientosFiltrados.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <span className="text-4xl mb-2 block">📋</span>
-                <p>No hay movimientos registrados</p>
+                <p className="font-medium mb-2">
+                  No hay movimientos registrados
+                </p>
+                <p className="text-sm text-gray-400 max-w-md mx-auto">
+                  Los movimientos se generan automáticamente al vender productos
+                  desde el escáner, recibir pedidos entregados, o puedes
+                  registrarlos manualmente con el botón "Registrar Movimiento".
+                </p>
+                <button
+                  onClick={() => setMostrarModalRegistro(true)}
+                  className="mt-4 btn-primary inline-flex items-center space-x-2"
+                >
+                  <span>➕</span>
+                  <span>Registrar primer movimiento</span>
+                </button>
               </div>
             ) : (
               <table className="w-full">

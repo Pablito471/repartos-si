@@ -351,7 +351,7 @@ export function DepositoProvider({ children }) {
             clienteId: pedido.clienteId,
             cliente: pedido.cliente?.nombre || "Cliente",
             fecha: pedido.createdAt
-              ? pedido.createdAt.split("T")[0]
+              ? toLocalDateString(pedido.createdAt)
               : pedido.fecha,
             productos:
               pedido.productos?.map((p) => ({
@@ -408,7 +408,7 @@ export function DepositoProvider({ children }) {
           clienteId: pedido.clienteId,
           cliente: pedido.cliente?.nombre || "Cliente",
           fecha: pedido.createdAt
-            ? pedido.createdAt.split("T")[0]
+            ? toLocalDateString(pedido.createdAt)
             : pedido.fecha,
           productos:
             pedido.productos?.map((p) => ({
@@ -548,8 +548,8 @@ export function DepositoProvider({ children }) {
           ubicacion: p.ubicacion || "",
           imagen: p.imagen || "",
           ultimaActualizacion: p.updatedAt
-            ? p.updatedAt.split("T")[0]
-            : new Date().toISOString().split("T")[0],
+            ? toLocalDateString(p.updatedAt)
+            : toLocalDateString(new Date()),
         }));
 
         setInventario(inventarioMapeado);
@@ -590,8 +590,8 @@ export function DepositoProvider({ children }) {
             ubicacion: p.ubicacion || "",
             imagen: p.imagen || "",
             ultimaActualizacion: p.updatedAt
-              ? p.updatedAt.split("T")[0]
-              : new Date().toISOString().split("T")[0],
+              ? toLocalDateString(p.updatedAt)
+              : toLocalDateString(new Date()),
           }));
 
           setInventario(inventarioMapeado);
@@ -811,7 +811,7 @@ export function DepositoProvider({ children }) {
               return {
                 ...p,
                 stock: Math.max(0, nuevoStock),
-                ultimaActualizacion: new Date().toISOString().split("T")[0],
+                ultimaActualizacion: toLocalDateString(new Date()),
               };
             }
             return p;
@@ -884,7 +884,7 @@ export function DepositoProvider({ children }) {
             return {
               ...p,
               stock: Math.max(0, nuevoStock),
-              ultimaActualizacion: new Date().toISOString().split("T")[0],
+              ultimaActualizacion: toLocalDateString(new Date()),
             };
           }
           return p;
@@ -933,32 +933,15 @@ export function DepositoProvider({ children }) {
           costo: parseFloat(nuevoProducto.costo) || 0,
           ubicacion: nuevoProducto.ubicacion || "",
           imagen: nuevoProducto.imagen || "",
-          ultimaActualizacion: new Date().toISOString().split("T")[0],
+          ultimaActualizacion: toLocalDateString(new Date()),
         };
 
         setInventario((prev) => [...prev, productoMapeado]);
 
-        // Registrar movimiento contable de egreso (compra/importación) si está habilitado
-        const registrarCompra = producto.registrarCompra !== false; // Por defecto true
-        const costoTotal =
-          (parseFloat(producto.costo) || 0) * (parseInt(producto.stock) || 0);
-        if (registrarCompra && costoTotal > 0) {
-          try {
-            await movimientosService.crear({
-              tipo: "egreso",
-              concepto: `Compra/Importación: ${producto.nombre} (${producto.stock} unidades)`,
-              monto: costoTotal,
-              categoria: "compras",
-              notas: `Producto: ${productoMapeado.codigo} - Costo unitario: $${parseFloat(producto.costo).toLocaleString()}`,
-            });
-            console.log(
-              "Movimiento contable registrado para producto:",
-              producto.nombre,
-            );
-          } catch (movError) {
-            console.error("Error al registrar movimiento contable:", movError);
-            // No lanzamos error para no interrumpir la creación del producto
-          }
+        // El movimiento contable de egreso (compra) se registra automáticamente en el backend
+        // al crear el producto con stock y precio - recargar movimientos para reflejar el cambio
+        if ((producto.precio || producto.costo) && producto.stock > 0) {
+          await recargarMovimientos();
         }
 
         return productoMapeado;
@@ -973,7 +956,7 @@ export function DepositoProvider({ children }) {
         ...producto,
         id: inventario.length + 1,
         codigo: `PROD-${String(inventario.length + 1).padStart(3, "0")}`,
-        ultimaActualizacion: new Date().toISOString().split("T")[0],
+        ultimaActualizacion: toLocalDateString(new Date()),
       };
       setInventario([...inventario, nuevoProducto]);
       return nuevoProducto;
@@ -1017,7 +1000,7 @@ export function DepositoProvider({ children }) {
           costo: parseFloat(productoActualizado.costo) || 0,
           ubicacion: productoActualizado.ubicacion || "",
           imagen: productoActualizado.imagen || "",
-          ultimaActualizacion: new Date().toISOString().split("T")[0],
+          ultimaActualizacion: toLocalDateString(new Date()),
         };
 
         // Actualizar el inventario local
@@ -1039,7 +1022,7 @@ export function DepositoProvider({ children }) {
             ? {
                 ...p,
                 ...datosActualizados,
-                ultimaActualizacion: new Date().toISOString().split("T")[0],
+                ultimaActualizacion: toLocalDateString(new Date()),
               }
             : p,
         ),
@@ -1104,7 +1087,7 @@ export function DepositoProvider({ children }) {
           costo: parseFloat(productoReactivado.costo) || 0,
           ubicacion: productoReactivado.ubicacion || "",
           imagen: productoReactivado.imagen || "",
-          ultimaActualizacion: new Date().toISOString().split("T")[0],
+          ultimaActualizacion: toLocalDateString(new Date()),
         };
 
         // Agregar al inventario activo y quitar de inactivos
@@ -1275,7 +1258,7 @@ export function DepositoProvider({ children }) {
       id: pedidos.length + 1,
       clienteId: pedidoCliente.clienteId || `CLI-${Date.now()}`,
       cliente: pedidoCliente.cliente || "Cliente",
-      fecha: new Date().toISOString().split("T")[0],
+      fecha: toLocalDateString(new Date()),
       productos: pedidoCliente.productos,
       tipoEnvio: pedidoCliente.tipoEnvio,
       direccion: pedidoCliente.direccion,
@@ -1338,7 +1321,7 @@ export function DepositoProvider({ children }) {
       const nuevoMovimiento = {
         ...movimiento,
         id: movimientos.length + 1,
-        fecha: new Date().toISOString().split("T")[0],
+        fecha: toLocalDateString(new Date()),
       };
       setMovimientos([nuevoMovimiento, ...movimientos]);
       return { success: true, data: nuevoMovimiento };
@@ -1429,25 +1412,37 @@ export function DepositoProvider({ children }) {
 
   // Calcular totales
   const calcularTotales = () => {
-    // Si tenemos totales del backend, usarlos
+    // Calcular desde los movimientos cargados para asegurar consistencia
+    const ingresosCalculados = movimientos
+      .filter((m) => m.tipo === "ingreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+    const egresosCalculados = movimientos
+      .filter((m) => m.tipo === "egreso")
+      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+
+    // Si hay movimientos, usar el cálculo local
+    if (movimientos.length > 0) {
+      return {
+        ingresos: ingresosCalculados,
+        egresos: egresosCalculados,
+        balance: ingresosCalculados - egresosCalculados,
+      };
+    }
+
+    // Si tenemos totales del backend y no hay movimientos locales, usarlos
     if (totalesContables) {
       return {
-        ingresos: totalesContables.totalIngresos || 0,
-        egresos: totalesContables.totalEgresos || 0,
+        ingresos:
+          totalesContables.ingresos || totalesContables.totalIngresos || 0,
+        egresos: totalesContables.egresos || totalesContables.totalEgresos || 0,
         balance: totalesContables.balance || 0,
       };
     }
-    // Fallback a cálculo local
-    const ingresos = movimientos
-      .filter((m) => m.tipo === "ingreso")
-      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
-    const egresos = movimientos
-      .filter((m) => m.tipo === "egreso")
-      .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
+
     return {
-      ingresos,
-      egresos,
-      balance: ingresos - egresos,
+      ingresos: 0,
+      egresos: 0,
+      balance: 0,
     };
   };
 

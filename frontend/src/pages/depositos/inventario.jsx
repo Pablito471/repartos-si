@@ -237,6 +237,17 @@ export default function Inventario() {
           imagen: "",
         });
         setMostrarModal(false);
+
+        // Emitir evento para actualizar contabilidad si tiene precio y stock
+        if (
+          (nuevoProducto.precio > 0 || nuevoProducto.costo > 0) &&
+          nuevoProducto.stock > 0
+        ) {
+          window.dispatchEvent(
+            new CustomEvent("contabilidad:movimiento_creado"),
+          );
+        }
+
         showSuccessAlert(
           "¡Producto agregado!",
           "El producto se agregó al inventario",
