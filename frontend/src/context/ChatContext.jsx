@@ -354,7 +354,28 @@ export function ChatProvider({ children }) {
         prev.map((m) =>
           m.conversacionId === data.conversacionId &&
           m.remitenteId === usuario?.id
-            ? { ...m, leido: true }
+            ? { ...m, leido: true, entregado: true }
+            : m,
+        ),
+      );
+    });
+
+    // Mensaje entregado (uno solo)
+    socketInstance.on("mensaje_entregado", (data) => {
+      setMensajes((prev) =>
+        prev.map((m) =>
+          m.id === data.mensajeId ? { ...m, entregado: true } : m,
+        ),
+      );
+    });
+
+    // Mensajes entregados (varios)
+    socketInstance.on("mensajes_entregados", (data) => {
+      setMensajes((prev) =>
+        prev.map((m) =>
+          m.conversacionId === data.conversacionId &&
+          m.remitenteId === usuario?.id
+            ? { ...m, entregado: true }
             : m,
         ),
       );
@@ -440,6 +461,8 @@ export function ChatProvider({ children }) {
     (convId) => {
       if (socket && convId) {
         socket.emit("join_conversacion", convId);
+        // Marcar mensajes como entregados cuando entramos a la conversación
+        socket.emit("marcar_entregados", convId);
       }
     },
     [socket],

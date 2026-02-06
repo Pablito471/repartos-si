@@ -53,6 +53,60 @@ export function NotificacionProvider({ children }) {
 
   // Contexto de audio para generar sonidos
   const audioContextRef = useRef(null);
+  const beepAudioRef = useRef(null);
+  const audioInicializadoRef = useRef(false);
+
+  // Inicializar audio (llamar en primera interacción del usuario)
+  const inicializarAudio = useCallback(async () => {
+    if (typeof window === "undefined" || audioInicializadoRef.current) return;
+
+    try {
+      // Crear AudioContext
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext && !audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      // Reanudar si está suspendido
+      if (audioContextRef.current?.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
+
+      // Crear elemento Audio como fallback
+      if (!beepAudioRef.current) {
+        beepAudioRef.current = new Audio("/beep.wav");
+        beepAudioRef.current.volume = 0.8;
+        // Cargar el audio
+        beepAudioRef.current.load();
+      }
+
+      audioInicializadoRef.current = true;
+    } catch (e) {
+      console.warn("Error inicializando audio:", e);
+    }
+  }, []);
+
+  // Escuchar eventos de interacción para inicializar audio
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleInteraction = () => {
+      inicializarAudio();
+    };
+
+    // Eventos que indican interacción del usuario
+    const eventos = ["click", "touchstart", "keydown"];
+    eventos.forEach((e) =>
+      window.addEventListener(e, handleInteraction, {
+        once: true,
+        passive: true,
+      }),
+    );
+
+    return () => {
+      eventos.forEach((e) => window.removeEventListener(e, handleInteraction));
+    };
+  }, [inicializarAudio]);
 
   // Obtener o crear AudioContext
   const getAudioContext = useCallback(() => {
@@ -68,31 +122,68 @@ export function NotificacionProvider({ children }) {
 
   // Reproducir tono con Web Audio API
   const playTone = useCallback(
-    (frequency, duration, volume = 0.3, type = "sine") => {
+    async (frequency, duration, volume = 0.3, type = "sine") => {
       const ctx = getAudioContext();
-      if (!ctx) return;
 
-      // Reanudar contexto si está suspendido
-      if (ctx.state === "suspended") {
-        ctx.resume();
+      // Si no hay contexto, intentar con Audio HTML
+      if (!ctx) {
+        if (beepAudioRef.current) {
+          try {
+            beepAudioRef.current.currentTime = 0;
+            await beepAudioRef.current.play();
+          } catch (e) {
+            console.warn("Error reproduciendo audio fallback:", e);
+          }
+        }
+        return;
       }
 
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
+      // Reanudar contexto si está suspendido (crítico para móviles)
+      try {
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+      } catch (e) {
+        // Si falla, intentar con Audio HTML
+        if (beepAudioRef.current) {
+          try {
+            beepAudioRef.current.currentTime = 0;
+            await beepAudioRef.current.play();
+          } catch (e2) {
+            console.warn("Error reproduciendo audio fallback:", e2);
+          }
+        }
+        return;
+      }
 
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
+      try {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
 
-      oscillator.type = type;
-      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
 
-      // Fade in y fade out suave
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.05);
-      gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
 
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + duration);
+        // Fade in y fade out suave
+        gainNode.gain.setValueAtTime(0, ctx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.05);
+        gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + duration);
+      } catch (e) {
+        // Fallback a Audio HTML si Web Audio falla
+        if (beepAudioRef.current) {
+          try {
+            beepAudioRef.current.currentTime = 0;
+            await beepAudioRef.current.play();
+          } catch (e2) {
+            console.warn("Error reproduciendo audio fallback:", e2);
+          }
+        }
+      }
     },
     [getAudioContext],
   );
@@ -574,6 +665,7 @@ export function NotificacionProvider({ children }) {
     toggleSonido,
     toggleVibracion,
     playNotificationSound,
+    inicializarAudio,
     PRIORIDADES,
     CATEGORIAS,
   };
