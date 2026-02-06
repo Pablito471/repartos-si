@@ -160,7 +160,7 @@ export default function AdminChatWidget() {
         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
       >
         {abierto ? (
-          <Icons.Close className="w-6 h-6 sm:w-7 sm:h-7" />
+          <Icons.X className="w-6 h-6 sm:w-7 sm:h-7" />
         ) : (
           <>
             <Icons.ChatMultiple className="w-6 h-6 sm:w-7 sm:h-7" />

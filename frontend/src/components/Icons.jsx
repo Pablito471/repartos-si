@@ -39,6 +39,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
   SparklesIcon,
   ArrowPathIcon,
   InboxIcon,
@@ -243,6 +244,9 @@ const Icons = {
 
   // Altavoz silenciado
   SpeakerOff: SpeakerXMarkIcon,
+
+  // Chevron izquierda (volver)
+  ChevronLeft: ChevronLeftIcon,
 };
 
 export default Icons;

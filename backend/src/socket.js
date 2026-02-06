@@ -64,6 +64,66 @@ const initSocket = (server) => {
     // Unirse a sala personal
     socket.join(`user_${socket.user.id}`);
 
+    // Marcar todos los mensajes pendientes como entregados cuando el usuario se conecta
+    (async () => {
+      try {
+        // Buscar mensajes no entregados para este usuario
+        const mensajesPendientes = await Mensaje.findAll({
+          where: {
+            destinatarioId: socket.user.id,
+            entregado: false,
+          },
+          attributes: ["id", "conversacionId", "remitenteId"],
+        });
+
+        if (mensajesPendientes.length > 0) {
+          // Marcar como entregados
+          await Mensaje.update(
+            { entregado: true, fechaEntregado: new Date() },
+            {
+              where: {
+                destinatarioId: socket.user.id,
+                entregado: false,
+              },
+            },
+          );
+
+          // Agrupar por conversación y remitente para notificar
+          const conversaciones = [
+            ...new Set(mensajesPendientes.map((m) => m.conversacionId)),
+          ];
+          const remitentes = [
+            ...new Set(mensajesPendientes.map((m) => m.remitenteId)),
+          ];
+
+          // Notificar a cada remitente
+          remitentes.forEach((remitenteId) => {
+            const mensajesDeRemitente = mensajesPendientes.filter(
+              (m) => m.remitenteId === remitenteId,
+            );
+            mensajesDeRemitente.forEach((msg) => {
+              io.to(`user_${remitenteId}`).emit("mensaje_entregado", {
+                mensajeId: msg.id,
+                conversacionId: msg.conversacionId,
+              });
+            });
+          });
+
+          console.log(
+            `Marcados ${mensajesPendientes.length} mensajes como entregados para ${socket.user.nombre}`,
+          );
+        }
+      } catch (error) {
+        // Silenciar errores si las columnas no existen aún
+        if (!error.message?.includes("column")) {
+          console.error(
+            "Error al marcar mensajes pendientes como entregados:",
+            error,
+          );
+        }
+      }
+    })();
+
     // Unirse a salas según tipo de usuario
     if (socket.user.tipoUsuario === "admin") {
       socket.join("admins");
@@ -114,13 +174,18 @@ const initSocket = (server) => {
             ? conversacion.adminId
             : conversacion.usuarioId;
 
-        // Crear mensaje en DB
+        // Verificar si el destinatario está conectado ANTES de crear el mensaje
+        const destinatarioConectado = usuariosConectados.has(destinatarioId);
+
+        // Crear mensaje en DB con estado de entregado si el destinatario está conectado
         const mensaje = await Mensaje.create({
           conversacionId,
           remitenteId: socket.user.id,
           destinatarioId,
           contenido: contenido.trim(),
           tipo,
+          entregado: destinatarioConectado,
+          fechaEntregado: destinatarioConectado ? new Date() : null,
         });
 
         // Actualizar conversación
@@ -135,7 +200,7 @@ const initSocket = (server) => {
               }),
         });
 
-        // Obtener mensaje completo
+        // Obtener mensaje completo (ya con estado entregado correcto)
         const mensajeCompleto = await Mensaje.findByPk(mensaje.id, {
           include: [
             {
@@ -155,26 +220,6 @@ const initSocket = (server) => {
         // También emitir al remitente y destinatario directamente para asegurar entrega
         io.to(`user_${socket.user.id}`).emit("nuevo_mensaje", mensajeCompleto);
         io.to(`user_${destinatarioId}`).emit("nuevo_mensaje", mensajeCompleto);
-
-        // Si el destinatario está conectado, marcar como entregado
-        if (usuariosConectados.has(destinatarioId)) {
-          try {
-            await Mensaje.update(
-              { entregado: true, fechaEntregado: new Date() },
-              { where: { id: mensaje.id } },
-            );
-            // Notificar al remitente que el mensaje fue entregado
-            io.to(`user_${socket.user.id}`).emit("mensaje_entregado", {
-              mensajeId: mensaje.id,
-              conversacionId,
-            });
-          } catch (entregaError) {
-            console.log(
-              "Info: Campo entregado no disponible aún:",
-              entregaError.message,
-            );
-          }
-        }
 
         // Notificar al destinatario específicamente
         io.to(`user_${destinatarioId}`).emit("notificacion_mensaje", {

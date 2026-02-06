@@ -53,6 +53,14 @@ export function ChatProvider({ children }) {
   const peerConnectionRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
 
+  // Ref para la conversación actual (para acceder sincrónicamente en listeners)
+  const conversacionRef = useRef(null);
+
+  // Mantener el ref sincronizado con el estado
+  useEffect(() => {
+    conversacionRef.current = conversacion;
+  }, [conversacion]);
+
   // Obtener token desde localStorage
   const getToken = () => {
     if (typeof window !== "undefined") {
@@ -305,6 +313,16 @@ export function ChatProvider({ children }) {
         if (prev.find((m) => m.id === mensaje.id)) return prev;
         return [...prev, mensaje];
       });
+
+      // Solo marcar como leído si:
+      // 1. El mensaje es para mí
+      // 2. Estoy viendo esa conversación activamente
+      if (
+        mensaje.destinatarioId === usuario?.id &&
+        conversacionRef.current?.id === mensaje.conversacionId
+      ) {
+        socketInstance.emit("marcar_leidos", mensaje.conversacionId);
+      }
     });
 
     // Notificación de mensaje cuando no está en la conversación
@@ -608,6 +626,11 @@ export function ChatProvider({ children }) {
     if (!conversacion) return;
 
     try {
+      // Emitir evento de socket para actualización en tiempo real
+      if (socket) {
+        socket.emit("marcar_leidos", conversacion.id);
+      }
+
       await chatService.marcarLeidos(conversacion.id);
       setNoLeidos(0);
 
@@ -621,7 +644,7 @@ export function ChatProvider({ children }) {
     } catch (error) {
       console.error("Error al marcar como leídos:", error);
     }
-  }, [conversacion, usuario]);
+  }, [conversacion, usuario, socket]);
 
   // Salir de la conversación
   const salirConversacion = useCallback(() => {

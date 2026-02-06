@@ -500,7 +500,9 @@ export default function AdminChat() {
                         >
                           <span>{formatHora(msg.createdAt)}</span>
                           {msg.remitenteId === usuario.id && (
-                            <span>{msg.leido ? "✓✓" : "✓"}</span>
+                            <span className={msg.leido ? "text-sky-400" : ""}>
+                              {msg.leido ? "✓✓" : msg.entregado ? "✓✓" : "✓"}
+                            </span>
                           )}
                         </div>
                       </div>
