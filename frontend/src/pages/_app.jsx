@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ChatProvider } from "@/context/ChatContext";
 import { NotificacionProvider } from "@/context/NotificacionContext";
 import ChatWidget from "@/components/ChatWidget";
+import AdminChatWidget from "@/components/AdminChatWidget";
 import VideollamadaEntranteModal from "@/components/VideollamadaEntranteModal";
 
 export default function App({ Component, pageProps }) {
@@ -20,6 +21,7 @@ export default function App({ Component, pageProps }) {
                 <FleteProvider>
                   <Component {...pageProps} />
                   <ChatWidget />
+                  <AdminChatWidget />
                   <VideollamadaEntranteModal />
                 </FleteProvider>
               </DepositoProvider>
