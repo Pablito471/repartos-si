@@ -4,6 +4,7 @@ const {
   Usuario,
   StockCliente,
   PedidoProducto,
+  Producto,
   sequelize,
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
@@ -14,7 +15,19 @@ exports.crearEntrega = async (req, res, next) => {
     const { pedidoId } = req.body;
 
     const pedido = await Pedido.findByPk(pedidoId, {
-      include: [{ model: PedidoProducto, as: "productos" }],
+      include: [
+        {
+          model: PedidoProducto,
+          as: "productos",
+          include: [
+            {
+              model: Producto,
+              as: "producto",
+              attributes: ["id", "codigo", "categoria", "imagen"],
+            },
+          ],
+        },
+      ],
     });
 
     if (!pedido) {
@@ -49,11 +62,14 @@ exports.crearEntrega = async (req, res, next) => {
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     const codigoEntrega = `ENT-${pedido.numero || pedido.id.substring(0, 8)}-${timestamp}-${random}`;
 
-    // Preparar productos
+    // Preparar productos con código de barras
     const productos = pedido.productos.map((p) => ({
       nombre: p.nombre,
       cantidad: p.cantidad,
       precio: parseFloat(p.precioUnitario),
+      codigoBarras: p.producto?.codigo || null,
+      categoria: p.producto?.categoria || "General",
+      imagen: p.producto?.imagen || null,
     }));
 
     const entrega = await Entrega.create({
@@ -154,7 +170,7 @@ exports.confirmarEntrega = async (req, res, next) => {
           { transaction: t },
         );
       } else {
-        // Crear nuevo registro de stock
+        // Crear nuevo registro de stock con código de barras
         await StockCliente.create(
           {
             clienteId: entrega.clienteId,
@@ -162,6 +178,9 @@ exports.confirmarEntrega = async (req, res, next) => {
             cantidad: producto.cantidad,
             precio: producto.precio,
             entregaId: entrega.id,
+            codigoBarras: producto.codigoBarras || null,
+            categoria: producto.categoria || "General",
+            imagen: producto.imagen || null,
           },
           { transaction: t },
         );

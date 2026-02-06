@@ -117,6 +117,12 @@ exports.actualizarPerfil = async (req, res, next) => {
       capacidadMaxima,
       alertaStockMinimo,
       descripcion,
+      // Campos de vehículo para fletes
+      vehiculoTipo,
+      vehiculoPatente,
+      vehiculoCapacidad,
+      licenciaTipo,
+      licenciaVencimiento,
     } = req.body;
 
     // Construir objeto con solo los campos que vienen definidos
@@ -138,6 +144,15 @@ exports.actualizarPerfil = async (req, res, next) => {
     if (alertaStockMinimo !== undefined)
       datosActualizar.alertaStockMinimo = alertaStockMinimo;
     if (descripcion !== undefined) datosActualizar.descripcion = descripcion;
+    // Campos de vehículo para fletes
+    if (vehiculoTipo !== undefined) datosActualizar.vehiculoTipo = vehiculoTipo;
+    if (vehiculoPatente !== undefined)
+      datosActualizar.vehiculoPatente = vehiculoPatente;
+    if (vehiculoCapacidad !== undefined)
+      datosActualizar.vehiculoCapacidad = vehiculoCapacidad;
+    if (licenciaTipo !== undefined) datosActualizar.licenciaTipo = licenciaTipo;
+    if (licenciaVencimiento !== undefined)
+      datosActualizar.licenciaVencimiento = licenciaVencimiento;
 
     await req.usuario.update(datosActualizar);
 

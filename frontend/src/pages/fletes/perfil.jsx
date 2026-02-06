@@ -21,7 +21,11 @@ export default function PerfilFlete() {
     telefono: usuario?.telefono || "",
     direccion: usuario?.direccion || "",
     email: usuario?.email || "",
-    licencia: usuario?.licencia || "",
+    licenciaTipo: usuario?.licenciaTipo || usuario?.licencia || "",
+    licenciaVencimiento: usuario?.licenciaVencimiento || "",
+    vehiculoTipo: usuario?.vehiculoTipo || "",
+    vehiculoPatente: usuario?.vehiculoPatente || "",
+    vehiculoCapacidad: usuario?.vehiculoCapacidad || "",
     disponibilidad: usuario?.disponibilidad || "completa",
     horarioInicio: usuario?.horarioInicio || "07:00",
     horarioFin: usuario?.horarioFin || "20:00",
@@ -57,6 +61,15 @@ export default function PerfilFlete() {
     { value: "C", label: "C - Camiones" },
     { value: "D", label: "D - Transporte de pasajeros" },
     { value: "E", label: "E - Vehículos pesados" },
+  ];
+
+  const tiposVehiculo = [
+    { value: "moto", label: "Moto" },
+    { value: "auto", label: "Auto" },
+    { value: "camioneta", label: "Camioneta" },
+    { value: "utilitario", label: "Utilitario" },
+    { value: "camion_chico", label: "Camión Chico" },
+    { value: "camion", label: "Camión" },
   ];
 
   const handleFotoChange = (e) => {
@@ -231,7 +244,19 @@ export default function PerfilFlete() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Licencia:</span>
                   <span className="font-medium">
-                    {usuario.licencia || "No especificada"}
+                    {usuario.licenciaTipo || "No especificada"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Vehículo:</span>
+                  <span className="font-medium capitalize">
+                    {usuario.vehiculoTipo || "No especificado"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Patente:</span>
+                  <span className="font-medium uppercase">
+                    {usuario.vehiculoPatente || "-"}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -327,11 +352,11 @@ export default function PerfilFlete() {
                       </label>
                       {editando ? (
                         <select
-                          value={formPerfil.licencia}
+                          value={formPerfil.licenciaTipo}
                           onChange={(e) =>
                             setFormPerfil({
                               ...formPerfil,
-                              licencia: e.target.value,
+                              licenciaTipo: e.target.value,
                             })
                           }
                           className="input-field w-full"
@@ -346,10 +371,122 @@ export default function PerfilFlete() {
                       ) : (
                         <p className="p-3 bg-gray-50 rounded-lg">
                           {tiposLicencia.find(
-                            (l) => l.value === usuario.licencia,
+                            (l) => l.value === usuario.licenciaTipo,
                           )?.label ||
-                            usuario.licencia ||
+                            usuario.licenciaTipo ||
                             "No especificada"}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Vencimiento de Licencia
+                      </label>
+                      {editando ? (
+                        <input
+                          type="date"
+                          value={formPerfil.licenciaVencimiento}
+                          onChange={(e) =>
+                            setFormPerfil({
+                              ...formPerfil,
+                              licenciaVencimiento: e.target.value,
+                            })
+                          }
+                          className="input-field w-full"
+                        />
+                      ) : (
+                        <p className="p-3 bg-gray-50 rounded-lg">
+                          {usuario.licenciaVencimiento
+                            ? new Date(
+                                usuario.licenciaVencimiento,
+                              ).toLocaleDateString()
+                            : "No especificado"}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo de Vehículo
+                      </label>
+                      {editando ? (
+                        <select
+                          value={formPerfil.vehiculoTipo}
+                          onChange={(e) =>
+                            setFormPerfil({
+                              ...formPerfil,
+                              vehiculoTipo: e.target.value,
+                            })
+                          }
+                          className="input-field w-full"
+                        >
+                          <option value="">Seleccionar...</option>
+                          {tiposVehiculo.map((v) => (
+                            <option key={v.value} value={v.value}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="p-3 bg-gray-50 rounded-lg capitalize">
+                          {tiposVehiculo.find(
+                            (v) => v.value === usuario.vehiculoTipo,
+                          )?.label ||
+                            usuario.vehiculoTipo ||
+                            "No especificado"}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Patente del Vehículo
+                      </label>
+                      {editando ? (
+                        <input
+                          type="text"
+                          value={formPerfil.vehiculoPatente}
+                          onChange={(e) =>
+                            setFormPerfil({
+                              ...formPerfil,
+                              vehiculoPatente: e.target.value.toUpperCase(),
+                            })
+                          }
+                          placeholder="Ej: ABC123"
+                          className="input-field w-full uppercase"
+                          maxLength={7}
+                        />
+                      ) : (
+                        <p className="p-3 bg-gray-50 rounded-lg uppercase">
+                          {usuario.vehiculoPatente || "No especificada"}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Capacidad del Vehículo (kg)
+                      </label>
+                      {editando ? (
+                        <input
+                          type="number"
+                          value={formPerfil.vehiculoCapacidad}
+                          onChange={(e) =>
+                            setFormPerfil({
+                              ...formPerfil,
+                              vehiculoCapacidad: e.target.value,
+                            })
+                          }
+                          placeholder="Ej: 500"
+                          className="input-field w-full"
+                          min="0"
+                        />
+                      ) : (
+                        <p className="p-3 bg-gray-50 rounded-lg">
+                          {usuario.vehiculoCapacidad
+                            ? `${usuario.vehiculoCapacidad} kg`
+                            : "No especificada"}
                         </p>
                       )}
                     </div>

@@ -300,6 +300,26 @@ export default function FleteRuta() {
                           <p className="text-gray-600 text-sm">
                             {envio.direccion}
                           </p>
+
+                          {/* Productos del envío */}
+                          {envio.productos && envio.productos.length > 0 && (
+                            <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                              <p className="text-xs font-medium text-gray-500 mb-1">
+                                📦 Productos:
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {envio.productos.map((prod, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="text-xs bg-white px-2 py-1 rounded border"
+                                  >
+                                    {prod.cantidad}x {prod.nombre}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex gap-4 mt-2 text-xs text-gray-500">
                             <span>🏪 {envio.deposito}</span>
                             <span>🕐 {envio.horarioEntrega}</span>
@@ -350,23 +370,42 @@ export default function FleteRuta() {
                 {enviosOrdenados.map((envio, index) => (
                   <div
                     key={envio.id}
-                    className={`card flex items-center gap-4 ${
+                    className={`card ${
                       envio.estado === "entregado" ? "opacity-50" : ""
                     }`}
                   >
-                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-600">
-                      {index + 1}
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-600">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">{envio.cliente}</p>
+                        <p className="text-sm text-gray-500">
+                          {envio.direccion}
+                        </p>
+                      </div>
+                      <span className="text-xl">
+                        {getEstadoIcon(envio.estado)}
+                      </span>
+                      <span className="font-bold text-green-600">
+                        ${formatNumber(envio.total)}
+                      </span>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{envio.cliente}</p>
-                      <p className="text-sm text-gray-500">{envio.direccion}</p>
-                    </div>
-                    <span className="text-xl">
-                      {getEstadoIcon(envio.estado)}
-                    </span>
-                    <span className="font-bold text-green-600">
-                      ${formatNumber(envio.total)}
-                    </span>
+                    {/* Productos en vista lista */}
+                    {envio.productos && envio.productos.length > 0 && (
+                      <div className="mt-2 ml-14 p-2 bg-gray-50 rounded">
+                        <div className="flex flex-wrap gap-1">
+                          {envio.productos.map((prod, idx) => (
+                            <span
+                              key={idx}
+                              className="text-xs bg-white px-2 py-1 rounded border"
+                            >
+                              {prod.cantidad}x {prod.nombre}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

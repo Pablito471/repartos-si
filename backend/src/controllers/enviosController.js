@@ -4,6 +4,7 @@ const {
   Usuario,
   PedidoProducto,
   StockCliente,
+  Producto,
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
@@ -288,12 +289,19 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
         });
 
         if (!yaAgregado) {
-          // Obtener los productos del pedido
+          // Obtener los productos del pedido con el producto original para el código de barras
           const productos = await PedidoProducto.findAll({
             where: { pedidoId: envio.pedido.id },
+            include: [
+              {
+                model: Producto,
+                as: "producto",
+                attributes: ["id", "codigo", "categoria", "imagen"],
+              },
+            ],
           });
 
-          // Agregar cada producto al stock del cliente
+          // Agregar cada producto al stock del cliente con código de barras
           for (const producto of productos) {
             await StockCliente.create({
               clienteId: envio.pedido.clienteId,
@@ -301,6 +309,9 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
               cantidad: producto.cantidad,
               precio: producto.precioUnitario,
               pedidoId: envio.pedido.id,
+              codigoBarras: producto.producto?.codigo || null,
+              categoria: producto.producto?.categoria || "General",
+              imagen: producto.producto?.imagen || null,
             });
           }
           console.log(

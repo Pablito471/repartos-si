@@ -23,6 +23,23 @@ export function FleteProvider({ children }) {
   const [cargandoEnvios, setCargandoEnvios] = useState(true);
   const [cargandoMovimientos, setCargandoMovimientos] = useState(true);
 
+  // Cargar datos del vehículo desde el usuario
+  useEffect(() => {
+    if (usuario && usuario.tipoUsuario === "flete") {
+      setVehiculo({
+        tipo: usuario.vehiculoTipo || "No especificado",
+        marca: usuario.vehiculoTipo || "Vehículo",
+        modelo: "",
+        patente: usuario.vehiculoPatente || "Sin patente",
+        capacidad: usuario.vehiculoCapacidad || "No especificada",
+        estado: "operativo",
+        kmActual: 0,
+        licenciaTipo: usuario.licenciaTipo || "No especificada",
+        licenciaVencimiento: usuario.licenciaVencimiento || null,
+      });
+    }
+  }, [usuario]);
+
   // Cargar movimientos contables del flete desde el backend
   useEffect(() => {
     const cargarMovimientos = async () => {
@@ -100,9 +117,7 @@ export function FleteProvider({ children }) {
             fechaAsignacion:
               envio.createdAt?.split("T")[0] ||
               new Date().toISOString().split("T")[0],
-            fechaEntrega:
-              envio.fechaEstimada?.split("T")[0] ||
-              new Date().toISOString().split("T")[0],
+            fechaEntrega: envio.fechaEstimada?.split("T")[0] || null,
             horarioEntrega: envio.fechaEstimada
               ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
                   hour: "2-digit",
@@ -162,9 +177,7 @@ export function FleteProvider({ children }) {
           fechaAsignacion:
             envio.createdAt?.split("T")[0] ||
             new Date().toISOString().split("T")[0],
-          fechaEntrega:
-            envio.fechaEstimada?.split("T")[0] ||
-            new Date().toISOString().split("T")[0],
+          fechaEntrega: envio.fechaEstimada?.split("T")[0] || null,
           horarioEntrega: envio.fechaEstimada
             ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
                 hour: "2-digit",
@@ -237,10 +250,18 @@ export function FleteProvider({ children }) {
     return envios.filter((e) => e.estado === estado);
   };
 
-  // Obtener envíos del día
+  // Obtener envíos del día (incluye pendientes y en camino sin importar fecha)
   const getEnviosDelDia = () => {
     const hoy = new Date().toISOString().split("T")[0];
-    return envios.filter((e) => e.fechaEntrega === hoy);
+    return envios.filter((e) => {
+      // Mostrar todos los envíos pendientes o en camino (son entregas activas)
+      if (e.estado === "pendiente" || e.estado === "en_camino") return true;
+      // Si tiene fechaEntrega y es hoy, mostrar (incluye entregados de hoy)
+      if (e.fechaEntrega && e.fechaEntrega === hoy) return true;
+      // Si fue asignado hoy
+      if (e.fechaAsignacion === hoy) return true;
+      return false;
+    });
   };
 
   // Obtener envíos pendientes

@@ -4,6 +4,7 @@ const {
   Pedido,
   PedidoProducto,
   Movimiento,
+  Producto,
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
@@ -127,12 +128,19 @@ exports.agregarDesdePedido = async (req, res, next) => {
   try {
     const { pedidoId } = req.params;
 
-    // Buscar el pedido con sus productos
+    // Buscar el pedido con sus productos e incluir el producto original para obtener el código
     const pedido = await Pedido.findByPk(pedidoId, {
       include: [
         {
           model: PedidoProducto,
           as: "productos",
+          include: [
+            {
+              model: Producto,
+              as: "producto",
+              attributes: ["id", "codigo", "categoria", "imagen"],
+            },
+          ],
         },
       ],
     });
@@ -175,6 +183,10 @@ exports.agregarDesdePedido = async (req, res, next) => {
         cantidad: producto.cantidad,
         precio: producto.precioUnitario,
         pedidoId: pedidoId,
+        // Agregar código de barras del producto original si existe
+        codigoBarras: producto.producto?.codigo || null,
+        categoria: producto.producto?.categoria || "General",
+        imagen: producto.producto?.imagen || null,
       });
       productosAgregados.push(stockItem);
     }

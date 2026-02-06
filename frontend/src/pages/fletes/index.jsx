@@ -312,43 +312,70 @@ export default function FleteDashboard() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {enviosHoy.map((envio) => (
                   <div
                     key={envio.id}
-                    className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg"
+                    className="p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div
-                        className={`w-2 h-10 rounded-full ${
-                          envio.prioridad === "alta"
-                            ? "bg-red-500"
-                            : envio.prioridad === "media"
-                              ? "bg-yellow-500"
-                              : "bg-green-500"
-                        }`}
-                      ></div>
-                      <div>
-                        <p className="font-medium text-neutral-800 dark:text-neutral-100">
-                          {envio.cliente}
-                        </p>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                          {envio.direccion}
-                        </p>
-                        <p className="text-xs text-neutral-400 dark:text-neutral-500">
-                          {envio.horarioEntrega}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3">
+                        <div
+                          className={`w-2 h-full min-h-[60px] rounded-full ${
+                            envio.prioridad === "alta"
+                              ? "bg-red-500"
+                              : envio.prioridad === "media"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
+                          }`}
+                        ></div>
+                        <div>
+                          <p className="font-medium text-neutral-800 dark:text-neutral-100">
+                            {envio.cliente}
+                          </p>
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                            📍 {envio.direccion}
+                          </p>
+                          <p className="text-xs text-neutral-400 dark:text-neutral-500">
+                            🏪 {envio.deposito} • 🕐 {envio.horarioEntrega}
+                          </p>
+                          {/* Productos del envío */}
+                          {envio.productos && envio.productos.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs text-neutral-500 mb-1">
+                                📦 Productos:
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {envio.productos
+                                  .slice(0, 3)
+                                  .map((prod, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="text-xs bg-white dark:bg-neutral-600 px-2 py-0.5 rounded border dark:border-neutral-500"
+                                    >
+                                      {prod.cantidad}x {prod.nombre}
+                                    </span>
+                                  ))}
+                                {envio.productos.length > 3 && (
+                                  <span className="text-xs text-neutral-400">
+                                    +{envio.productos.length - 3} más
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(envio.estado)}`}
+                        >
+                          {getEstadoTexto(envio.estado)}
+                        </span>
+                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mt-1">
+                          ${formatNumber(envio.total)}
                         </p>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(envio.estado)}`}
-                      >
-                        {getEstadoTexto(envio.estado)}
-                      </span>
-                      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mt-1">
-                        ${formatNumber(envio.total)}
-                      </p>
                     </div>
                   </div>
                 ))}
@@ -363,55 +390,94 @@ export default function FleteDashboard() {
               <h3 className="font-semibold text-neutral-800 dark:text-neutral-100 mb-4">
                 Mi Vehículo
               </h3>
-              {vehiculo ? (
+              {vehiculo || usuario?.vehiculoTipo ? (
                 <>
                   <div className="flex items-center space-x-4 mb-4">
                     <div className="w-16 h-16 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
-                      <span className="text-3xl">🚚</span>
+                      <span className="text-3xl">
+                        {(vehiculo?.tipo || usuario?.vehiculoTipo) === "moto"
+                          ? "🏍️"
+                          : (vehiculo?.tipo || usuario?.vehiculoTipo) === "auto"
+                            ? "🚗"
+                            : (vehiculo?.tipo || usuario?.vehiculoTipo) ===
+                                "camioneta"
+                              ? "🛻"
+                              : "🚚"}
+                      </span>
                     </div>
                     <div>
-                      <p className="font-medium text-neutral-800 dark:text-neutral-100">
-                        {vehiculo.marca} {vehiculo.modelo}
+                      <p className="font-medium text-neutral-800 dark:text-neutral-100 capitalize">
+                        {vehiculo?.tipo || usuario?.vehiculoTipo || "Vehículo"}
                       </p>
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        {vehiculo.patente}
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400 uppercase">
+                        {vehiculo?.patente ||
+                          usuario?.vehiculoPatente ||
+                          "Sin patente"}
                       </p>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          vehiculo.estado === "operativo"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        }`}
-                      >
-                        {vehiculo.estado === "operativo"
-                          ? "Operativo"
-                          : "En mantenimiento"}
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        Operativo
                       </span>
                     </div>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-neutral-500 dark:text-neutral-400">
-                        Kilometraje:
+                        Capacidad:
                       </span>
                       <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                        {formatNumber(vehiculo.kmActual)} km
+                        {vehiculo?.capacidad ||
+                          usuario?.vehiculoCapacidad ||
+                          "No especificada"}{" "}
+                        {vehiculo?.capacidad || usuario?.vehiculoCapacidad
+                          ? "kg"
+                          : ""}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-neutral-500 dark:text-neutral-400">
-                        Capacidad:
+                        Licencia:
                       </span>
                       <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                        {vehiculo.capacidad}
+                        {vehiculo?.licenciaTipo ||
+                          usuario?.licenciaTipo ||
+                          "No especificada"}
                       </span>
                     </div>
+                    {(vehiculo?.licenciaVencimiento ||
+                      usuario?.licenciaVencimiento) && (
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500 dark:text-neutral-400">
+                          Vence:
+                        </span>
+                        <span
+                          className={`font-medium ${
+                            new Date(
+                              vehiculo?.licenciaVencimiento ||
+                                usuario?.licenciaVencimiento,
+                            ) < new Date()
+                              ? "text-red-500"
+                              : "text-green-500"
+                          }`}
+                        >
+                          {new Date(
+                            vehiculo?.licenciaVencimiento ||
+                              usuario?.licenciaVencimiento,
+                          ).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
                 <div className="text-center py-6 text-neutral-500 dark:text-neutral-400">
                   <span className="text-4xl block mb-2">🚚</span>
-                  <p>No tienes un vehículo asignado</p>
+                  <p>No tienes datos de vehículo configurados</p>
+                  <Link
+                    href="/fletes/perfil"
+                    className="text-primary-500 hover:underline text-sm mt-2 inline-block"
+                  >
+                    Configurar vehículo
+                  </Link>
                 </div>
               )}
             </div>
