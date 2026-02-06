@@ -156,6 +156,19 @@ const initSocket = (server) => {
         io.to(`user_${socket.user.id}`).emit("nuevo_mensaje", mensajeCompleto);
         io.to(`user_${destinatarioId}`).emit("nuevo_mensaje", mensajeCompleto);
 
+        // Si el destinatario está conectado, marcar como entregado
+        if (usuariosConectados.has(destinatarioId)) {
+          await Mensaje.update(
+            { entregado: true, fechaEntregado: new Date() },
+            { where: { id: mensaje.id } },
+          );
+          // Notificar al remitente que el mensaje fue entregado
+          io.to(`user_${socket.user.id}`).emit("mensaje_entregado", {
+            mensajeId: mensaje.id,
+            conversacionId,
+          });
+        }
+
         // Notificar al destinatario específicamente
         io.to(`user_${destinatarioId}`).emit("notificacion_mensaje", {
           conversacionId,
@@ -189,11 +202,45 @@ const initSocket = (server) => {
         });
     });
 
+    // Marcar mensajes como entregados (cuando el usuario se conecta o recibe mensaje)
+    socket.on("marcar_entregados", async (conversacionId) => {
+      try {
+        const mensajesActualizados = await Mensaje.update(
+          { entregado: true, fechaEntregado: new Date() },
+          {
+            where: {
+              conversacionId,
+              destinatarioId: socket.user.id,
+              entregado: false,
+            },
+          },
+        );
+
+        if (mensajesActualizados[0] > 0) {
+          // Notificar a los remitentes que sus mensajes fueron entregados
+          socket
+            .to(`conversacion_${conversacionId}`)
+            .emit("mensajes_entregados", {
+              conversacionId,
+              destinatarioId: socket.user.id,
+            });
+        }
+      } catch (error) {
+        console.error("Error al marcar mensajes entregados:", error);
+      }
+    });
+
     // Marcar mensajes como leídos
     socket.on("marcar_leidos", async (conversacionId) => {
       try {
+        // También marcar como entregados si no lo estaban
         await Mensaje.update(
-          { leido: true, fechaLeido: new Date() },
+          {
+            entregado: true,
+            fechaEntregado: new Date(),
+            leido: true,
+            fechaLeido: new Date(),
+          },
           {
             where: {
               conversacionId,

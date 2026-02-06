@@ -37,6 +37,14 @@ const Mensaje = sequelize.define(
       type: DataTypes.ENUM("texto", "imagen", "archivo"),
       defaultValue: "texto",
     },
+    entregado: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    fechaEntregado: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     leido: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
