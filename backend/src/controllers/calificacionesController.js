@@ -1,4 +1,10 @@
-const { Calificacion, Usuario, Pedido, sequelize } = require("../models");
+const {
+  Calificacion,
+  Usuario,
+  Pedido,
+  Envio,
+  sequelize,
+} = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
 
@@ -337,39 +343,111 @@ exports.getPendientesCalificar = async (req, res, next) => {
     const tipoUsuario = req.usuario.tipoUsuario;
 
     // Buscar pedidos entregados donde el usuario participó
-    const whereClause = { estado: "entregado" };
+    let pedidosEntregados;
 
     if (tipoUsuario === "cliente") {
-      whereClause.clienteId = usuarioId;
+      pedidosEntregados = await Pedido.findAll({
+        where: { estado: "entregado", clienteId: usuarioId },
+        include: [
+          {
+            model: Usuario,
+            as: "cliente",
+            attributes: ["id", "nombre", "tipoUsuario", "foto"],
+          },
+          {
+            model: Usuario,
+            as: "deposito",
+            attributes: ["id", "nombre", "tipoUsuario", "foto"],
+          },
+          {
+            model: Envio,
+            as: "envio",
+            required: false,
+            include: [
+              {
+                model: Usuario,
+                as: "flete",
+                attributes: ["id", "nombre", "tipoUsuario", "foto"],
+                required: false,
+              },
+            ],
+          },
+        ],
+        order: [["updatedAt", "DESC"]],
+        limit: 50,
+      });
     } else if (tipoUsuario === "deposito") {
-      whereClause.depositoId = usuarioId;
+      pedidosEntregados = await Pedido.findAll({
+        where: { estado: "entregado", depositoId: usuarioId },
+        include: [
+          {
+            model: Usuario,
+            as: "cliente",
+            attributes: ["id", "nombre", "tipoUsuario", "foto"],
+          },
+          {
+            model: Usuario,
+            as: "deposito",
+            attributes: ["id", "nombre", "tipoUsuario", "foto"],
+          },
+          {
+            model: Envio,
+            as: "envio",
+            required: false,
+            include: [
+              {
+                model: Usuario,
+                as: "flete",
+                attributes: ["id", "nombre", "tipoUsuario", "foto"],
+                required: false,
+              },
+            ],
+          },
+        ],
+        order: [["updatedAt", "DESC"]],
+        limit: 50,
+      });
     } else if (tipoUsuario === "flete") {
-      whereClause.fleteId = usuarioId;
-    }
+      // Para flete, buscar a través de la tabla Envio
+      const envios = await Envio.findAll({
+        where: { fleteId: usuarioId },
+        attributes: ["pedidoId"],
+      });
+      const pedidoIds = envios.map((e) => e.pedidoId);
 
-    const pedidosEntregados = await Pedido.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: Usuario,
-          as: "cliente",
-          attributes: ["id", "nombre", "tipoUsuario", "foto"],
-        },
-        {
-          model: Usuario,
-          as: "deposito",
-          attributes: ["id", "nombre", "tipoUsuario", "foto"],
-        },
-        {
-          model: Usuario,
-          as: "flete",
-          attributes: ["id", "nombre", "tipoUsuario", "foto"],
-          required: false,
-        },
-      ],
-      order: [["updatedAt", "DESC"]],
-      limit: 50,
-    });
+      pedidosEntregados = await Pedido.findAll({
+        where: { estado: "entregado", id: { [Op.in]: pedidoIds } },
+        include: [
+          {
+            model: Usuario,
+            as: "cliente",
+            attributes: ["id", "nombre", "tipoUsuario", "foto"],
+          },
+          {
+            model: Usuario,
+            as: "deposito",
+            attributes: ["id", "nombre", "tipoUsuario", "foto"],
+          },
+          {
+            model: Envio,
+            as: "envio",
+            required: false,
+            include: [
+              {
+                model: Usuario,
+                as: "flete",
+                attributes: ["id", "nombre", "tipoUsuario", "foto"],
+                required: false,
+              },
+            ],
+          },
+        ],
+        order: [["updatedAt", "DESC"]],
+        limit: 50,
+      });
+    } else {
+      pedidosEntregados = [];
+    }
 
     // Obtener las calificaciones ya hechas por este usuario
     const calificacionesHechas = await Calificacion.findAll({
@@ -412,11 +490,12 @@ exports.getPendientesCalificar = async (req, res, next) => {
       }
 
       // Agregar flete si existe y no es el usuario actual
-      if (pedido.flete && pedido.flete.id !== usuarioId) {
-        const key = `${pedido.flete.id}-${pedido.id}`;
+      const flete = pedido.envio?.flete;
+      if (flete && flete.id !== usuarioId) {
+        const key = `${flete.id}-${pedido.id}`;
         if (!calificacionesMap.has(key)) {
           participantes.push({
-            usuario: pedido.flete,
+            usuario: flete,
             rol: "flete",
           });
         }
