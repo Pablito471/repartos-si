@@ -149,12 +149,26 @@ export default function CalendarioContabilidad({
     return { inicio, fin };
   };
 
+  // Helper para obtener fecha local normalizada (YYYY-MM-DD)
+  const getFechaLocal = (fecha) => {
+    if (!fecha) return "";
+    // Si ya es un string YYYY-MM-DD, devolverlo directamente
+    if (typeof fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      return fecha;
+    }
+    // Si es un Date object o ISO string, extraer fecha local
+    const d = new Date(fecha);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
   // Filtrar movimientos por rango
   const movimientosFiltrados = useMemo(() => {
     const { inicio, fin } = getRangoFechas();
+    const inicioStr = getFechaLocal(inicio);
+    const finStr = getFechaLocal(fin);
     return movimientos.filter((mov) => {
-      const fechaMov = new Date(mov.fecha);
-      return fechaMov >= inicio && fechaMov <= fin;
+      const fechaMov = getFechaLocal(mov.fecha || mov.createdAt);
+      return fechaMov >= inicioStr && fechaMov <= finStr;
     });
   }, [movimientos, fechaActual, vista]);
 
@@ -221,14 +235,11 @@ export default function CalendarioContabilidad({
 
   // Obtener movimientos de un día específico
   const getMovimientosDia = (fecha) => {
-    const inicio = new Date(fecha);
-    inicio.setHours(0, 0, 0, 0);
-    const fin = new Date(fecha);
-    fin.setHours(23, 59, 59, 999);
+    const fechaObjetivo = getFechaLocal(fecha);
 
     return movimientos.filter((mov) => {
-      const fechaMov = new Date(mov.fecha);
-      return fechaMov >= inicio && fechaMov <= fin;
+      const fechaMov = getFechaLocal(mov.fecha || mov.createdAt);
+      return fechaMov === fechaObjetivo;
     });
   };
 
@@ -272,10 +283,12 @@ export default function CalendarioContabilidad({
     for (let mes = 0; mes < 12; mes++) {
       const inicio = new Date(year, mes, 1);
       const fin = new Date(year, mes + 1, 0);
+      const inicioStr = getFechaLocal(inicio);
+      const finStr = getFechaLocal(fin);
 
       const movsMes = movimientos.filter((mov) => {
-        const fechaMov = new Date(mov.fecha);
-        return fechaMov >= inicio && fechaMov <= fin;
+        const fechaMov = getFechaLocal(mov.fecha || mov.createdAt);
+        return fechaMov >= inicioStr && fechaMov <= finStr;
       });
 
       const ingresos = movsMes

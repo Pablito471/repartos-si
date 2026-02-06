@@ -1746,6 +1746,7 @@ export default function EscanerStock() {
               <button
                 onClick={() => {
                   setProductoConsultado(null);
+                  setModoConsulta(false);
                   // Reiniciar escáner
                   if (!modoManual) {
                     setEscaneando(false);
@@ -1753,6 +1754,19 @@ export default function EscanerStock() {
                   }
                 }}
                 className="flex-1 py-3 px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                ✕ Cerrar
+              </button>
+              <button
+                onClick={() => {
+                  setProductoConsultado(null);
+                  // Reiniciar escáner (mantener modo consulta)
+                  if (!modoManual) {
+                    setEscaneando(false);
+                    setTimeout(() => setEscaneando(true), 100);
+                  }
+                }}
+                className="flex-1 py-3 px-4 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg font-medium hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
               >
                 🔍 Consultar otro
               </button>

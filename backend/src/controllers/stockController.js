@@ -258,6 +258,9 @@ exports.agregarProducto = async (req, res, next) => {
       throw new AppError("Nombre y cantidad son requeridos", 400);
     }
 
+    // Normalizar nombre a mayúsculas
+    const nombreMayusculas = nombre.trim().toUpperCase();
+
     // Si tiene código de barras, verificar que no exista ya para este cliente
     if (codigoBarras) {
       const codigoExistente = await StockCliente.findOne({
