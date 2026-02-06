@@ -60,33 +60,51 @@ export default function EscanerDeposito() {
 
   // Referencia para el elemento de audio
   const beepAudioRef = useRef(null);
+  const audioContextRef = useRef(null);
 
-  // Función para inicializar el audio (llamar en interacción del usuario)
+  // Función para inicializar el audio (DEBE llamarse en interacción del usuario)
   const inicializarAudio = useCallback(async () => {
     try {
-      // Crear y precargar el elemento de audio desde archivo
+      console.log("🔊 Inicializando audio...");
+
+      // 1. Crear AudioContext y desbloquearlo
+      if (!audioContextRef.current) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioContextRef.current = new AudioContext();
+      }
+
+      if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
+        console.log("🔊 AudioContext desbloqueado");
+      }
+
+      // 2. Reproducir un beep silencioso para desbloquear el audio
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.001; // Casi silencioso
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.01);
+
+      // 3. Crear elemento audio y precargarlo
       if (!beepAudioRef.current) {
         const audio = new Audio("/beep.wav");
         audio.volume = 1.0;
         audio.preload = "auto";
-        audio.load(); // Forzar precarga
         beepAudioRef.current = audio;
 
-        // Intentar reproducir silenciosamente para desbloquear en móviles
-        audio.muted = true;
-        try {
-          const playPromise = audio.play();
-          if (playPromise) {
-            await playPromise;
-          }
-          audio.pause();
-          audio.currentTime = 0;
-          audio.muted = false;
-          console.log("🔊 Audio desbloqueado y listo");
-        } catch (e) {
-          console.log("Audio se desbloqueará en primera reproducción");
-        }
+        // Cargar el audio
+        await new Promise((resolve) => {
+          audio.addEventListener("canplaythrough", resolve, { once: true });
+          audio.addEventListener("error", resolve, { once: true });
+          audio.load();
+          setTimeout(resolve, 1000); // Timeout de seguridad
+        });
       }
+
+      console.log("🔊 Audio inicializado completamente");
     } catch (err) {
       console.log("Error al inicializar audio:", err);
     }
@@ -96,64 +114,64 @@ export default function EscanerDeposito() {
   const reproducirSonidoEscaneo = useCallback(async () => {
     console.log("🔊 Reproduciendo beep...");
 
-    // Método principal: Usar el archivo de audio precargado
+    // Método 1: Web Audio API (más confiable en móviles)
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      let ctx = audioContextRef.current;
+
+      if (!ctx) {
+        ctx = new AudioContext();
+        audioContextRef.current = ctx;
+      }
+
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
+
+      // Crear beep fuerte
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      // Configuración para sonido fuerte tipo escáner
+      oscillator.frequency.value = 1500;
+      oscillator.type = "square";
+      gainNode.gain.setValueAtTime(1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.15);
+
+      console.log("🔊 Beep Web Audio OK");
+      return;
+    } catch (e) {
+      console.log("Web Audio falló:", e);
+    }
+
+    // Método 2: Audio HTML5 precargado
     if (beepAudioRef.current) {
       try {
-        beepAudioRef.current.currentTime = 0;
-        beepAudioRef.current.volume = 1.0;
-        beepAudioRef.current.muted = false;
-        const playPromise = beepAudioRef.current.play();
-        if (playPromise) {
-          await playPromise;
-        }
-        console.log("🔊 Beep reproducido OK");
+        const audio = beepAudioRef.current;
+        audio.currentTime = 0;
+        audio.volume = 1.0;
+        await audio.play();
+        console.log("🔊 Beep HTML5 OK");
         return;
       } catch (e) {
-        console.log("Error con audio precargado:", e);
+        console.log("Audio HTML5 falló:", e);
       }
     }
 
-    // Fallback 1: Crear nuevo elemento de audio
+    // Método 3: Nuevo elemento Audio
     try {
       const audio = new Audio("/beep.wav");
       audio.volume = 1.0;
       await audio.play();
-      console.log("🔊 Beep nuevo elemento OK");
-      return;
+      console.log("🔊 Beep nuevo OK");
     } catch (e) {
       console.log("Audio nuevo falló:", e);
-    }
-
-    // Fallback 2: Web Audio API
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const audioCtx = new AudioContext();
-
-        if (audioCtx.state === "suspended") {
-          await audioCtx.resume();
-        }
-
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        oscillator.frequency.value = 1500;
-        oscillator.type = "square";
-        gainNode.gain.value = 1;
-
-        oscillator.start();
-        setTimeout(() => {
-          oscillator.stop();
-          audioCtx.close();
-        }, 150);
-
-        console.log("🔊 Beep Web Audio OK");
-      }
-    } catch (e) {
-      console.log("Web Audio falló:", e);
     }
   }, []);
 

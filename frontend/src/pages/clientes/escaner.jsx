@@ -57,6 +57,123 @@ export default function EscanerStock() {
   const ocrIntervalRef = useRef(null);
   const ultimoCodigoOCR = useRef("");
 
+  // Referencias para audio
+  const beepAudioRef = useRef(null);
+  const audioContextRef = useRef(null);
+
+  // Función para inicializar el audio (DEBE llamarse en interacción del usuario)
+  const inicializarAudio = useCallback(async () => {
+    try {
+      console.log("🔊 Inicializando audio...");
+
+      // 1. Crear AudioContext y desbloquearlo
+      if (!audioContextRef.current) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioContextRef.current = new AudioContext();
+      }
+
+      if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
+        console.log("🔊 AudioContext desbloqueado");
+      }
+
+      // 2. Reproducir un beep silencioso para desbloquear el audio
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.001; // Casi silencioso
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.01);
+
+      // 3. Crear elemento audio y precargarlo
+      if (!beepAudioRef.current) {
+        const audio = new Audio("/beep.wav");
+        audio.volume = 1.0;
+        audio.preload = "auto";
+        beepAudioRef.current = audio;
+
+        // Cargar el audio
+        await new Promise((resolve) => {
+          audio.addEventListener("canplaythrough", resolve, { once: true });
+          audio.addEventListener("error", resolve, { once: true });
+          audio.load();
+          setTimeout(resolve, 1000); // Timeout de seguridad
+        });
+      }
+
+      console.log("🔊 Audio inicializado completamente");
+    } catch (err) {
+      console.log("Error al inicializar audio:", err);
+    }
+  }, []);
+
+  // Función para reproducir sonido de escaneo fuerte (PIP)
+  const reproducirSonidoEscaneo = useCallback(async () => {
+    console.log("🔊 Reproduciendo beep...");
+
+    // Método 1: Web Audio API (más confiable en móviles)
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      let ctx = audioContextRef.current;
+
+      if (!ctx) {
+        ctx = new AudioContext();
+        audioContextRef.current = ctx;
+      }
+
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
+
+      // Crear beep fuerte
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      // Configuración para sonido fuerte tipo escáner
+      oscillator.frequency.value = 1500;
+      oscillator.type = "square";
+      gainNode.gain.setValueAtTime(1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.15);
+
+      console.log("🔊 Beep Web Audio OK");
+      return;
+    } catch (e) {
+      console.log("Web Audio falló:", e);
+    }
+
+    // Método 2: Audio HTML5 precargado
+    if (beepAudioRef.current) {
+      try {
+        const audio = beepAudioRef.current;
+        audio.currentTime = 0;
+        audio.volume = 1.0;
+        await audio.play();
+        console.log("🔊 Beep HTML5 OK");
+        return;
+      } catch (e) {
+        console.log("Audio HTML5 falló:", e);
+      }
+    }
+
+    // Método 3: Nuevo elemento Audio
+    try {
+      const audio = new Audio("/beep.wav");
+      audio.volume = 1.0;
+      await audio.play();
+      console.log("🔊 Beep nuevo OK");
+    } catch (e) {
+      console.log("Audio nuevo falló:", e);
+    }
+  }, []);
+
   // Detectar cambios de orientación
   useEffect(() => {
     const checkOrientation = () => {
@@ -92,6 +209,9 @@ export default function EscanerStock() {
   // Iniciar escáner - verificar permisos primero
   const iniciarEscaner = useCallback(async () => {
     setErrorCamara(null);
+
+    // Inicializar audio al iniciar escáner (requiere interacción del usuario en móviles)
+    await inicializarAudio();
 
     // Verificar si estamos en HTTPS o localhost
     const isSecure =
@@ -150,7 +270,7 @@ export default function EscanerStock() {
         );
       }
     }
-  }, []);
+  }, [inicializarAudio]);
 
   // Efecto para inicializar el escáner cuando el elemento DOM existe
   useEffect(() => {
@@ -251,6 +371,9 @@ export default function EscanerStock() {
                 "📊 Formato:",
                 decodedResult?.result?.format?.formatName,
               );
+
+              // Reproducir sonido fuerte de escaneo
+              reproducirSonidoEscaneo();
 
               // Vibrar si el dispositivo lo soporta
               if (navigator.vibrate) {
@@ -446,6 +569,9 @@ export default function EscanerStock() {
         console.log("🔢 OCR detectó código:", codigoDetectado);
         ultimoCodigoOCR.current = codigoDetectado;
 
+        // Reproducir sonido fuerte de escaneo
+        reproducirSonidoEscaneo();
+
         // Vibrar
         if (navigator.vibrate) {
           navigator.vibrate([100, 50, 100]);
@@ -461,7 +587,7 @@ export default function EscanerStock() {
     } catch (err) {
       console.log("Error en OCR:", err.message);
     }
-  }, [productoEscaneado]);
+  }, [productoEscaneado, reproducirSonidoEscaneo]);
 
   // Activar/desactivar OCR
   const toggleOCR = useCallback(async () => {
@@ -703,6 +829,8 @@ export default function EscanerStock() {
       showToast("warning", "Ingresa un código");
       return;
     }
+    // Inicializar audio (requiere interacción del usuario en móviles)
+    await inicializarAudio();
     await buscarProducto(codigoManual.trim().toUpperCase());
   };
 
