@@ -158,15 +158,22 @@ const initSocket = (server) => {
 
         // Si el destinatario está conectado, marcar como entregado
         if (usuariosConectados.has(destinatarioId)) {
-          await Mensaje.update(
-            { entregado: true, fechaEntregado: new Date() },
-            { where: { id: mensaje.id } },
-          );
-          // Notificar al remitente que el mensaje fue entregado
-          io.to(`user_${socket.user.id}`).emit("mensaje_entregado", {
-            mensajeId: mensaje.id,
-            conversacionId,
-          });
+          try {
+            await Mensaje.update(
+              { entregado: true, fechaEntregado: new Date() },
+              { where: { id: mensaje.id } },
+            );
+            // Notificar al remitente que el mensaje fue entregado
+            io.to(`user_${socket.user.id}`).emit("mensaje_entregado", {
+              mensajeId: mensaje.id,
+              conversacionId,
+            });
+          } catch (entregaError) {
+            console.log(
+              "Info: Campo entregado no disponible aún:",
+              entregaError.message,
+            );
+          }
         }
 
         // Notificar al destinatario específicamente
@@ -226,29 +233,49 @@ const initSocket = (server) => {
             });
         }
       } catch (error) {
-        console.error("Error al marcar mensajes entregados:", error);
+        // Silenciar error si las columnas no existen aún
+        if (!error.message?.includes("column")) {
+          console.error("Error al marcar mensajes entregados:", error);
+        }
       }
     });
 
     // Marcar mensajes como leídos
     socket.on("marcar_leidos", async (conversacionId) => {
       try {
-        // También marcar como entregados si no lo estaban
-        await Mensaje.update(
-          {
-            entregado: true,
-            fechaEntregado: new Date(),
-            leido: true,
-            fechaLeido: new Date(),
-          },
-          {
-            where: {
-              conversacionId,
-              destinatarioId: socket.user.id,
-              leido: false,
+        // Intentar marcar como entregados y leídos
+        try {
+          await Mensaje.update(
+            {
+              entregado: true,
+              fechaEntregado: new Date(),
+              leido: true,
+              fechaLeido: new Date(),
             },
-          },
-        );
+            {
+              where: {
+                conversacionId,
+                destinatarioId: socket.user.id,
+                leido: false,
+              },
+            },
+          );
+        } catch (updateError) {
+          // Si falla por columnas no existentes, solo marcar como leídos
+          await Mensaje.update(
+            {
+              leido: true,
+              fechaLeido: new Date(),
+            },
+            {
+              where: {
+                conversacionId,
+                destinatarioId: socket.user.id,
+                leido: false,
+              },
+            },
+          );
+        }
 
         const conversacion = await Conversacion.findByPk(conversacionId);
         if (conversacion) {

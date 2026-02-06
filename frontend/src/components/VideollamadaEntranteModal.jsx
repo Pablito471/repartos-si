@@ -1,66 +1,92 @@
 // Modal global para videollamadas entrantes
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useChat } from "@/context/ChatContext";
 
 export default function VideollamadaEntranteModal() {
   const { llamadaEntrante, aceptarLlamada, rechazarLlamada } = useChat();
   const ringtoneRef = useRef(null);
   const ringtoneIntervalRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const webAudioIntervalRef = useRef(null);
+
+  // Reproducir tono con Web Audio API
+  const reproducirTonoWebAudio = useCallback(() => {
+    try {
+      if (!audioContextRef.current) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        audioContextRef.current = new AudioContext();
+      }
+
+      const ctx = audioContextRef.current;
+
+      // Reanudar si está suspendido
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      // Crear dos osciladores para el sonido de teléfono clásico
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.frequency.value = 440;
+      osc2.frequency.value = 480;
+      osc1.type = "sine";
+      osc2.type = "sine";
+      gain.gain.value = 0.4;
+
+      osc1.start();
+      osc2.start();
+
+      // Patrón: 400ms on, 200ms off, 400ms on
+      setTimeout(() => {
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+      }, 400);
+      setTimeout(() => {
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      }, 600);
+      setTimeout(() => {
+        osc1.stop();
+        osc2.stop();
+      }, 1000);
+    } catch (e) {
+      console.log("Error Web Audio ringtone:", e);
+    }
+  }, []);
 
   // Reproducir ringtone cuando hay llamada entrante
   useEffect(() => {
     if (llamadaEntrante) {
-      // Fallback con Web Audio API
-      const reproducirRingtoneWebAudio = () => {
+      console.log("📞 Llamada entrante detectada:", llamadaEntrante);
+
+      // Variables locales para cleanup
+      let ringtoneAudio = null;
+      let webAudioIntId = null;
+      let vibracionInterval = null;
+
+      // Mostrar notificación del sistema (puede tener sonido propio)
+      if ("Notification" in window && Notification.permission === "granted") {
         try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContext) return;
-
-          const ctx = new AudioContext();
-
-          const playTone = () => {
-            // Crear dos osciladores para el sonido de teléfono
-            const osc1 = ctx.createOscillator();
-            const osc2 = ctx.createOscillator();
-            const gain = ctx.createGain();
-
-            osc1.connect(gain);
-            osc2.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc1.frequency.value = 440;
-            osc2.frequency.value = 480;
-            osc1.type = "sine";
-            osc2.type = "sine";
-            gain.gain.value = 0.3;
-
-            osc1.start();
-            osc2.start();
-
-            // Patrón: 400ms on, 200ms off, 400ms on, 500ms off
-            setTimeout(() => {
-              gain.gain.value = 0;
-            }, 400);
-            setTimeout(() => {
-              gain.gain.value = 0.3;
-            }, 600);
-            setTimeout(() => {
-              osc1.stop();
-              osc2.stop();
-            }, 1000);
-          };
-
-          playTone();
-          ringtoneIntervalRef.current = setInterval(playTone, 1500);
+          new Notification("📞 Videollamada entrante", {
+            body: `${llamadaEntrante.nombreLlamante || "Usuario"} te está llamando`,
+            icon: "/favicon.ico",
+            tag: "videollamada-entrante",
+            requireInteraction: true,
+            vibrate: [400, 200, 400, 500],
+          });
         } catch (e) {
-          console.log("Error con Web Audio ringtone:", e);
+          console.log("Error mostrando notificación:", e);
         }
-      };
+      }
 
-      // Crear y reproducir ringtone
+      // Intentar reproducir audio HTML primero
       const playRingtone = async () => {
         try {
-          // Crear nuevo elemento de audio para cada reproducción
           if (ringtoneRef.current) {
             ringtoneRef.current.pause();
           }
@@ -69,20 +95,26 @@ export default function VideollamadaEntranteModal() {
           audio.volume = 1.0;
           audio.loop = true;
           ringtoneRef.current = audio;
+          ringtoneAudio = audio;
 
+          // Intentar reproducir
           await audio.play();
-          console.log("🔔 Ringtone reproduciendo");
+          console.log("🔔 Ringtone HTML5 reproduciendo");
         } catch (e) {
-          console.log("Error reproduciendo ringtone:", e);
-          // Fallback: reproducir con Web Audio API
-          reproducirRingtoneWebAudio();
+          console.log(
+            "Error reproduciendo ringtone HTML5, usando Web Audio:",
+            e,
+          );
+          // Usar Web Audio API como fallback
+          reproducirTonoWebAudio();
+          webAudioIntId = setInterval(reproducirTonoWebAudio, 1500);
+          webAudioIntervalRef.current = webAudioIntId;
         }
       };
 
       // Vibrar en móviles
       const vibrarTelefono = () => {
         if (navigator.vibrate) {
-          // Patrón de vibración tipo teléfono
           navigator.vibrate([400, 200, 400, 500]);
         }
       };
@@ -91,22 +123,27 @@ export default function VideollamadaEntranteModal() {
       vibrarTelefono();
 
       // Repetir vibración cada 1.5s
-      const vibracionInterval = setInterval(vibrarTelefono, 1500);
+      vibracionInterval = setInterval(vibrarTelefono, 1500);
 
       return () => {
         // Limpiar al cerrar
+        if (ringtoneAudio) {
+          ringtoneAudio.pause();
+        }
         if (ringtoneRef.current) {
           ringtoneRef.current.pause();
           ringtoneRef.current = null;
         }
-        if (ringtoneIntervalRef.current) {
-          clearInterval(ringtoneIntervalRef.current);
+        if (webAudioIntId) {
+          clearInterval(webAudioIntId);
         }
-        clearInterval(vibracionInterval);
-        navigator.vibrate?.(0); // Detener vibración
+        if (vibracionInterval) {
+          clearInterval(vibracionInterval);
+        }
+        navigator.vibrate?.(0);
       };
     }
-  }, [llamadaEntrante]);
+  }, [llamadaEntrante, reproducirTonoWebAudio]);
 
   const handleAceptar = () => {
     // Detener ringtone
@@ -115,6 +152,9 @@ export default function VideollamadaEntranteModal() {
     }
     if (ringtoneIntervalRef.current) {
       clearInterval(ringtoneIntervalRef.current);
+    }
+    if (webAudioIntervalRef.current) {
+      clearInterval(webAudioIntervalRef.current);
     }
     navigator.vibrate?.(0);
     aceptarLlamada();
@@ -127,6 +167,9 @@ export default function VideollamadaEntranteModal() {
     }
     if (ringtoneIntervalRef.current) {
       clearInterval(ringtoneIntervalRef.current);
+    }
+    if (webAudioIntervalRef.current) {
+      clearInterval(webAudioIntervalRef.current);
     }
     navigator.vibrate?.(0);
     rechazarLlamada();
