@@ -1,6 +1,10 @@
 const { Mensaje, Conversacion, Usuario } = require("../models");
 const { Op } = require("sequelize");
-const { emitirNuevoMensaje } = require("../socket");
+const {
+  emitirNuevoMensaje,
+  isUserConnected,
+  emitToUser,
+} = require("../socket");
 
 // Obtener o crear conversación con admin
 exports.getOCrearConversacion = async (req, res) => {
@@ -221,13 +225,18 @@ exports.enviarMensaje = async (req, res) => {
         ? conversacion.adminId
         : conversacion.usuarioId;
 
-    // Crear mensaje
+    // Verificar si el destinatario está conectado
+    const destinatarioConectado = isUserConnected(destinatarioId);
+
+    // Crear mensaje con estado entregado si el destinatario está conectado
     const mensaje = await Mensaje.create({
       conversacionId,
       remitenteId,
       destinatarioId,
       contenido: contenido.trim(),
       tipo,
+      entregado: destinatarioConectado,
+      fechaEntregado: destinatarioConectado ? new Date() : null,
     });
 
     // Actualizar conversación
@@ -251,17 +260,24 @@ exports.enviarMensaje = async (req, res) => {
       ],
     });
 
-    // Emitir mensaje en tiempo real vía Pusher
+    // Asegurar que los campos de estado están incluidos
+    const mensajeConEstado = {
+      ...mensajeCompleto.toJSON(),
+      entregado: mensajeCompleto.entregado,
+      leido: mensajeCompleto.leido,
+    };
+
+    // Emitir mensaje en tiempo real
     emitirNuevoMensaje(
       conversacionId,
-      mensajeCompleto,
+      mensajeConEstado,
       remitenteId,
       destinatarioId,
     );
 
     res.status(201).json({
       success: true,
-      data: mensajeCompleto,
+      data: mensajeConEstado,
     });
   } catch (error) {
     console.error("Error al enviar mensaje:", error);

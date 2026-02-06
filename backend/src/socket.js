@@ -4,6 +4,28 @@ const { Usuario, Mensaje, Conversacion } = require("./models");
 
 let io;
 
+// Mapa para rastrear usuarios conectados (global para acceso desde otros módulos)
+const usuariosConectados = new Map();
+
+// Función para verificar si un usuario está conectado
+const isUserConnected = (userId) => {
+  return usuariosConectados.has(userId);
+};
+
+// Función para emitir evento a un usuario específico
+const emitToUser = (userId, event, data) => {
+  if (io) {
+    io.to(`user_${userId}`).emit(event, data);
+  }
+};
+
+// Función para emitir a una conversación
+const emitToConversation = (conversacionId, event, data) => {
+  if (io) {
+    io.to(`conversacion_${conversacionId}`).emit(event, data);
+  }
+};
+
 const initSocket = (server) => {
   // Configurar orígenes permitidos
   const allowedOrigins = [
@@ -49,9 +71,6 @@ const initSocket = (server) => {
       next(new Error("Token inválido"));
     }
   });
-
-  // Mapa para rastrear usuarios conectados
-  const usuariosConectados = new Map();
 
   io.on("connection", (socket) => {
     console.log(
@@ -176,6 +195,13 @@ const initSocket = (server) => {
 
         // Verificar si el destinatario está conectado ANTES de crear el mensaje
         const destinatarioConectado = usuariosConectados.has(destinatarioId);
+        console.log(
+          `Destinatario ${destinatarioId} conectado: ${destinatarioConectado}`,
+        );
+        console.log(
+          `Usuarios conectados:`,
+          Array.from(usuariosConectados.keys()),
+        );
 
         // Crear mensaje en DB con estado de entregado si el destinatario está conectado
         const mensaje = await Mensaje.create({
@@ -200,7 +226,7 @@ const initSocket = (server) => {
               }),
         });
 
-        // Obtener mensaje completo (ya con estado entregado correcto)
+        // Obtener mensaje completo con todos los campos de estado
         const mensajeCompleto = await Mensaje.findByPk(mensaje.id, {
           include: [
             {
@@ -211,20 +237,31 @@ const initSocket = (server) => {
           ],
         });
 
+        // Asegurar que los campos de estado estén presentes en el objeto
+        const mensajeConEstado = {
+          ...mensajeCompleto.toJSON(),
+          entregado: mensajeCompleto.entregado,
+          leido: mensajeCompleto.leido,
+        };
+
+        console.log(
+          `Mensaje enviado - entregado: ${mensajeConEstado.entregado}, leido: ${mensajeConEstado.leido}`,
+        );
+
         // Emitir a la sala de la conversación
         io.to(`conversacion_${conversacionId}`).emit(
           "nuevo_mensaje",
-          mensajeCompleto,
+          mensajeConEstado,
         );
 
         // También emitir al remitente y destinatario directamente para asegurar entrega
-        io.to(`user_${socket.user.id}`).emit("nuevo_mensaje", mensajeCompleto);
-        io.to(`user_${destinatarioId}`).emit("nuevo_mensaje", mensajeCompleto);
+        io.to(`user_${socket.user.id}`).emit("nuevo_mensaje", mensajeConEstado);
+        io.to(`user_${destinatarioId}`).emit("nuevo_mensaje", mensajeConEstado);
 
         // Notificar al destinatario específicamente
         io.to(`user_${destinatarioId}`).emit("notificacion_mensaje", {
           conversacionId,
-          mensaje: mensajeCompleto,
+          mensaje: mensajeConEstado,
           remitente: socket.user,
         });
       } catch (error) {
@@ -526,6 +563,9 @@ const emitirNuevoMensaje = (
 module.exports = {
   initSocket,
   getIO,
+  isUserConnected,
+  emitToUser,
+  emitToConversation,
   emitirNotificacion,
   emitirNuevoPedido,
   emitirPedidoActualizado,
