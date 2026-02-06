@@ -25,7 +25,11 @@ exports.obtenerStock = async (req, res, next) => {
           id: item.id,
           nombre: item.nombre,
           cantidad: 0,
-          precio: parseFloat(item.precio) || 0,
+          precioCosto:
+            parseFloat(item.precioCosto) || parseFloat(item.precio) || 0,
+          precioVenta:
+            parseFloat(item.precioVenta) || parseFloat(item.precio) || 0,
+          precio: parseFloat(item.precioVenta) || parseFloat(item.precio) || 0, // Mantener para compatibilidad
           categoria: item.categoria || "General",
           ultimaActualizacion: item.updatedAt,
         };
@@ -104,7 +108,13 @@ exports.obtenerTotales = async (req, res, next) => {
 
     const totalProductos = stock.reduce((sum, item) => sum + item.cantidad, 0);
     const valorTotal = stock.reduce(
-      (sum, item) => sum + item.cantidad * parseFloat(item.precio || 0),
+      (sum, item) =>
+        sum + item.cantidad * parseFloat(item.precioVenta || item.precio || 0),
+      0,
+    );
+    const costoTotal = stock.reduce(
+      (sum, item) =>
+        sum + item.cantidad * parseFloat(item.precioCosto || item.precio || 0),
       0,
     );
     const productosUnicos = new Set(stock.map((item) => item.nombre)).size;
@@ -114,6 +124,8 @@ exports.obtenerTotales = async (req, res, next) => {
       data: {
         totalProductos,
         valorTotal,
+        costoTotal,
+        gananciaTotal: valorTotal - costoTotal,
         productosUnicos,
         totalEntradas: stock.length,
       },
@@ -181,7 +193,9 @@ exports.agregarDesdePedido = async (req, res, next) => {
         clienteId: req.usuario.id,
         nombre: producto.nombre,
         cantidad: producto.cantidad,
-        precio: producto.precioUnitario,
+        precioCosto: producto.precioUnitario, // El precio del pedido es el costo
+        precioVenta: null, // El cliente debe configurar su precio de venta
+        precio: producto.precioUnitario, // Legacy
         pedidoId: pedidoId,
         // Agregar código de barras del producto original si existe
         codigoBarras: producto.producto?.codigo || null,
@@ -211,6 +225,8 @@ exports.agregarProducto = async (req, res, next) => {
       nombre,
       cantidad,
       precio,
+      precioCosto,
+      precioVenta,
       registrarCompra,
       codigoBarras,
       categoria,
@@ -221,6 +237,8 @@ exports.agregarProducto = async (req, res, next) => {
       nombre,
       cantidad,
       precio,
+      precioCosto,
+      precioVenta,
       codigoBarras,
       categoria,
       imagen,
@@ -247,19 +265,34 @@ exports.agregarProducto = async (req, res, next) => {
       }
     }
 
+    // Determinar los precios a usar
+    const costoParsed = precioCosto
+      ? parseFloat(precioCosto)
+      : precio
+        ? parseFloat(precio)
+        : null;
+    const ventaParsed = precioVenta
+      ? parseFloat(precioVenta)
+      : precio
+        ? parseFloat(precio)
+        : null;
+
     const stockItem = await StockCliente.create({
       clienteId: req.usuario.id,
       nombre,
       cantidad: parseInt(cantidad),
-      precio: precio ? parseFloat(precio) : null,
+      precioCosto: costoParsed,
+      precioVenta: ventaParsed,
+      precio: ventaParsed, // Mantener para compatibilidad
       codigoBarras: codigoBarras || null,
       categoria: categoria || "General",
       imagen: imagen || null,
     });
 
-    // Registrar movimiento contable de egreso (compra) si tiene precio y se indica
-    if (registrarCompra && precio && parseFloat(precio) > 0) {
-      const montoCompra = parseFloat(precio) * parseInt(cantidad);
+    // Registrar movimiento contable de egreso (compra) si tiene precio de costo y se indica
+    const precioParaCompra = costoParsed || ventaParsed || 0;
+    if (registrarCompra && precioParaCompra > 0) {
+      const montoCompra = precioParaCompra * parseInt(cantidad);
       await Movimiento.create({
         usuarioId: req.usuario.id,
         tipo: "egreso",
@@ -294,12 +327,25 @@ exports.actualizarStock = async (req, res, next) => {
       throw new AppError("Producto no encontrado en el stock", 404);
     }
 
-    const { cantidad, precio, nombre } = req.body;
+    const { cantidad, precio, precioCosto, precioVenta, nombre } = req.body;
 
     await stockItem.update({
       cantidad:
         cantidad !== undefined ? parseInt(cantidad) : stockItem.cantidad,
-      precio: precio !== undefined ? parseFloat(precio) : stockItem.precio,
+      precioCosto:
+        precioCosto !== undefined
+          ? parseFloat(precioCosto)
+          : stockItem.precioCosto,
+      precioVenta:
+        precioVenta !== undefined
+          ? parseFloat(precioVenta)
+          : stockItem.precioVenta,
+      precio:
+        precioVenta !== undefined
+          ? parseFloat(precioVenta)
+          : precio !== undefined
+            ? parseFloat(precio)
+            : stockItem.precio,
       nombre: nombre || stockItem.nombre,
     });
 
@@ -369,7 +415,13 @@ exports.eliminarProducto = async (req, res, next) => {
 // POST /api/stock/descontar - Descontar cantidad de un producto (venta)
 exports.descontarStock = async (req, res, next) => {
   try {
-    const { nombre, cantidad, motivo, precioVenta } = req.body;
+    const {
+      nombre,
+      cantidad,
+      motivo,
+      precioVenta,
+      registrarVenta = true,
+    } = req.body;
 
     if (!nombre || !cantidad) {
       throw new AppError("Nombre y cantidad son requeridos", 400);
@@ -422,8 +474,8 @@ exports.descontarStock = async (req, res, next) => {
       }
     }
 
-    // Registrar movimiento contable de ingreso (venta)
-    if (montoVenta > 0) {
+    // Registrar movimiento contable de ingreso (venta) solo si se indica
+    if (registrarVenta && montoVenta > 0) {
       await Movimiento.create({
         usuarioId: req.usuario.id,
         tipo: "ingreso",

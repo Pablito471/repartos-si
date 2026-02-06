@@ -36,11 +36,13 @@ export default function Inventario() {
     costo: 0,
     ubicacion: "",
     imagen: "",
+    registrarCompra: true,
   });
   const [movimiento, setMovimiento] = useState({
     cantidad: 0,
     tipo: "entrada",
     motivo: "",
+    registrarContabilidad: true,
   });
 
   // Paginación
@@ -108,6 +110,7 @@ export default function Inventario() {
       costo: 0,
       ubicacion: "",
       imagen: "",
+      registrarCompra: true,
     });
     setMostrarModal(true);
   };
@@ -185,6 +188,18 @@ export default function Inventario() {
         try {
           await agregarProducto(nuevoProducto);
           cerrarModal();
+
+          // Emitir evento para actualizar contabilidad si se registró compra
+          if (
+            nuevoProducto.registrarCompra &&
+            nuevoProducto.costo > 0 &&
+            nuevoProducto.stock > 0
+          ) {
+            window.dispatchEvent(
+              new CustomEvent("contabilidad:movimiento_creado"),
+            );
+          }
+
           showSuccessAlert(
             "¡Producto agregado!",
             "El producto se agregó al inventario",
@@ -251,10 +266,24 @@ export default function Inventario() {
           productoSeleccionado.id,
           movimiento.cantidad,
           movimiento.tipo,
+          movimiento.registrarContabilidad,
         );
         setMostrarModalMovimiento(false);
         setProductoSeleccionado(null);
-        setMovimiento({ cantidad: 0, tipo: "entrada", motivo: "" });
+
+        // Emitir evento para actualizar contabilidad si se registró movimiento
+        if (movimiento.registrarContabilidad) {
+          window.dispatchEvent(
+            new CustomEvent("contabilidad:movimiento_creado"),
+          );
+        }
+
+        setMovimiento({
+          cantidad: 0,
+          tipo: "entrada",
+          motivo: "",
+          registrarContabilidad: true,
+        });
         showToast("success", "Stock actualizado correctamente");
       } catch (error) {
         showToast(
@@ -268,7 +297,12 @@ export default function Inventario() {
 
   const abrirModalMovimiento = (producto, tipo) => {
     setProductoSeleccionado(producto);
-    setMovimiento({ cantidad: 0, tipo, motivo: "" });
+    setMovimiento({
+      cantidad: 0,
+      tipo,
+      motivo: "",
+      registrarContabilidad: true,
+    });
     setMostrarModalMovimiento(true);
   };
 
@@ -943,6 +977,33 @@ export default function Inventario() {
                 </div>
               </div>
 
+              {/* Checkbox para registrar compra */}
+              {!modoEdicion &&
+                nuevoProducto.costo > 0 &&
+                nuevoProducto.stock > 0 && (
+                  <div className="flex items-center space-x-2 bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="registrarCompra"
+                      checked={nuevoProducto.registrarCompra}
+                      onChange={(e) =>
+                        setNuevoProducto({
+                          ...nuevoProducto,
+                          registrarCompra: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                    />
+                    <label
+                      htmlFor="registrarCompra"
+                      className="text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      📊 Registrar como compra en contabilidad ($
+                      {formatNumber(nuevoProducto.costo * nuevoProducto.stock)})
+                    </label>
+                  </div>
+                )}
+
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
@@ -1045,6 +1106,36 @@ export default function Inventario() {
                   </p>
                 </div>
               )}
+
+              {/* Checkbox para registrar en contabilidad */}
+              {movimiento.cantidad > 0 &&
+                ((movimiento.tipo === "entrada" &&
+                  productoSeleccionado.costo > 0) ||
+                  (movimiento.tipo === "salida" &&
+                    productoSeleccionado.precio > 0)) && (
+                  <div className="flex items-center space-x-2 bg-orange-50 p-3 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="registrarContabilidad"
+                      checked={movimiento.registrarContabilidad}
+                      onChange={(e) =>
+                        setMovimiento({
+                          ...movimiento,
+                          registrarContabilidad: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                    />
+                    <label
+                      htmlFor="registrarContabilidad"
+                      className="text-sm text-gray-700"
+                    >
+                      {movimiento.tipo === "entrada"
+                        ? `📊 Registrar como compra ($${formatNumber(productoSeleccionado.costo * movimiento.cantidad)})`
+                        : `📊 Registrar como venta ($${formatNumber(productoSeleccionado.precio * movimiento.cantidad)})`}
+                    </label>
+                  </div>
+                )}
 
               <div className="flex space-x-3 pt-4">
                 <button

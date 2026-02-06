@@ -44,10 +44,11 @@ export default function Contabilidad() {
     otros: { nombre: "Otros", icono: "📋", color: "gray" },
   };
 
-  // Convertir pedidos recibidos a movimientos de ingreso (ventas)
-  const pedidosComoIngresos = useMemo(() => {
+  // Convertir pedidos PENDIENTES a vista previa de ingresos esperados (no entregados aún)
+  // Los pedidos entregados ya tienen su movimiento contable real registrado
+  const pedidosPendientes = useMemo(() => {
     return pedidos
-      .filter((p) => p.estado !== "cancelado")
+      .filter((p) => p.estado !== "cancelado" && p.estado !== "entregado")
       .map((pedido) => ({
         id: `pedido-${pedido.id}`,
         pedidoId: pedido.id,
@@ -57,42 +58,42 @@ export default function Contabilidad() {
             ? pedido.createdAt.split("T")[0]
             : new Date().toISOString().split("T")[0]),
         tipo: "ingreso",
-        concepto: `Pedido #${pedido.numero || pedido.id?.toString().slice(-4) || "?"} - ${pedido.cliente?.nombre || pedido.cliente || "Cliente"}`,
+        concepto: `📋 Pedido pendiente #${pedido.numero || pedido.id?.toString().slice(-4) || "?"} - ${pedido.cliente?.nombre || pedido.cliente || "Cliente"}`,
         monto: parseFloat(pedido.total) || 0,
         categoria: "pedidos",
         esPedido: true,
+        esPendiente: true,
         estado: pedido.estado,
         productos: pedido.productos,
       }));
   }, [pedidos]);
 
-  // Combinar movimientos con pedidos como ingresos
+  // Combinar movimientos reales con pedidos pendientes (solo para referencia)
   const todosLosMovimientos = useMemo(() => {
     if (vistaActiva === "movimientos") return movimientos;
-    if (vistaActiva === "pedidos") return pedidosComoIngresos;
-    return [...movimientos, ...pedidosComoIngresos].sort(
+    if (vistaActiva === "pedidos") return pedidosPendientes;
+    return [...movimientos, ...pedidosPendientes].sort(
       (a, b) => new Date(b.fecha) - new Date(a.fecha),
     );
-  }, [movimientos, pedidosComoIngresos, vistaActiva]);
+  }, [movimientos, pedidosPendientes, vistaActiva]);
 
-  // Calcular totales incluyendo pedidos como ingresos
+  // Calcular totales (solo movimientos reales, pedidos pendientes no se suman)
   const totales = useMemo(() => {
     const totalesBase = calcularTotales();
-    const totalPedidos = pedidosComoIngresos.reduce(
+    const totalPendiente = pedidosPendientes.reduce(
       (sum, p) => sum + p.monto,
       0,
     );
 
     return {
-      ingresos: (totalesBase.ingresos || 0) + totalPedidos,
+      ingresos: totalesBase.ingresos || 0,
       egresos: totalesBase.egresos || 0,
-      balance:
-        (totalesBase.ingresos || 0) + totalPedidos - (totalesBase.egresos || 0),
-      totalPedidos,
-      cantidadPedidos: pedidosComoIngresos.length,
+      balance: (totalesBase.ingresos || 0) - (totalesBase.egresos || 0),
+      totalPendiente, // Pedidos por cobrar (no entregados aún)
+      cantidadPendientes: pedidosPendientes.length,
       pedidosEntregados: pedidos.filter((p) => p.estado === "entregado").length,
     };
-  }, [calcularTotales, pedidosComoIngresos, pedidos]);
+  }, [calcularTotales, pedidosPendientes, pedidos]);
 
   // Filtrar movimientos
   const movimientosFiltrados = todosLosMovimientos.filter((mov) => {
@@ -111,21 +112,16 @@ export default function Contabilidad() {
     (e) => e.estado === "entregado",
   ).length;
 
-  // Calcular totales por categoría (incluyendo pedidos como ingresos)
+  // Calcular totales por categoría (solo movimientos reales)
   const totalesPorCategoria = useMemo(() => {
     return Object.keys(categorias)
       .map((cat) => {
-        let ingresos = movimientos
+        const ingresos = movimientos
           .filter((m) => m.categoria === cat && m.tipo === "ingreso")
           .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
         const egresos = movimientos
           .filter((m) => m.categoria === cat && m.tipo === "egreso")
           .reduce((sum, m) => sum + parseFloat(m.monto || 0), 0);
-
-        // Agregar pedidos a la categoría "pedidos"
-        if (cat === "pedidos") {
-          ingresos += pedidosComoIngresos.reduce((sum, p) => sum + p.monto, 0);
-        }
 
         return {
           categoria: cat,
@@ -135,7 +131,7 @@ export default function Contabilidad() {
         };
       })
       .filter((t) => t.ingresos > 0 || t.egresos > 0);
-  }, [movimientos, pedidosComoIngresos, categorias]);
+  }, [movimientos, categorias]);
 
   const handleRegistrarMovimiento = async (e) => {
     e.preventDefault();
@@ -365,7 +361,7 @@ export default function Contabilidad() {
                   ${formatNumber(totales.ingresos)}
                 </p>
                 <p className="text-green-200 text-xs mt-1">
-                  (Incluye ${formatNumber(totales.totalPedidos)} en pedidos)
+                  Ventas registradas
                 </p>
               </div>
               <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
@@ -374,22 +370,20 @@ export default function Contabilidad() {
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+          <div className="card bg-gradient-to-br from-yellow-500 to-yellow-600 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-100 text-sm">Ventas por Pedidos</p>
+                <p className="text-yellow-100 text-sm">Pedidos Pendientes</p>
                 <p className="text-3xl font-bold mt-1">
-                  ${formatNumber(totales.totalPedidos)}
+                  ${formatNumber(totales.totalPendiente || 0)}
                 </p>
-                <p className="text-emerald-200 text-xs mt-1">
-                  {totales.cantidadPedidos} pedido
-                  {totales.cantidadPedidos !== 1 ? "s" : ""} |{" "}
-                  {totales.pedidosEntregados} entregado
-                  {totales.pedidosEntregados !== 1 ? "s" : ""}
+                <p className="text-yellow-200 text-xs mt-1">
+                  {totales.cantidadPendientes || 0} pedido
+                  {totales.cantidadPendientes !== 1 ? "s" : ""} por cobrar
                 </p>
               </div>
               <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">📦</span>
+                <span className="text-2xl">⏳</span>
               </div>
             </div>
           </div>
@@ -479,11 +473,11 @@ export default function Contabilidad() {
             onClick={() => setVistaActiva("pedidos")}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               vistaActiva === "pedidos"
-                ? "bg-emerald-600 text-white"
+                ? "bg-yellow-600 text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-neutral-700 dark:text-neutral-300"
             }`}
           >
-            📦 Pedidos como Ingresos ({pedidosComoIngresos.length})
+            ⏳ Pedidos Pendientes ({pedidosPendientes.length})
           </button>
         </div>
 
@@ -497,16 +491,16 @@ export default function Contabilidad() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="card">
             <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
-                <span className="text-3xl">📦</span>
+              <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
+                <span className="text-3xl">💰</span>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Ventas (pedidos)</p>
+                <p className="text-sm text-gray-500">Ventas Realizadas</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  ${formatNumber(totalVentas)}
+                  ${formatNumber(totales.ingresos)}
                 </p>
                 <p className="text-sm text-green-600">
-                  {pedidosEntregados} pedidos entregados
+                  {totales.pedidosEntregados} pedidos entregados
                 </p>
               </div>
             </div>
@@ -514,16 +508,16 @@ export default function Contabilidad() {
 
           <div className="card">
             <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
-                <span className="text-3xl">🚚</span>
+              <div className="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <span className="text-3xl">⏳</span>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Costo de Envíos</p>
+                <p className="text-sm text-gray-500">Por Cobrar (Pendientes)</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  ${formatNumber(enviosCompletados * 250)}
+                  ${formatNumber(totales.totalPendiente || 0)}
                 </p>
-                <p className="text-sm text-blue-600">
-                  {enviosCompletados} envíos completados
+                <p className="text-sm text-yellow-600">
+                  {totales.cantidadPendientes || 0} pedidos en proceso
                 </p>
               </div>
             </div>
@@ -728,8 +722,8 @@ export default function Contabilidad() {
                 .sort((a, b) => b.ingresos - a.ingresos)
                 .map((item) => {
                   const pct =
-                    totalIngresos > 0
-                      ? (item.ingresos / totalIngresos) * 100
+                    totales.ingresos > 0
+                      ? (item.ingresos / totales.ingresos) * 100
                       : 0;
                   return (
                     <div key={item.categoria}>
@@ -771,7 +765,9 @@ export default function Contabilidad() {
                 .sort((a, b) => b.egresos - a.egresos)
                 .map((item) => {
                   const pct =
-                    totalEgresos > 0 ? (item.egresos / totalEgresos) * 100 : 0;
+                    totales.egresos > 0
+                      ? (item.egresos / totales.egresos) * 100
+                      : 0;
                   return (
                     <div key={item.categoria}>
                       <div className="flex justify-between text-sm mb-1">

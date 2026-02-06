@@ -20,6 +20,19 @@ export function formatCurrency(num) {
 }
 
 /**
+ * Convierte una fecha ISO UTC a fecha local en formato YYYY-MM-DD
+ * Resuelve el problema de zona horaria donde split("T")[0] da la fecha UTC
+ * @param {string|Date} isoDate - Fecha ISO string o Date object
+ * @returns {string} - Fecha en formato YYYY-MM-DD en zona horaria local
+ */
+export function toLocalDateString(isoDate) {
+  if (!isoDate) return new Date().toLocaleDateString("sv-SE"); // formato YYYY-MM-DD
+  const d = new Date(isoDate);
+  // toLocaleDateString con locale 'sv-SE' devuelve formato YYYY-MM-DD
+  return d.toLocaleDateString("sv-SE");
+}
+
+/**
  * Formatea una fecha de forma consistente
  * @param {Date|string} date - La fecha a formatear
  * @returns {string} - La fecha formateada

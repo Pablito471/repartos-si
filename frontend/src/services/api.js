@@ -384,8 +384,20 @@ export const stockService = {
     api.post(`/stock/agregar-desde-pedido/${pedidoId}`),
 
   // Descontar stock (venta)
-  descontarStock: (nombre, cantidad, motivo, precioVenta) =>
-    api.post("/stock/descontar", { nombre, cantidad, motivo, precioVenta }),
+  descontarStock: (
+    nombre,
+    cantidad,
+    motivo,
+    precioVenta,
+    registrarVenta = true,
+  ) =>
+    api.post("/stock/descontar", {
+      nombre,
+      cantidad,
+      motivo,
+      precioVenta,
+      registrarVenta,
+    }),
 
   // Descontar por código de barras
   descontarPorCodigo: (codigo, cantidad = 1, motivo, precioVenta) =>

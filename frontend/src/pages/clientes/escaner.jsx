@@ -26,13 +26,17 @@ export default function EscanerStock() {
   const [modoManual, setModoManual] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
 
+  // Carrito de ventas múltiples
+  const [carritoVentas, setCarritoVentas] = useState([]);
+
   // Estados para modo agregar
   const [modoAgregar, setModoAgregar] = useState(false);
   const [codigoEscaneado, setCodigoEscaneado] = useState("");
   const [nuevoProducto, setNuevoProducto] = useState({
     nombre: "",
     cantidad: 1,
-    precio: "",
+    precioCosto: "",
+    precioVenta: "",
     categoria: "General",
     imagen: "",
   });
@@ -658,18 +662,61 @@ export default function EscanerStock() {
       console.log("📦 Respuesta:", response);
 
       if (response.success && response.data) {
-        setProductoEscaneado(response.data);
+        const producto = response.data;
+
+        // Agregar automáticamente al carrito
+        const enCarrito = carritoVentas.find(
+          (item) => item.codigo === producto.codigo,
+        );
+        const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+
+        if (cantidadEnCarrito + 1 > producto.cantidadDisponible) {
+          showToast(
+            "error",
+            `Stock insuficiente. Disponible: ${producto.cantidadDisponible}, ya en carrito: ${cantidadEnCarrito}`,
+          );
+        } else if (enCarrito) {
+          // Actualizar cantidad si ya existe
+          setCarritoVentas((prev) =>
+            prev.map((item) =>
+              item.codigo === producto.codigo
+                ? { ...item, cantidad: item.cantidad + 1 }
+                : item,
+            ),
+          );
+          showToast(
+            "success",
+            `+1 ${producto.nombre} (Total: ${cantidadEnCarrito + 1})`,
+          );
+        } else {
+          // Agregar nuevo item
+          setCarritoVentas((prev) => [
+            ...prev,
+            {
+              id: producto.id,
+              codigo: producto.codigo,
+              nombre: producto.nombre,
+              precio: producto.precio,
+              cantidad: 1,
+              stockDisponible: producto.cantidadDisponible,
+            },
+          ]);
+          showToast("success", `${producto.nombre} agregado al carrito`);
+        }
+
         setModoAgregar(false);
-        setCantidad(1);
-        // Detener el escáner completamente al encontrar producto
-        if (html5QrcodeScannerRef.current) {
+
+        // Reiniciar escáner para seguir escaneando
+        if (!modoManual && html5QrcodeScannerRef.current) {
           try {
-            await html5QrcodeScannerRef.current.stop();
+            html5QrcodeScannerRef.current.resume();
           } catch (e) {
-            console.log("Error al detener escáner:", e);
+            console.log("Error al reanudar escáner:", e);
+            // Si falla resume, reiniciar completamente
+            setEscaneando(false);
+            setTimeout(() => setEscaneando(true), 100);
           }
         }
-        showToast("success", `Producto encontrado: ${response.data.nombre}`);
       } else {
         // Respuesta sin datos - producto no encontrado
         throw new Error("Producto no encontrado");
@@ -699,7 +746,8 @@ export default function EscanerStock() {
         setNuevoProducto({
           nombre: "",
           cantidad: 1,
-          precio: "",
+          precioCosto: "",
+          precioVenta: "",
           categoria: "General",
         });
       } else {
@@ -729,8 +777,11 @@ export default function EscanerStock() {
       return;
     }
 
-    if (!nuevoProducto.precio || parseFloat(nuevoProducto.precio) <= 0) {
-      showToast("warning", "Ingresa un precio válido");
+    if (
+      !nuevoProducto.precioVenta ||
+      parseFloat(nuevoProducto.precioVenta) <= 0
+    ) {
+      showToast("warning", "Ingresa un precio de venta válido");
       return;
     }
 
@@ -739,11 +790,14 @@ export default function EscanerStock() {
       const datosProducto = {
         nombre: nuevoProducto.nombre.trim(),
         cantidad: parseInt(nuevoProducto.cantidad),
-        precio: parseFloat(nuevoProducto.precio),
+        precioCosto: nuevoProducto.precioCosto
+          ? parseFloat(nuevoProducto.precioCosto)
+          : null,
+        precioVenta: parseFloat(nuevoProducto.precioVenta),
         codigoBarras: codigoEscaneado || null,
         categoria: nuevoProducto.categoria,
         imagen: nuevoProducto.imagen || null,
-        registrarCompra: false,
+        registrarCompra: nuevoProducto.precioCosto ? true : false,
       };
 
       console.log("📦 Enviando producto:", datosProducto);
@@ -759,9 +813,16 @@ export default function EscanerStock() {
           }),
         );
 
+        // Emitir evento para actualizar contabilidad si se registró compra
+        if (datosProducto.registrarCompra && datosProducto.precioCosto) {
+          window.dispatchEvent(
+            new CustomEvent("contabilidad:movimiento_creado"),
+          );
+        }
+
         await showSuccessAlert(
           "¡Producto agregado!",
-          `${nuevoProducto.cantidad}x ${nuevoProducto.nombre}\nCategoría: ${nuevoProducto.categoria}\nPrecio: $${formatNumber(parseFloat(nuevoProducto.precio))}`,
+          `${nuevoProducto.cantidad}x ${nuevoProducto.nombre}\nCategoría: ${nuevoProducto.categoria}\nCosto: $${nuevoProducto.precioCosto ? formatNumber(parseFloat(nuevoProducto.precioCosto)) : "-"}\nVenta: $${formatNumber(parseFloat(nuevoProducto.precioVenta))}`,
         );
 
         // Limpiar y reiniciar escáner
@@ -772,7 +833,8 @@ export default function EscanerStock() {
         setNuevoProducto({
           nombre: "",
           cantidad: 1,
-          precio: "",
+          precioCosto: "",
+          precioVenta: "",
           categoria: "General",
           imagen: "",
         });
@@ -808,7 +870,8 @@ export default function EscanerStock() {
     setNuevoProducto({
       nombre: "",
       cantidad: 1,
-      precio: "",
+      precioCosto: "",
+      precioVenta: "",
       categoria: "General",
       imagen: "",
     });
@@ -907,6 +970,191 @@ export default function EscanerStock() {
       showToast("error", mensaje);
     } finally {
       setProcesando(false);
+    }
+  };
+
+  // Agregar producto al carrito de ventas
+  const agregarAlCarrito = () => {
+    if (!productoEscaneado) return;
+
+    if (cantidad < 1) {
+      showToast("warning", "La cantidad debe ser al menos 1");
+      return;
+    }
+
+    // Verificar stock disponible considerando lo que ya está en el carrito
+    const enCarrito = carritoVentas.find(
+      (item) => item.codigo === productoEscaneado.codigo,
+    );
+    const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+    const cantidadTotal = cantidadEnCarrito + cantidad;
+
+    if (cantidadTotal > productoEscaneado.cantidadDisponible) {
+      showToast(
+        "error",
+        `Stock insuficiente. Disponible: ${productoEscaneado.cantidadDisponible}, ya en carrito: ${cantidadEnCarrito}`,
+      );
+      return;
+    }
+
+    // Si ya existe, actualizar cantidad
+    if (enCarrito) {
+      setCarritoVentas((prev) =>
+        prev.map((item) =>
+          item.codigo === productoEscaneado.codigo
+            ? { ...item, cantidad: item.cantidad + cantidad }
+            : item,
+        ),
+      );
+      showToast(
+        "success",
+        `+${cantidad} ${productoEscaneado.nombre} (Total: ${cantidadTotal})`,
+      );
+    } else {
+      // Agregar nuevo item
+      setCarritoVentas((prev) => [
+        ...prev,
+        {
+          id: productoEscaneado.id,
+          codigo: productoEscaneado.codigo,
+          nombre: productoEscaneado.nombre,
+          precio: productoEscaneado.precio,
+          cantidad: cantidad,
+          stockDisponible: productoEscaneado.cantidadDisponible,
+        },
+      ]);
+      showToast("success", `${productoEscaneado.nombre} agregado al carrito`);
+    }
+
+    // Limpiar y reiniciar escáner
+    setProductoEscaneado(null);
+    setCantidad(1);
+    setCodigoManual("");
+
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
+    }
+  };
+
+  // Quitar producto del carrito
+  const quitarDelCarrito = (codigo) => {
+    setCarritoVentas((prev) => prev.filter((item) => item.codigo !== codigo));
+    showToast("info", "Producto quitado del carrito");
+  };
+
+  // Modificar cantidad en carrito
+  const modificarCantidadCarrito = (codigo, nuevaCantidad) => {
+    if (nuevaCantidad < 1) {
+      quitarDelCarrito(codigo);
+      return;
+    }
+    setCarritoVentas((prev) =>
+      prev.map((item) =>
+        item.codigo === codigo
+          ? { ...item, cantidad: Math.min(nuevaCantidad, item.stockDisponible) }
+          : item,
+      ),
+    );
+  };
+
+  // Vaciar carrito
+  const vaciarCarrito = async () => {
+    if (carritoVentas.length === 0) return;
+
+    const confirmado = await showConfirmAlert(
+      "Vaciar carrito",
+      "¿Estás seguro de vaciar el carrito?",
+      "Sí, vaciar",
+      "Cancelar",
+    );
+
+    if (confirmado) {
+      setCarritoVentas([]);
+      showToast("info", "Carrito vaciado");
+    }
+  };
+
+  // Registrar todas las ventas del carrito
+  const registrarVentasCarrito = async () => {
+    if (carritoVentas.length === 0) {
+      showToast("warning", "El carrito está vacío");
+      return;
+    }
+
+    const totalCarrito = carritoVentas.reduce(
+      (sum, item) => sum + item.precio * item.cantidad,
+      0,
+    );
+    const totalProductos = carritoVentas.reduce(
+      (sum, item) => sum + item.cantidad,
+      0,
+    );
+
+    const confirmado = await showConfirmAlert(
+      "Confirmar venta múltiple",
+      `¿Registrar venta de ${totalProductos} producto(s)?\n\nTotal: $${formatNumber(totalCarrito)}`,
+      "Sí, vender todo",
+      "Cancelar",
+    );
+
+    if (!confirmado) return;
+
+    setProcesando(true);
+    let ventasExitosas = 0;
+    let ventasFallidas = 0;
+    const nuevasVentas = [];
+
+    for (const item of carritoVentas) {
+      try {
+        const response = await stockService.descontarPorCodigo(
+          item.codigo,
+          item.cantidad,
+          "Venta por escáner (múltiple)",
+        );
+
+        if (response.success) {
+          ventasExitosas++;
+          nuevasVentas.push({
+            ...response.data,
+            fecha: new Date().toISOString(),
+          });
+
+          // Emitir evento para actualizar stock
+          window.dispatchEvent(
+            new CustomEvent("stock:producto_actualizado", {
+              detail: { producto: response.data },
+            }),
+          );
+        } else {
+          ventasFallidas++;
+        }
+      } catch (error) {
+        console.error(`Error al vender ${item.nombre}:`, error);
+        ventasFallidas++;
+      }
+    }
+
+    // Agregar al historial
+    setHistorialVentas((prev) => [...nuevasVentas, ...prev].slice(0, 50));
+
+    // Vaciar carrito
+    setCarritoVentas([]);
+
+    setProcesando(false);
+
+    if (ventasFallidas === 0) {
+      await showSuccessAlert(
+        "¡Venta completada!",
+        `${ventasExitosas} producto(s) vendidos\nTotal: $${formatNumber(totalCarrito)}`,
+      );
+    } else {
+      showToast(
+        "warning",
+        `${ventasExitosas} vendidos, ${ventasFallidas} fallaron`,
+      );
     }
   };
 
@@ -1356,28 +1604,158 @@ export default function EscanerStock() {
             </div>
 
             {/* Botones de acción */}
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelarEscaneo}
+                  disabled={procesando}
+                  className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  ❌ Cancelar
+                </button>
+                <button
+                  onClick={agregarAlCarrito}
+                  disabled={procesando}
+                  className="flex-1 py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  🛒 Agregar al carrito
+                </button>
+              </div>
+              {carritoVentas.length === 0 && (
+                <button
+                  onClick={descontarProducto}
+                  disabled={procesando}
+                  className="w-full py-3 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {procesando ? (
+                    <>
+                      <span className="animate-spin">⏳</span> Procesando...
+                    </>
+                  ) : (
+                    <>✓ Vender directamente</>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Carrito de ventas múltiples */}
+        {carritoVentas.length > 0 && (
+          <div className="card border-2 border-blue-500">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🛒</span>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                  Carrito de Ventas
+                </h3>
+                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                  {carritoVentas.length} producto(s)
+                </span>
+              </div>
               <button
-                onClick={cancelarEscaneo}
-                disabled={procesando}
-                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                onClick={vaciarCarrito}
+                className="text-red-500 hover:text-red-700 text-sm"
               >
-                ❌ Cancelar
-              </button>
-              <button
-                onClick={descontarProducto}
-                disabled={procesando}
-                className="flex-1 py-3 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {procesando ? (
-                  <>
-                    <span className="animate-spin">⏳</span> Procesando...
-                  </>
-                ) : (
-                  <>✓ Confirmar Venta</>
-                )}
+                🗑️ Vaciar
               </button>
             </div>
+
+            {/* Lista de productos en carrito */}
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              {carritoVentas.map((item) => (
+                <div
+                  key={item.codigo}
+                  className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-lg"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                      {item.nombre}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      ${formatNumber(item.precio)} c/u
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        modificarCantidadCarrito(item.codigo, item.cantidad - 1)
+                      }
+                      className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-bold text-gray-800 dark:text-gray-200">
+                      {item.cantidad}
+                    </span>
+                    <button
+                      onClick={() =>
+                        modificarCantidadCarrito(item.codigo, item.cantidad + 1)
+                      }
+                      disabled={item.cantidad >= item.stockDisponible}
+                      className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => quitarDelCarrito(item.codigo)}
+                      className="ml-2 text-red-500 hover:text-red-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="ml-3 font-bold text-primary min-w-[70px] text-right">
+                    ${formatNumber(item.precio * item.cantidad)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Total del carrito */}
+            <div className="bg-green-50 dark:bg-green-900/30 rounded-xl p-4 mb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-300">
+                  Total a cobrar:
+                </span>
+                <span className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  $
+                  {formatNumber(
+                    carritoVentas.reduce(
+                      (sum, item) => sum + item.precio * item.cantidad,
+                      0,
+                    ),
+                  )}
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {carritoVentas.reduce((sum, item) => sum + item.cantidad, 0)}{" "}
+                unidades en total
+              </p>
+            </div>
+
+            {/* Botón para registrar venta */}
+            <button
+              onClick={registrarVentasCarrito}
+              disabled={procesando}
+              className="w-full py-4 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-bold text-lg disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {procesando ? (
+                <>
+                  <span className="animate-spin">⏳</span> Procesando ventas...
+                </>
+              ) : (
+                <>
+                  ✓ Registrar Venta ($
+                  {formatNumber(
+                    carritoVentas.reduce(
+                      (sum, item) => sum + item.precio * item.cantidad,
+                      0,
+                    ),
+                  )}
+                  )
+                </>
+              )}
+            </button>
           </div>
         )}
 
@@ -1554,29 +1932,60 @@ export default function EscanerStock() {
                 </div>
               </div>
 
-              {/* Precio */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Precio de venta *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={nuevoProducto.precio}
-                    onChange={(e) =>
-                      setNuevoProducto((prev) => ({
-                        ...prev,
-                        precio: e.target.value,
-                      }))
-                    }
-                    className="input-field w-full pl-8 text-lg font-bold"
-                  />
+              {/* Precios - en dos columnas */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Precio de Costo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    💰 Precio de costo
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={nuevoProducto.precioCosto}
+                      onChange={(e) =>
+                        setNuevoProducto((prev) => ({
+                          ...prev,
+                          precioCosto: e.target.value,
+                        }))
+                      }
+                      className="input-field w-full pl-8"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Opcional</p>
+                </div>
+
+                {/* Precio de Venta */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    🏷️ Precio de venta *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={nuevoProducto.precioVenta}
+                      onChange={(e) =>
+                        setNuevoProducto((prev) => ({
+                          ...prev,
+                          precioVenta: e.target.value,
+                        }))
+                      }
+                      className="input-field w-full pl-8 text-lg font-bold"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Requerido</p>
                 </div>
               </div>
 

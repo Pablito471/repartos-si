@@ -26,6 +26,9 @@ export default function EscanerDeposito() {
   const [tipoMovimiento, setTipoMovimiento] = useState("entrada"); // entrada o salida
   const [motivo, setMotivo] = useState("");
 
+  // Carrito de salidas/ventas múltiples
+  const [carritoSalidas, setCarritoSalidas] = useState([]);
+
   // Estado para precio de venta modificado (para calcular ganancia)
   const [precioVenta, setPrecioVenta] = useState("");
 
@@ -619,20 +622,76 @@ export default function EscanerDeposito() {
       console.log("📦 Respuesta:", response);
 
       if (response.data.success && response.data.data) {
-        setProductoEscaneado(response.data.data);
-        setPrecioVenta(response.data.data.precio?.toString() || "");
-        setModoAgregar(false);
-        setCantidad(1);
-        setMotivo("");
-        if (html5QrcodeScannerRef.current) {
-          try {
-            await html5QrcodeScannerRef.current.stop();
-          } catch (e) {}
+        const producto = response.data.data;
+
+        // Si es modo SALIDA, agregar automáticamente al carrito
+        if (tipoMovimiento === "salida") {
+          const enCarrito = carritoSalidas.find(
+            (item) => item.codigo === producto.codigo,
+          );
+          const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+
+          if (cantidadEnCarrito + 1 > producto.stock) {
+            showToast(
+              "error",
+              `Stock insuficiente. Disponible: ${producto.stock}, ya en carrito: ${cantidadEnCarrito}`,
+            );
+          } else if (enCarrito) {
+            // Actualizar cantidad si ya existe
+            setCarritoSalidas((prev) =>
+              prev.map((item) =>
+                item.codigo === producto.codigo
+                  ? { ...item, cantidad: item.cantidad + 1 }
+                  : item,
+              ),
+            );
+            showToast(
+              "success",
+              `+1 ${producto.nombre} (Total: ${cantidadEnCarrito + 1})`,
+            );
+          } else {
+            // Agregar nuevo item
+            setCarritoSalidas((prev) => [
+              ...prev,
+              {
+                id: producto.id,
+                codigo: producto.codigo,
+                nombre: producto.nombre,
+                precio: producto.precio,
+                cantidad: 1,
+                stockDisponible: producto.stock,
+                motivo: "Venta por escáner",
+              },
+            ]);
+            showToast("success", `${producto.nombre} agregado al carrito`);
+          }
+
+          setModoAgregar(false);
+
+          // Reiniciar escáner para seguir escaneando
+          if (html5QrcodeScannerRef.current) {
+            try {
+              html5QrcodeScannerRef.current.resume();
+            } catch (e) {
+              console.log("Error al reanudar escáner:", e);
+              setEscaneando(false);
+              setTimeout(() => setEscaneando(true), 100);
+            }
+          }
+        } else {
+          // Modo ENTRADA: comportamiento normal (mostrar producto)
+          setProductoEscaneado(producto);
+          setPrecioVenta(producto.precio?.toString() || "");
+          setModoAgregar(false);
+          setCantidad(1);
+          setMotivo("");
+          if (html5QrcodeScannerRef.current) {
+            try {
+              await html5QrcodeScannerRef.current.stop();
+            } catch (e) {}
+          }
+          showToast("success", `Producto encontrado: ${producto.nombre}`);
         }
-        showToast(
-          "success",
-          `Producto encontrado: ${response.data.data.nombre}`,
-        );
       } else {
         throw new Error("Producto no encontrado");
       }
@@ -851,6 +910,190 @@ export default function EscanerDeposito() {
       showToast("error", mensaje);
     } finally {
       setProcesando(false);
+    }
+  };
+
+  // Agregar producto al carrito de salidas
+  const agregarAlCarritoSalidas = () => {
+    if (!productoEscaneado) return;
+
+    if (cantidad < 1) {
+      showToast("warning", "La cantidad debe ser al menos 1");
+      return;
+    }
+
+    // Verificar stock disponible considerando lo que ya está en el carrito
+    const enCarrito = carritoSalidas.find(
+      (item) => item.codigo === productoEscaneado.codigo,
+    );
+    const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+    const cantidadTotal = cantidadEnCarrito + cantidad;
+
+    if (cantidadTotal > productoEscaneado.stock) {
+      showToast(
+        "error",
+        `Stock insuficiente. Disponible: ${productoEscaneado.stock}, ya en carrito: ${cantidadEnCarrito}`,
+      );
+      return;
+    }
+
+    // Si ya existe, actualizar cantidad
+    if (enCarrito) {
+      setCarritoSalidas((prev) =>
+        prev.map((item) =>
+          item.codigo === productoEscaneado.codigo
+            ? { ...item, cantidad: item.cantidad + cantidad }
+            : item,
+        ),
+      );
+      showToast(
+        "success",
+        `+${cantidad} ${productoEscaneado.nombre} (Total: ${cantidadTotal})`,
+      );
+    } else {
+      // Agregar nuevo item
+      setCarritoSalidas((prev) => [
+        ...prev,
+        {
+          id: productoEscaneado.id,
+          codigo: productoEscaneado.codigo,
+          nombre: productoEscaneado.nombre,
+          precio: productoEscaneado.precio,
+          cantidad: cantidad,
+          stockDisponible: productoEscaneado.stock,
+          motivo: motivo || "Venta por escáner",
+        },
+      ]);
+      showToast("success", `${productoEscaneado.nombre} agregado al carrito`);
+    }
+
+    // Limpiar y reiniciar escáner
+    setProductoEscaneado(null);
+    setCantidad(1);
+    setMotivo("");
+    setCodigoManual("");
+    setPrecioVenta("");
+
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
+    }
+  };
+
+  // Quitar producto del carrito de salidas
+  const quitarDelCarritoSalidas = (codigo) => {
+    setCarritoSalidas((prev) => prev.filter((item) => item.codigo !== codigo));
+    showToast("info", "Producto quitado del carrito");
+  };
+
+  // Modificar cantidad en carrito de salidas
+  const modificarCantidadCarritoSalidas = (codigo, nuevaCantidad) => {
+    if (nuevaCantidad < 1) {
+      quitarDelCarritoSalidas(codigo);
+      return;
+    }
+    setCarritoSalidas((prev) =>
+      prev.map((item) =>
+        item.codigo === codigo
+          ? { ...item, cantidad: Math.min(nuevaCantidad, item.stockDisponible) }
+          : item,
+      ),
+    );
+  };
+
+  // Vaciar carrito de salidas
+  const vaciarCarritoSalidas = async () => {
+    if (carritoSalidas.length === 0) return;
+
+    const confirmado = await showConfirmAlert(
+      "Vaciar carrito",
+      "¿Estás seguro de vaciar el carrito de salidas?",
+      "Sí, vaciar",
+      "Cancelar",
+    );
+
+    if (confirmado) {
+      setCarritoSalidas([]);
+      showToast("info", "Carrito vaciado");
+    }
+  };
+
+  // Registrar todas las salidas del carrito
+  const registrarSalidasCarrito = async () => {
+    if (carritoSalidas.length === 0) {
+      showToast("warning", "El carrito está vacío");
+      return;
+    }
+
+    const totalProductos = carritoSalidas.reduce(
+      (sum, item) => sum + item.cantidad,
+      0,
+    );
+
+    const confirmado = await showConfirmAlert(
+      "Confirmar salidas múltiples",
+      `¿Registrar salida de ${totalProductos} unidad(es) de ${carritoSalidas.length} producto(s)?`,
+      "Sí, registrar todo",
+      "Cancelar",
+    );
+
+    if (!confirmado) return;
+
+    setProcesando(true);
+    let exitosas = 0;
+    let fallidas = 0;
+    const nuevosMovimientos = [];
+
+    for (const item of carritoSalidas) {
+      try {
+        const response = await productosService.registrarMovimientoStock(
+          item.id,
+          item.cantidad,
+          "salida",
+          item.motivo || "Venta por escáner (múltiple)",
+        );
+
+        if (response.data.success) {
+          exitosas++;
+          nuevosMovimientos.push({
+            ...response.data.data,
+            fecha: new Date().toISOString(),
+          });
+        } else {
+          fallidas++;
+        }
+      } catch (error) {
+        console.error(`Error al registrar salida de ${item.nombre}:`, error);
+        fallidas++;
+      }
+    }
+
+    // Recargar inventario
+    try {
+      await recargarInventario();
+    } catch (e) {
+      console.log("Info: no se pudo recargar inventario del contexto");
+    }
+
+    // Agregar al historial
+    setHistorialMovimientos((prev) =>
+      [...nuevosMovimientos, ...prev].slice(0, 50),
+    );
+
+    // Vaciar carrito
+    setCarritoSalidas([]);
+
+    setProcesando(false);
+
+    if (fallidas === 0) {
+      await showSuccessAlert(
+        "¡Salidas registradas!",
+        `${exitosas} movimiento(s) de salida completados`,
+      );
+    } else {
+      showToast("warning", `${exitosas} exitosos, ${fallidas} fallaron`);
     }
   };
 
@@ -1430,35 +1673,167 @@ export default function EscanerDeposito() {
             </div>
 
             {/* Botones de acción */}
-            <div className="flex gap-3">
-              <button
-                onClick={cancelarEscaneo}
-                disabled={procesando}
-                className="flex-1 py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-              >
-                ❌ Cancelar
-              </button>
-              <button
-                onClick={registrarMovimiento}
-                disabled={procesando}
-                className={`flex-1 py-3 px-4 text-white rounded-lg font-semibold disabled:opacity-50 flex items-center justify-center gap-2 ${
-                  tipoMovimiento === "entrada"
-                    ? "bg-green-500 hover:bg-green-600"
-                    : "bg-red-500 hover:bg-red-600"
-                }`}
-              >
-                {procesando ? (
-                  <>
-                    <span className="animate-spin">⏳</span> Procesando...
-                  </>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelarEscaneo}
+                  disabled={procesando}
+                  className="flex-1 py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  ❌ Cancelar
+                </button>
+                {tipoMovimiento === "salida" ? (
+                  <button
+                    onClick={agregarAlCarritoSalidas}
+                    disabled={procesando}
+                    className="flex-1 py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    🛒 Agregar al carrito
+                  </button>
                 ) : (
-                  <>
-                    ✓ Confirmar{" "}
-                    {tipoMovimiento === "entrada" ? "Entrada" : "Salida"}
-                  </>
+                  <button
+                    onClick={registrarMovimiento}
+                    disabled={procesando}
+                    className="flex-1 py-3 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {procesando ? (
+                      <>
+                        <span className="animate-spin">⏳</span> Procesando...
+                      </>
+                    ) : (
+                      <>✓ Confirmar Entrada</>
+                    )}
+                  </button>
                 )}
+              </div>
+              {/* Opción de registrar directamente si carrito vacío y es salida */}
+              {tipoMovimiento === "salida" && carritoSalidas.length === 0 && (
+                <button
+                  onClick={registrarMovimiento}
+                  disabled={procesando}
+                  className="w-full py-3 px-4 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {procesando ? (
+                    <>
+                      <span className="animate-spin">⏳</span> Procesando...
+                    </>
+                  ) : (
+                    <>✓ Salida directa</>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Carrito de salidas múltiples */}
+        {carritoSalidas.length > 0 && (
+          <div className="card border-2 border-blue-500">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🛒</span>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                  Carrito de Salidas
+                </h3>
+                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                  {carritoSalidas.length} producto(s)
+                </span>
+              </div>
+              <button
+                onClick={vaciarCarritoSalidas}
+                className="text-red-500 hover:text-red-700 text-sm"
+              >
+                🗑️ Vaciar
               </button>
             </div>
+
+            {/* Lista de productos en carrito */}
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              {carritoSalidas.map((item) => (
+                <div
+                  key={item.codigo}
+                  className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-lg"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                      {item.nombre}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Stock disponible: {item.stockDisponible}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        modificarCantidadCarritoSalidas(
+                          item.codigo,
+                          item.cantidad - 1,
+                        )
+                      }
+                      className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-bold text-gray-800 dark:text-gray-200">
+                      {item.cantidad}
+                    </span>
+                    <button
+                      onClick={() =>
+                        modificarCantidadCarritoSalidas(
+                          item.codigo,
+                          item.cantidad + 1,
+                        )
+                      }
+                      disabled={item.cantidad >= item.stockDisponible}
+                      className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => quitarDelCarritoSalidas(item.codigo)}
+                      className="ml-2 text-red-500 hover:text-red-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Total del carrito */}
+            <div className="bg-red-50 dark:bg-red-900/30 rounded-xl p-4 mb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-300">
+                  Total a registrar:
+                </span>
+                <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {carritoSalidas.reduce((sum, item) => sum + item.cantidad, 0)}{" "}
+                  unidades
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {carritoSalidas.length} producto(s) diferentes
+              </p>
+            </div>
+
+            {/* Botón para registrar salidas */}
+            <button
+              onClick={registrarSalidasCarrito}
+              disabled={procesando}
+              className="w-full py-4 px-4 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-bold text-lg disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {procesando ? (
+                <>
+                  <span className="animate-spin">⏳</span> Procesando salidas...
+                </>
+              ) : (
+                <>
+                  📤 Registrar{" "}
+                  {carritoSalidas.reduce((sum, item) => sum + item.cantidad, 0)}{" "}
+                  Salidas
+                </>
+              )}
+            </button>
           </div>
         )}
 

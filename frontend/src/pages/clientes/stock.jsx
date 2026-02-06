@@ -20,7 +20,8 @@ export default function StockCliente() {
   const [nuevoProducto, setNuevoProducto] = useState({
     nombre: "",
     cantidad: "",
-    precio: "",
+    precioCosto: "",
+    precioVenta: "",
     registrarCompra: true,
   });
   const [descuento, setDescuento] = useState({
@@ -28,8 +29,11 @@ export default function StockCliente() {
     cantidad: "",
     precioVenta: "",
     motivo: "Venta",
+    registrarVenta: true,
   });
   const [guardando, setGuardando] = useState(false);
+  const [editandoPrecio, setEditandoPrecio] = useState(null); // ID del producto editando
+  const [precioEditado, setPrecioEditado] = useState("");
 
   useEffect(() => {
     if (usuario) {
@@ -131,24 +135,40 @@ export default function StockCliente() {
       return;
     }
 
+    if (!nuevoProducto.precioVenta) {
+      showToast("error", "El precio de venta es requerido");
+      return;
+    }
+
     setGuardando(true);
     try {
       await stockService.agregarProducto({
         nombre: nuevoProducto.nombre,
         cantidad: parseInt(nuevoProducto.cantidad),
-        precio: nuevoProducto.precio ? parseFloat(nuevoProducto.precio) : null,
+        precioCosto: nuevoProducto.precioCosto
+          ? parseFloat(nuevoProducto.precioCosto)
+          : null,
+        precioVenta: nuevoProducto.precioVenta
+          ? parseFloat(nuevoProducto.precioVenta)
+          : null,
         registrarCompra: nuevoProducto.registrarCompra,
       });
 
       setNuevoProducto({
         nombre: "",
         cantidad: "",
-        precio: "",
+        precioCosto: "",
+        precioVenta: "",
         registrarCompra: true,
       });
       setMostrarModalAgregar(false);
       showSuccessAlert("¡Agregado!", "Producto agregado al stock");
       cargarDatos();
+
+      // Emitir evento para actualizar contabilidad si se registró compra
+      if (nuevoProducto.registrarCompra && nuevoProducto.precioCosto) {
+        window.dispatchEvent(new CustomEvent("contabilidad:movimiento_creado"));
+      }
     } catch (error) {
       showToast(
         "error",
@@ -174,6 +194,7 @@ export default function StockCliente() {
         parseInt(descuento.cantidad),
         descuento.motivo,
         descuento.precioVenta ? parseFloat(descuento.precioVenta) : null,
+        descuento.registrarVenta,
       );
 
       setDescuento({
@@ -181,13 +202,21 @@ export default function StockCliente() {
         cantidad: "",
         precioVenta: "",
         motivo: "Venta",
+        registrarVenta: true,
       });
       setMostrarModalDescontar(false);
       showSuccessAlert(
         "¡Descontado!",
-        "Stock actualizado y venta registrada en contabilidad",
+        descuento.registrarVenta
+          ? "Stock actualizado y venta registrada en contabilidad"
+          : "Stock actualizado",
       );
       cargarDatos();
+
+      // Emitir evento para actualizar contabilidad si se registró venta
+      if (descuento.registrarVenta) {
+        window.dispatchEvent(new CustomEvent("contabilidad:movimiento_creado"));
+      }
     } catch (error) {
       showToast(
         "error",
@@ -217,6 +246,43 @@ export default function StockCliente() {
           error.response?.data?.message || "Error al eliminar producto",
         );
       }
+    }
+  };
+
+  // Iniciar edición de precio de venta
+  const iniciarEdicionPrecio = (producto) => {
+    setEditandoPrecio(producto.id);
+    setPrecioEditado(
+      producto.precioVenta?.toString() || producto.precio?.toString() || "",
+    );
+  };
+
+  // Cancelar edición
+  const cancelarEdicionPrecio = () => {
+    setEditandoPrecio(null);
+    setPrecioEditado("");
+  };
+
+  // Guardar precio de venta editado
+  const guardarPrecioVenta = async (producto) => {
+    if (!precioEditado || parseFloat(precioEditado) <= 0) {
+      showToast("error", "Ingresa un precio válido");
+      return;
+    }
+
+    try {
+      await stockService.actualizar(producto.id, {
+        precioVenta: parseFloat(precioEditado),
+      });
+      showToast("success", "Precio actualizado");
+      setEditandoPrecio(null);
+      setPrecioEditado("");
+      cargarDatos();
+    } catch (error) {
+      showToast(
+        "error",
+        error.response?.data?.message || "Error al actualizar precio",
+      );
     }
   };
 
@@ -278,15 +344,15 @@ export default function StockCliente() {
             </div>
           </div>
 
-          <div className="card bg-gradient-to-br from-green-50 to-green-100/50">
+          <div className="card bg-gradient-to-br from-orange-50 to-orange-100/50">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
-                <Icons.Currency className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+                <span className="text-xl">💰</span>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Valor Total</p>
+                <p className="text-sm text-gray-600">Costo Total</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  ${(totales.valorTotal || 0).toLocaleString()}
+                  ${(totales.costoTotal || 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -295,12 +361,12 @@ export default function StockCliente() {
           <div className="card bg-gradient-to-br from-blue-50 to-blue-100/50">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
-                <Icons.CheckCircle className="w-6 h-6 text-blue-600" />
+                <span className="text-xl">🏷️</span>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Productos Únicos</p>
+                <p className="text-sm text-gray-600">Valor de Venta</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  {totales.productosUnicos || 0}
+                  ${(totales.valorTotal || 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -313,6 +379,23 @@ export default function StockCliente() {
             <Icons.Package className="w-5 h-5 text-primary" />
             Inventario Actual
           </h2>
+
+          {/* Advertencia si hay productos sin precio */}
+          {stock.length > 0 &&
+            stock.some((p) => !p.precioVenta && !p.precio) && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4 flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <p className="font-medium text-orange-700">
+                    Productos sin precio configurado
+                  </p>
+                  <p className="text-sm text-orange-600">
+                    Haz clic en "Configurar" para asignar un precio de venta a
+                    cada producto.
+                  </p>
+                </div>
+              </div>
+            )}
 
           {stock.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-xl">
@@ -332,72 +415,139 @@ export default function StockCliente() {
                   <tr className="text-left text-gray-500 text-sm border-b">
                     <th className="pb-3">Producto</th>
                     <th className="pb-3 text-center">Cantidad</th>
-                    <th className="pb-3 text-right">Precio Unit.</th>
-                    <th className="pb-3 text-right">Valor Total</th>
-                    <th className="pb-3 text-right">Última Actualización</th>
+                    <th className="pb-3 text-right">💰 Costo</th>
+                    <th className="pb-3 text-right">🏷️ Venta</th>
                     <th className="pb-3 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stock.map((producto, idx) => (
-                    <tr
-                      key={idx}
-                      className="border-b last:border-0 hover:bg-gray-50"
-                    >
-                      <td className="py-4">
-                        <p className="font-medium text-gray-800">
-                          {producto.nombre}
-                        </p>
-                      </td>
-                      <td className="py-4 text-center">
-                        <span className="bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
-                          {producto.cantidad}
-                        </span>
-                      </td>
-                      <td className="py-4 text-right text-gray-600">
-                        ${producto.precio?.toLocaleString() || "-"}
-                      </td>
-                      <td className="py-4 text-right font-semibold text-gray-800">
-                        $
-                        {(
-                          (producto.cantidad || 0) * (producto.precio || 0)
-                        ).toLocaleString()}
-                      </td>
-                      <td className="py-4 text-right text-sm text-gray-500">
-                        {producto.ultimaActualizacion
-                          ? new Date(
-                              producto.ultimaActualizacion,
-                            ).toLocaleDateString("es-ES")
-                          : "-"}
-                      </td>
-                      <td className="py-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => {
-                              setDescuento({
-                                nombre: producto.nombre,
-                                cantidad: "",
-                                precioVenta: "",
-                                motivo: "Venta",
-                              });
-                              setMostrarModalDescontar(true);
-                            }}
-                            className="text-orange-500 hover:text-orange-700 p-2 rounded-lg hover:bg-orange-50 transition-colors"
-                            title="Descontar"
-                          >
-                            📤
-                          </button>
-                          <button
-                            onClick={() => handleEliminarProducto(producto)}
-                            className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                            title="Eliminar"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {stock.map((producto, idx) => {
+                    const precioCosto = parseFloat(producto.precioCosto) || 0;
+                    const precioVenta =
+                      parseFloat(producto.precioVenta) ||
+                      parseFloat(producto.precio) ||
+                      0;
+                    const sinPrecioConfigurado = precioVenta === 0;
+
+                    return (
+                      <tr
+                        key={idx}
+                        className="border-b last:border-0 hover:bg-gray-50"
+                      >
+                        <td className="py-4">
+                          <p className="font-medium text-gray-800">
+                            {producto.nombre}
+                          </p>
+                          {producto.categoria &&
+                            producto.categoria !== "General" && (
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                {producto.categoria}
+                              </span>
+                            )}
+                        </td>
+                        <td className="py-4 text-center">
+                          <span className="bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
+                            {producto.cantidad}
+                          </span>
+                        </td>
+                        <td className="py-4 text-right text-gray-500">
+                          {precioCosto > 0 ? (
+                            `$${precioCosto.toLocaleString()}`
+                          ) : (
+                            <span className="text-gray-300">Sin costo</span>
+                          )}
+                        </td>
+                        <td className="py-4 text-right">
+                          {editandoPrecio === producto.id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <div className="relative">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                                  $
+                                </span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={precioEditado}
+                                  onChange={(e) =>
+                                    setPrecioEditado(e.target.value)
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter")
+                                      guardarPrecioVenta(producto);
+                                    if (e.key === "Escape")
+                                      cancelarEdicionPrecio();
+                                  }}
+                                  className="w-24 pl-6 pr-2 py-1 border rounded text-right text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                  autoFocus
+                                />
+                              </div>
+                              <button
+                                onClick={() => guardarPrecioVenta(producto)}
+                                className="text-green-600 hover:text-green-700 p-1"
+                                title="Guardar"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={cancelarEdicionPrecio}
+                                className="text-red-500 hover:text-red-600 p-1"
+                                title="Cancelar"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : sinPrecioConfigurado ? (
+                            <button
+                              onClick={() => iniciarEdicionPrecio(producto)}
+                              className="text-orange-500 hover:text-orange-600 hover:bg-orange-50 px-2 py-1 rounded transition-colors animate-pulse"
+                              title="Clic para configurar precio de venta"
+                            >
+                              ⚠️ Configurar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => iniciarEdicionPrecio(producto)}
+                              className="text-gray-700 hover:text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors group"
+                              title="Clic para editar precio de venta"
+                            >
+                              ${precioVenta.toLocaleString()}
+                              <span className="ml-1 text-gray-400 group-hover:text-primary text-xs">
+                                ✏️
+                              </span>
+                            </button>
+                          )}
+                        </td>
+                        <td className="py-4 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => {
+                                setDescuento({
+                                  nombre: producto.nombre,
+                                  cantidad: "",
+                                  precioVenta: precioVenta.toString(),
+                                  motivo: "Venta",
+                                  registrarVenta: true,
+                                });
+                                setMostrarModalDescontar(true);
+                              }}
+                              className="text-orange-500 hover:text-orange-700 p-2 rounded-lg hover:bg-orange-50 transition-colors"
+                              title="Descontar/Vender"
+                            >
+                              📤
+                            </button>
+                            <button
+                              onClick={() => handleEliminarProducto(producto)}
+                              className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                              title="Eliminar"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50">
@@ -407,7 +557,7 @@ export default function StockCliente() {
                     <td className="py-4 text-right text-xl font-bold text-primary">
                       ${(totales.valorTotal || 0).toLocaleString()}
                     </td>
-                    <td colSpan={2}></td>
+                    <td></td>
                   </tr>
                 </tfoot>
               </table>
@@ -563,7 +713,7 @@ export default function StockCliente() {
             <form onSubmit={handleAgregarProducto} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre del producto
+                  Nombre del producto *
                 </label>
                 <input
                   type="text"
@@ -582,7 +732,7 @@ export default function StockCliente() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cantidad
+                  Cantidad *
                 </label>
                 <input
                   type="number"
@@ -600,53 +750,84 @@ export default function StockCliente() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Precio unitario (opcional)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    className="input-field pl-8"
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    value={nuevoProducto.precio}
-                    onChange={(e) =>
-                      setNuevoProducto({
-                        ...nuevoProducto,
-                        precio: e.target.value,
-                      })
-                    }
-                  />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    💰 Precio de costo
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      className="input-field pl-8"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      value={nuevoProducto.precioCosto}
+                      onChange={(e) =>
+                        setNuevoProducto({
+                          ...nuevoProducto,
+                          precioCosto: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Opcional</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    🏷️ Precio de venta *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      className="input-field pl-8"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      value={nuevoProducto.precioVenta}
+                      onChange={(e) =>
+                        setNuevoProducto({
+                          ...nuevoProducto,
+                          precioVenta: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Requerido</p>
                 </div>
               </div>
 
-              {nuevoProducto.precio && parseFloat(nuevoProducto.precio) > 0 && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="registrarCompra"
-                    checked={nuevoProducto.registrarCompra}
-                    onChange={(e) =>
-                      setNuevoProducto({
-                        ...nuevoProducto,
-                        registrarCompra: e.target.checked,
-                      })
-                    }
-                    className="w-4 h-4 text-primary rounded focus:ring-primary"
-                  />
-                  <label
-                    htmlFor="registrarCompra"
-                    className="text-sm text-gray-700"
-                  >
-                    Registrar como compra en contabilidad
-                  </label>
-                </div>
-              )}
+              {nuevoProducto.precioCosto &&
+                parseFloat(nuevoProducto.precioCosto) > 0 && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="registrarCompra"
+                      checked={nuevoProducto.registrarCompra}
+                      onChange={(e) =>
+                        setNuevoProducto({
+                          ...nuevoProducto,
+                          registrarCompra: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-primary rounded focus:ring-primary"
+                    />
+                    <label
+                      htmlFor="registrarCompra"
+                      className="text-sm text-gray-700"
+                    >
+                      Registrar como compra en contabilidad
+                    </label>
+                  </div>
+                )}
 
               <div className="flex space-x-3 pt-4">
                 <button
@@ -742,22 +923,27 @@ export default function StockCliente() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Precio de venta unitario (opcional)
+                  Precio de venta unitario
                 </label>
-                <input
-                  type="number"
-                  className="input-field"
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                  value={descuento.precioVenta}
-                  onChange={(e) =>
-                    setDescuento({ ...descuento, precioVenta: e.target.value })
-                  }
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Si indicas el precio, se registrará como venta en contabilidad
-                </p>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    className="input-field pl-8"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    value={descuento.precioVenta}
+                    onChange={(e) =>
+                      setDescuento({
+                        ...descuento,
+                        precioVenta: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               </div>
 
               <div>
@@ -778,6 +964,30 @@ export default function StockCliente() {
                   <option value="Otro">Otro</option>
                 </select>
               </div>
+
+              {descuento.precioVenta &&
+                parseFloat(descuento.precioVenta) > 0 && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="registrarVenta"
+                      checked={descuento.registrarVenta}
+                      onChange={(e) =>
+                        setDescuento({
+                          ...descuento,
+                          registrarVenta: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-primary rounded focus:ring-primary"
+                    />
+                    <label
+                      htmlFor="registrarVenta"
+                      className="text-sm text-gray-700"
+                    >
+                      Registrar como venta en contabilidad
+                    </label>
+                  </div>
+                )}
 
               <div className="flex space-x-3 pt-4">
                 <button

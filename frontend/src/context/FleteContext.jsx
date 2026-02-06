@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { enviosService, movimientosService } from "../services/api";
 import { useAuth } from "./AuthContext";
+import { toLocalDateString } from "../utils/formatters";
 
 const FleteContext = createContext();
 
@@ -57,9 +58,7 @@ export function FleteProvider({ children }) {
           // Formatear movimientos
           const movimientosFormateados = movimientosData.map((m) => ({
             id: m.id,
-            fecha:
-              m.createdAt?.split("T")[0] ||
-              new Date().toISOString().split("T")[0],
+            fecha: toLocalDateString(m.createdAt),
             tipo: m.tipo,
             concepto: m.concepto,
             monto: parseFloat(m.monto),
@@ -114,10 +113,10 @@ export function FleteProvider({ children }) {
                 nombre: p.nombre,
                 cantidad: p.cantidad,
               })) || [],
-            fechaAsignacion:
-              envio.createdAt?.split("T")[0] ||
-              new Date().toISOString().split("T")[0],
-            fechaEntrega: envio.fechaEstimada?.split("T")[0] || null,
+            fechaAsignacion: toLocalDateString(envio.createdAt),
+            fechaEntrega: envio.fechaEstimada
+              ? toLocalDateString(envio.fechaEstimada)
+              : null,
             horarioEntrega: envio.fechaEstimada
               ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
                   hour: "2-digit",
@@ -174,10 +173,10 @@ export function FleteProvider({ children }) {
               nombre: p.nombre,
               cantidad: p.cantidad,
             })) || [],
-          fechaAsignacion:
-            envio.createdAt?.split("T")[0] ||
-            new Date().toISOString().split("T")[0],
-          fechaEntrega: envio.fechaEstimada?.split("T")[0] || null,
+          fechaAsignacion: toLocalDateString(envio.createdAt),
+          fechaEntrega: envio.fechaEstimada
+            ? toLocalDateString(envio.fechaEstimada)
+            : null,
           horarioEntrega: envio.fechaEstimada
             ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
                 hour: "2-digit",
@@ -252,7 +251,7 @@ export function FleteProvider({ children }) {
 
   // Obtener envíos del día (incluye pendientes y en camino sin importar fecha)
   const getEnviosDelDia = () => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = toLocalDateString();
     return envios.filter((e) => {
       // Mostrar todos los envíos pendientes o en camino (son entregas activas)
       if (e.estado === "pendiente" || e.estado === "en_camino") return true;
@@ -322,9 +321,7 @@ export function FleteProvider({ children }) {
         const nuevoMovimiento = response.data || response;
         const movimientoFormateado = {
           id: nuevoMovimiento.id,
-          fecha:
-            nuevoMovimiento.createdAt?.split("T")[0] ||
-            new Date().toISOString().split("T")[0],
+          fecha: toLocalDateString(nuevoMovimiento.createdAt),
           tipo: nuevoMovimiento.tipo,
           concepto: nuevoMovimiento.concepto,
           monto: parseFloat(nuevoMovimiento.monto),
@@ -360,7 +357,7 @@ export function FleteProvider({ children }) {
       const nuevoMovimiento = {
         ...movimiento,
         id: Date.now(),
-        fecha: new Date().toISOString().split("T")[0],
+        fecha: toLocalDateString(),
       };
       setMovimientos((prev) => [nuevoMovimiento, ...prev]);
       return { success: true, data: nuevoMovimiento };
@@ -447,9 +444,7 @@ export function FleteProvider({ children }) {
 
         const movimientosFormateados = movimientosData.map((m) => ({
           id: m.id,
-          fecha:
-            m.createdAt?.split("T")[0] ||
-            new Date().toISOString().split("T")[0],
+          fecha: toLocalDateString(m.createdAt),
           tipo: m.tipo,
           concepto: m.concepto,
           monto: parseFloat(m.monto),

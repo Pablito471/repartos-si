@@ -26,6 +26,17 @@ const StockCliente = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+    precioCosto: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: "precio_costo",
+    },
+    precioVenta: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: "precio_venta",
+    },
+    // Campo legacy - mantener para compatibilidad con datos existentes
     precio: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,

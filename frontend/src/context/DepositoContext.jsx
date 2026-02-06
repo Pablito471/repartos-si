@@ -7,6 +7,7 @@ import {
   movimientosService,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
+import { toLocalDateString } from "../utils/formatters";
 
 const DepositoContext = createContext();
 
@@ -488,6 +489,12 @@ export function DepositoProvider({ children }) {
       );
     };
 
+    // Escuchar evento de nuevo movimiento contable para actualizar automáticamente
+    const handleMovimientoCreado = () => {
+      console.log("DepositoContext: Recibido contabilidad:movimiento_creado");
+      recargarMovimientos();
+    };
+
     window.addEventListener("socket:nuevo_pedido", handleNuevoPedido);
     window.addEventListener(
       "socket:envio_entregado_deposito",
@@ -496,6 +503,10 @@ export function DepositoProvider({ children }) {
     window.addEventListener(
       "socket:envio_en_camino_deposito",
       handleEnvioEnCamino,
+    );
+    window.addEventListener(
+      "contabilidad:movimiento_creado",
+      handleMovimientoCreado,
     );
 
     return () => {
@@ -507,6 +518,10 @@ export function DepositoProvider({ children }) {
       window.removeEventListener(
         "socket:envio_en_camino_deposito",
         handleEnvioEnCamino,
+      );
+      window.removeEventListener(
+        "contabilidad:movimiento_creado",
+        handleMovimientoCreado,
       );
     };
   }, [usuario?.id]);
@@ -653,9 +668,20 @@ export function DepositoProvider({ children }) {
             movimientosService.getTotales(),
           ]);
 
-          const movimientosBackend =
-            movimientosRes.data || movimientosRes || [];
-          setMovimientos(movimientosBackend);
+          const movimientosData = movimientosRes.data || movimientosRes || [];
+          // Mapear movimientos al formato correcto
+          setMovimientos(
+            movimientosData.map((m) => ({
+              id: m.id,
+              fecha: toLocalDateString(m.createdAt),
+              tipo: m.tipo,
+              concepto: m.concepto,
+              monto: parseFloat(m.monto),
+              categoria: m.categoria,
+              pedidoId: m.pedidoId,
+              notas: m.notas,
+            })),
+          );
           setTotalesContables(totalesRes.data || totalesRes);
         } catch (error) {
           console.error("Error al cargar movimientos:", error);
@@ -708,6 +734,31 @@ export function DepositoProvider({ children }) {
             String(p.id) === String(id) ? { ...p, estado: nuevoEstado } : p,
           ),
         );
+
+        // Si el pedido se marca como entregado, registrar venta en contabilidad
+        if (nuevoEstado === "entregado" && pedidoActual) {
+          const totalPedido = parseFloat(pedidoActual.total) || 0;
+          if (totalPedido > 0) {
+            try {
+              await movimientosService.crear({
+                tipo: "ingreso",
+                concepto: `Venta - Pedido #${pedidoActual.numero || pedidoActual.id?.toString().slice(-4) || "?"} - ${pedidoActual.cliente?.nombre || pedidoActual.cliente || "Cliente"}`,
+                monto: totalPedido,
+                categoria: "ventas",
+                pedidoId: id,
+                notas: `Pedido entregado. Productos: ${pedidoActual.productos?.length || 0}`,
+              });
+              console.log("Movimiento contable (venta pedido) registrado:", id);
+              // Emitir evento para actualizar contabilidad
+              window.dispatchEvent(
+                new CustomEvent("contabilidad:movimiento_creado"),
+              );
+            } catch (movError) {
+              console.error("Error al registrar venta del pedido:", movError);
+            }
+          }
+        }
+
         return true;
       } catch (error) {
         console.error("Error al cambiar estado del pedido:", error);
@@ -734,7 +785,7 @@ export function DepositoProvider({ children }) {
     productoId,
     cantidad,
     tipo,
-    costoUnitario = null,
+    registrarContabilidad = true,
   ) => {
     if (MODO_CONEXION === "api") {
       try {
@@ -767,28 +818,55 @@ export function DepositoProvider({ children }) {
           }),
         );
 
-        // Registrar movimiento contable para entradas de stock (compras)
-        if (tipo === "entrada" && producto) {
-          const costo = costoUnitario || producto.costo || 0;
-          const costoTotal = parseFloat(costo) * parseInt(cantidad);
-          if (costoTotal > 0) {
-            try {
-              await movimientosService.crear({
-                tipo: "egreso",
-                concepto: `Reposición stock: ${producto.nombre} (+${cantidad} unidades)`,
-                monto: costoTotal,
-                categoria: "compras",
-                notas: `Producto: ${producto.codigo} - Costo unitario: $${parseFloat(costo).toLocaleString()}`,
-              });
-              console.log(
-                "Movimiento contable registrado para reposición de stock:",
-                producto.nombre,
-              );
-            } catch (movError) {
-              console.error(
-                "Error al registrar movimiento contable:",
-                movError,
-              );
+        // Registrar movimiento contable si está habilitado
+        if (registrarContabilidad && producto) {
+          if (tipo === "entrada") {
+            // Entrada = Compra (egreso)
+            const costo = producto.costo || 0;
+            const costoTotal = parseFloat(costo) * parseInt(cantidad);
+            if (costoTotal > 0) {
+              try {
+                await movimientosService.crear({
+                  tipo: "egreso",
+                  concepto: `Reposición stock: ${producto.nombre} (+${cantidad} unidades)`,
+                  monto: costoTotal,
+                  categoria: "compras",
+                  notas: `Producto: ${producto.codigo} - Costo unitario: $${parseFloat(costo).toLocaleString()}`,
+                });
+                console.log(
+                  "Movimiento contable (compra) registrado:",
+                  producto.nombre,
+                );
+              } catch (movError) {
+                console.error(
+                  "Error al registrar movimiento contable:",
+                  movError,
+                );
+              }
+            }
+          } else {
+            // Salida = Venta (ingreso)
+            const precio = producto.precio || 0;
+            const ventaTotal = parseFloat(precio) * parseInt(cantidad);
+            if (ventaTotal > 0) {
+              try {
+                await movimientosService.crear({
+                  tipo: "ingreso",
+                  concepto: `Venta: ${producto.nombre} (${cantidad} unidades)`,
+                  monto: ventaTotal,
+                  categoria: "ventas",
+                  notas: `Producto: ${producto.codigo} - Precio unitario: $${parseFloat(precio).toLocaleString()}`,
+                });
+                console.log(
+                  "Movimiento contable (venta) registrado:",
+                  producto.nombre,
+                );
+              } catch (movError) {
+                console.error(
+                  "Error al registrar movimiento contable:",
+                  movError,
+                );
+              }
             }
           }
         }
@@ -860,10 +938,11 @@ export function DepositoProvider({ children }) {
 
         setInventario((prev) => [...prev, productoMapeado]);
 
-        // Registrar movimiento contable de egreso (compra/importación)
+        // Registrar movimiento contable de egreso (compra/importación) si está habilitado
+        const registrarCompra = producto.registrarCompra !== false; // Por defecto true
         const costoTotal =
           (parseFloat(producto.costo) || 0) * (parseInt(producto.stock) || 0);
-        if (costoTotal > 0) {
+        if (registrarCompra && costoTotal > 0) {
           try {
             await movimientosService.crear({
               tipo: "egreso",
@@ -1231,7 +1310,18 @@ export function DepositoProvider({ children }) {
     if (MODO_CONEXION === "api") {
       try {
         const response = await movimientosService.crear(movimiento);
-        const nuevoMovimiento = response.data || response;
+        const data = response.data || response;
+        // Mapear al formato correcto
+        const nuevoMovimiento = {
+          id: data.id,
+          fecha: toLocalDateString(data.createdAt),
+          tipo: data.tipo,
+          concepto: data.concepto,
+          monto: parseFloat(data.monto),
+          categoria: data.categoria,
+          pedidoId: data.pedidoId,
+          notas: data.notas,
+        };
         setMovimientos([nuevoMovimiento, ...movimientos]);
         // Recargar totales
         const totalesRes = await movimientosService.getTotales();
@@ -1314,7 +1404,20 @@ export function DepositoProvider({ children }) {
           movimientosService.listar(),
           movimientosService.getTotales(),
         ]);
-        setMovimientos(movimientosRes.data || movimientosRes || []);
+        const movimientosData = movimientosRes.data || movimientosRes || [];
+        // Mapear movimientos al formato correcto
+        setMovimientos(
+          movimientosData.map((m) => ({
+            id: m.id,
+            fecha: toLocalDateString(m.createdAt),
+            tipo: m.tipo,
+            concepto: m.concepto,
+            monto: parseFloat(m.monto),
+            categoria: m.categoria,
+            pedidoId: m.pedidoId,
+            notas: m.notas,
+          })),
+        );
         setTotalesContables(totalesRes.data || totalesRes);
       } catch (error) {
         console.error("Error al recargar movimientos:", error);

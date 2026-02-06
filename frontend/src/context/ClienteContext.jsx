@@ -7,6 +7,7 @@ import {
   stockService,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
+import { toLocalDateString } from "../utils/formatters";
 
 const ClienteContext = createContext();
 
@@ -568,12 +569,22 @@ export function ClienteProvider({ children }) {
       );
     };
 
+    // Escuchar evento de nuevo movimiento contable para actualizar automáticamente
+    const handleMovimientoCreado = () => {
+      console.log("ClienteContext: Recibido contabilidad:movimiento_creado");
+      recargarMovimientos();
+    };
+
     window.addEventListener(
       "socket:pedido_actualizado",
       handlePedidoActualizado,
     );
     window.addEventListener("socket:envio_en_camino", handleEnvioEnCamino);
     window.addEventListener("socket:envio_entregado", handleEnvioEntregado);
+    window.addEventListener(
+      "contabilidad:movimiento_creado",
+      handleMovimientoCreado,
+    );
 
     return () => {
       window.removeEventListener(
@@ -584,6 +595,10 @@ export function ClienteProvider({ children }) {
       window.removeEventListener(
         "socket:envio_entregado",
         handleEnvioEntregado,
+      );
+      window.removeEventListener(
+        "contabilidad:movimiento_creado",
+        handleMovimientoCreado,
       );
     };
   }, [usuario?.id]);
@@ -604,9 +619,7 @@ export function ClienteProvider({ children }) {
         setMovimientos(
           movimientosData.map((m) => ({
             id: m.id,
-            fecha:
-              m.createdAt?.split("T")[0] ||
-              new Date().toISOString().split("T")[0],
+            fecha: toLocalDateString(m.createdAt),
             tipo: m.tipo,
             concepto: m.concepto,
             monto: parseFloat(m.monto),
@@ -914,9 +927,7 @@ export function ClienteProvider({ children }) {
         const nuevoMovimiento = response.data || response;
         const movimientoFormateado = {
           id: nuevoMovimiento.id,
-          fecha:
-            nuevoMovimiento.createdAt?.split("T")[0] ||
-            new Date().toISOString().split("T")[0],
+          fecha: toLocalDateString(nuevoMovimiento.createdAt),
           tipo: nuevoMovimiento.tipo,
           concepto: nuevoMovimiento.concepto,
           monto: parseFloat(nuevoMovimiento.monto),
@@ -1057,9 +1068,7 @@ export function ClienteProvider({ children }) {
       setMovimientos(
         movimientosData.map((m) => ({
           id: m.id,
-          fecha:
-            m.createdAt?.split("T")[0] ||
-            new Date().toISOString().split("T")[0],
+          fecha: toLocalDateString(m.createdAt),
           tipo: m.tipo,
           concepto: m.concepto,
           monto: parseFloat(m.monto),
