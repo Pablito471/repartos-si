@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Image from "next/image";
 import StarRating from "./StarRating";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -119,12 +120,14 @@ export default function CalificarModal({ usuario, onClose, onCalificado }) {
         {/* Usuario info */}
         <div className="px-6 py-4 border-b bg-gray-50">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-3xl overflow-hidden">
+            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-3xl overflow-hidden relative">
               {usuario.foto ? (
-                <img
+                <Image
                   src={usuario.foto}
                   alt={usuario.nombre}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
               ) : (
                 tipoIcono[usuario.tipoUsuario]

@@ -47,6 +47,7 @@
 | 👷 Control de empleados manual      | ✅ Escáner de productos con estadísticas |
 | 💰 Contabilidad desordenada         | ✅ Reportes automáticos por período      |
 | 📱 Múltiples sistemas desconectados | ✅ Todo en una sola plataforma           |
+| 💳 Cobros manuales sin registro     | ✅ Pagos QR compatibles con billeteras   |
 
 > 🚀 **Ideal para:** Distribuidoras de bebidas, alimentos, productos de limpieza, mayoristas, y cualquier negocio con sistema de reparto.
 
@@ -97,13 +98,45 @@
 
 **Formatos soportados:** `EAN-13` `EAN-8` `UPC-A` `UPC-E` `CODE-128` `CODE-39` `QR`
 
-### 🔔 Funcionalidades en Tiempo Real
+### � Sistema de Pagos QR
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  💰 MÓDULO DE COBROS Y PAGOS                                │
+├─────────────────────────────────────────────────────────────┤
+│  📱 Mis Datos      │  Configurar alias, CBU, CVU, banco    │
+│  💵 Cobrar         │  Generar QR para recibir pagos        │
+│  📤 Pagar          │  Escanear QR para realizar pagos      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Compatible con:** `Mercado Pago` `Modo` `Ualá` `Naranja X` `Personal Pay` `Todas las billeteras virtuales`
+
+| Característica           | Descripción                                  |
+| ------------------------ | -------------------------------------------- |
+| 🏦 **Datos Bancarios**   | Alias, CBU, CVU, Banco, Titular              |
+| 📲 **QR Dinámico**       | Genera QR con monto y referencia             |
+| 🔍 **Escáner Integrado** | Escanea QR de cualquier billetera            |
+| 🔊 **Feedback Sonoro**   | Beep de confirmación al escanear             |
+| 📤 **Compartir**         | Descarga o comparte el QR generado           |
+| 💵 **Modal de Pago**     | Al cerrar venta: QR/Transferencia o Efectivo |
+
+### 📅 Calendario de Contabilidad
+
+Vista completa de movimientos financieros con filtros:
+
+- 📊 **Vista diaria, semanal, mensual y anual**
+- 💰 Balance de ingresos y egresos
+- 📈 Gráficos de rendimiento
+
+### �🔔 Funcionalidades en Tiempo Real
 
 - ✅ Chat entre usuarios y admin
 - ✅ Notificaciones de nuevos pedidos
 - ✅ Actualizaciones de estado
 - ✅ Alertas de stock bajo
 - ✅ Tema oscuro/claro
+- ✅ Sistema de calificaciones entre usuarios
 
 ---
 
@@ -129,6 +162,7 @@
 | Axios            | `1.6.7`   | Cliente HTTP    |
 | SweetAlert2      | `11.10.5` | Alertas/Modales |
 | html5-qrcode     | `2.3.8`   | Escáner códigos |
+| qrcode           | `1.5.3`   | Generar QR      |
 | Pusher JS        | `8.4.0`   | WebSockets      |
 | Socket.io Client | `4.8.3`   | Tiempo real     |
 | JsBarcode        | `3.12.3`  | Generar códigos |
@@ -305,6 +339,24 @@ Cliente ──────► Depósito ──────► Flete ────
                      y asigna                      y califica
 ```
 
+### 💳 Flujo de Pago
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  VENDEDOR (Cierra venta)                                    │
+│      │                                                      │
+│      ▼                                                      │
+│  ┌──────────────────┐                                       │
+│  │ Modal de Pago    │                                       │
+│  │  • QR/Transfer   │──► Genera QR ──► Comprador escanea    │
+│  │  • Efectivo      │──► Calcula vuelto                     │
+│  └──────────────────┘                                       │
+│      │                                                      │
+│      ▼                                                      │
+│  ✅ Venta registrada con método de pago                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## 🔌 API Endpoints
@@ -376,7 +428,10 @@ repartos-si/
 │   │   ├── components/            # Componentes UI
 │   │   │   ├── layouts/           # Layouts por usuario
 │   │   │   ├── ChatWidget.jsx
-│   │   │   └── CalificarModal.jsx
+│   │   │   ├── CalificarModal.jsx
+│   │   │   ├── DatosPagoQR.jsx    # 💳 Sistema pagos QR
+│   │   │   ├── ModalPagoVenta.jsx # 💰 Modal cierre venta
+│   │   │   └── CalendarioContabilidad.jsx
 │   │   ├── context/               # Estado global
 │   │   │   ├── AuthContext.jsx    # Autenticación
 │   │   │   └── ChatContext.jsx
@@ -511,15 +566,16 @@ frontend/src/__tests__/
 
 ### Backend
 
-| Comando                 | Descripción             |
-| ----------------------- | ----------------------- |
-| `npm run dev`           | 🔧 Desarrollo (Nodemon) |
-| `npm run start`         | 🚀 Iniciar servidor     |
-| `npm run db:sync`       | 🔄 Sincronizar BD       |
-| `npm run db:seed`       | 🌱 Poblar datos         |
-| `npm run test`          | 🧪 Ejecutar tests       |
-| `npm run test:watch`    | 👀 Tests en modo watch  |
-| `npm run test:coverage` | 📊 Tests con cobertura  |
+| Comando                    | Descripción                 |
+| -------------------------- | --------------------------- |
+| `npm run dev`              | 🔧 Desarrollo (Nodemon)     |
+| `npm run start`            | 🚀 Iniciar servidor         |
+| `npm run db:sync`          | 🔄 Sincronizar BD           |
+| `npm run db:seed`          | 🌱 Poblar datos             |
+| `npm run db:add-bancarios` | 💳 Agregar campos bancarios |
+| `npm run test`             | 🧪 Ejecutar tests           |
+| `npm run test:watch`       | 👀 Tests en modo watch      |
+| `npm run test:coverage`    | 📊 Tests con cobertura      |
 
 ---
 

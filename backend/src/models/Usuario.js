@@ -118,6 +118,35 @@ const Usuario = sequelize.define(
       type: DataTypes.JSONB,
       allowNull: true,
     },
+    // Datos bancarios para pagos
+    aliasBancario: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    cbu: {
+      type: DataTypes.STRING(22),
+      allowNull: true,
+      validate: {
+        len: [22, 22],
+        isNumeric: true,
+      },
+    },
+    cvu: {
+      type: DataTypes.STRING(22),
+      allowNull: true,
+      validate: {
+        len: [22, 22],
+        isNumeric: true,
+      },
+    },
+    banco: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    titularCuenta: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     // Campos para reset de contraseña
     resetPasswordToken: {
       type: DataTypes.STRING,

@@ -10,9 +10,10 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
-  // Ignorar errores de ESLint durante build (arreglar después)
+  // ESLint habilitado - mostrar warnings pero no fallar el build
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
+    dirs: ["src"],
   },
 };
 

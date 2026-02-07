@@ -5,6 +5,7 @@ import { empleadosAPI } from "@/services/api";
 import Swal from "sweetalert2";
 import Image from "next/image";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import ModalPagoVenta from "@/components/ModalPagoVenta";
 
 export default function EmpleadoEscaner() {
   const { usuario } = useAuth();
@@ -42,6 +43,10 @@ export default function EmpleadoEscaner() {
 
   // Estado para controlar cuándo iniciar realmente el escáner
   const [iniciarEscanerPendiente, setIniciarEscanerPendiente] = useState(false);
+
+  // Estado para modal de pago
+  const [mostrarModalPago, setMostrarModalPago] = useState(false);
+  const [ventaPendiente, setVentaPendiente] = useState(null);
 
   // Función para reproducir sonido de escaneo
   const reproducirSonidoEscaneo = useCallback(async () => {
@@ -314,59 +319,89 @@ export default function EmpleadoEscaner() {
     });
   };
 
-  // Realizar venta
+  // Realizar venta - abre modal de pago primero
   const realizarVenta = async () => {
     if (!productoEscaneado || cantidad <= 0) return;
 
+    const stockDisponible =
+      productoEscaneado.stock || productoEscaneado.cantidad || 0;
+
+    if (cantidad > stockDisponible) {
+      Swal.fire({
+        icon: "error",
+        title: "Stock insuficiente",
+        text: `Solo hay ${stockDisponible} unidades disponibles`,
+      });
+      return;
+    }
+
+    const precioVenta =
+      productoEscaneado.precioVenta || productoEscaneado.precio || 0;
+    const subtotal = precioVenta * cantidad;
+
+    // Guardar datos de la venta pendiente y abrir modal de pago
+    setVentaPendiente({
+      producto: productoEscaneado,
+      cantidad,
+      precioUnitario: precioVenta,
+      subtotal,
+    });
+    setMostrarModalPago(true);
+  };
+
+  // Confirmar venta después del pago
+  const confirmarVentaConPago = async (datosPago) => {
+    if (!ventaPendiente) return;
+
     setProcesando(true);
+    setMostrarModalPago(false);
+
     try {
-      const stockDisponible =
-        productoEscaneado.stock || productoEscaneado.cantidad || 0;
-
-      if (cantidad > stockDisponible) {
-        Swal.fire({
-          icon: "error",
-          title: "Stock insuficiente",
-          text: `Solo hay ${stockDisponible} unidades disponibles`,
-        });
-        setProcesando(false);
-        return;
-      }
-
-      const precioVenta =
-        productoEscaneado.precioVenta || productoEscaneado.precio || 0;
-      const subtotal = precioVenta * cantidad;
+      const {
+        producto,
+        cantidad: cantidadVenta,
+        precioUnitario,
+        subtotal,
+      } = ventaPendiente;
 
       // Realizar la venta usando la API de empleados
-      await empleadosAPI.vender(productoEscaneado.id, cantidad, precioVenta);
+      await empleadosAPI.vender(producto.id, cantidadVenta, precioUnitario);
 
       // Agregar al historial
       const nuevaVenta = {
         id: Date.now(),
-        producto: productoEscaneado.nombre,
-        cantidad,
-        precioUnitario: precioVenta,
+        producto: producto.nombre,
+        cantidad: cantidadVenta,
+        precioUnitario,
         subtotal,
         hora: new Date().toLocaleTimeString(),
+        metodoPago: datosPago.metodoPago,
       };
 
       setHistorialVentas((prev) => [nuevaVenta, ...prev]);
       setTotalDia((prev) => prev + subtotal);
 
+      const metodoPagoTexto =
+        datosPago.metodoPago === "efectivo"
+          ? `💵 Efectivo${datosPago.vuelto > 0 ? ` (Vuelto: $${datosPago.vuelto.toLocaleString("es-AR")})` : ""}`
+          : "📱 Transferencia/QR";
+
       Swal.fire({
         icon: "success",
-        title: "¡Venta registrada!",
+        title: "¡Venta completada!",
         html: `
-          <p><strong>${productoEscaneado.nombre}</strong></p>
-          <p>${cantidad} x $${precioVenta.toLocaleString()} = <strong>$${subtotal.toLocaleString()}</strong></p>
+          <p><strong>${producto.nombre}</strong></p>
+          <p>${cantidadVenta} x $${precioUnitario.toLocaleString()} = <strong>$${subtotal.toLocaleString()}</strong></p>
+          <p class="mt-2 text-sm">${metodoPagoTexto}</p>
         `,
-        timer: 2000,
+        timer: 2500,
         showConfirmButton: false,
       });
 
       // Limpiar
       setProductoEscaneado(null);
       setCantidad(1);
+      setVentaPendiente(null);
     } catch (error) {
       console.error("Error al registrar venta:", error);
       Swal.fire({
@@ -377,6 +412,12 @@ export default function EmpleadoEscaner() {
     } finally {
       setProcesando(false);
     }
+  };
+
+  // Cancelar modal de pago
+  const cancelarPago = () => {
+    setMostrarModalPago(false);
+    setVentaPendiente(null);
   };
 
   // Agregar stock
@@ -938,6 +979,30 @@ export default function EmpleadoEscaner() {
           </div>
         )}
       </div>
+
+      {/* Modal de pago */}
+      <ModalPagoVenta
+        isOpen={mostrarModalPago}
+        onClose={cancelarPago}
+        onConfirmar={confirmarVentaConPago}
+        monto={ventaPendiente?.subtotal || 0}
+        concepto={`Venta: ${ventaPendiente?.producto?.nombre || ""}`}
+        vendedor={usuario}
+        detalleVenta={
+          ventaPendiente
+            ? {
+                productos: [
+                  {
+                    nombre: ventaPendiente.producto?.nombre,
+                    cantidad: ventaPendiente.cantidad,
+                    precio: ventaPendiente.precioUnitario,
+                  },
+                ],
+              }
+            : null
+        }
+        colorPrimario="green"
+      />
     </EmpleadoLayout>
   );
 }

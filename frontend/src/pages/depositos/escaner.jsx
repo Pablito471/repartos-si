@@ -8,6 +8,7 @@ import { showToast, showConfirmAlert, showSuccessAlert } from "@/utils/alerts";
 import { formatNumber } from "@/utils/formatters";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { createWorker } from "tesseract.js";
+import ModalPagoVenta from "@/components/ModalPagoVenta";
 
 export default function EscanerDeposito() {
   const { usuario, esMovil } = useAuth();
@@ -32,6 +33,9 @@ export default function EscanerDeposito() {
 
   // Carrito de salidas/ventas múltiples
   const [carritoSalidas, setCarritoSalidas] = useState([]);
+
+  // Estado para modal de pago
+  const [mostrarModalPago, setMostrarModalPago] = useState(false);
 
   // Estado para precio de venta modificado (para calcular ganancia)
   const [precioVenta, setPrecioVenta] = useState("");
@@ -110,8 +114,7 @@ export default function EscanerDeposito() {
           setTimeout(resolve, 1000); // Timeout de seguridad
         });
       }
-    } catch (err) {
-    }
+    } catch (err) {}
   }, []);
 
   // Función para reproducir sonido de escaneo fuerte (PIP)
@@ -146,8 +149,7 @@ export default function EscanerDeposito() {
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.15);
       return;
-    } catch (e) {
-    }
+    } catch (e) {}
 
     // Método 2: Audio HTML5 precargado
     if (beepAudioRef.current) {
@@ -157,8 +159,7 @@ export default function EscanerDeposito() {
         audio.volume = 1.0;
         await audio.play();
         return;
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     // Método 3: Nuevo elemento Audio
@@ -166,8 +167,7 @@ export default function EscanerDeposito() {
       const audio = new Audio("/beep.wav");
       audio.volume = 1.0;
       await audio.play();
-    } catch (e) {
-    }
+    } catch (e) {}
   }, []);
 
   // Detectar cambios de orientación
@@ -406,8 +406,7 @@ export default function EscanerDeposito() {
         await track.applyConstraints({ advanced: [{ zoom: nuevoZoom }] });
         setZoomLevel(nuevoZoom);
       }
-    } catch (err) {
-    }
+    } catch (err) {}
   };
 
   // Función para encender/apagar linterna
@@ -422,8 +421,7 @@ export default function EscanerDeposito() {
         });
         setLinternaActiva(nuevoEstado);
       }
-    } catch (err) {
-    }
+    } catch (err) {}
   };
 
   // Inicializar worker de OCR
@@ -526,8 +524,7 @@ export default function EscanerDeposito() {
       } else {
         setOcrStatus("Buscando números...");
       }
-    } catch (err) {
-    }
+    } catch (err) {}
   }, [productoEscaneado, reproducirSonidoEscaneo]);
 
   // Activar/desactivar OCR
@@ -753,8 +750,7 @@ export default function EscanerDeposito() {
         // Recargar inventario del contexto
         try {
           await recargarInventario();
-        } catch (e) {
-        }
+        } catch (e) {}
 
         await showSuccessAlert(
           "¡Producto agregado!",
@@ -864,8 +860,7 @@ export default function EscanerDeposito() {
         // Recargar inventario del contexto
         try {
           await recargarInventario();
-        } catch (e) {
-        }
+        } catch (e) {}
 
         // Emitir evento para actualizar contabilidad
         window.dispatchEvent(new CustomEvent("contabilidad:movimiento_creado"));
@@ -1010,26 +1005,25 @@ export default function EscanerDeposito() {
     }
   };
 
-  // Registrar todas las salidas del carrito
+  // Registrar todas las salidas del carrito - abre modal de pago primero
   const registrarSalidasCarrito = async () => {
     if (carritoSalidas.length === 0) {
       showToast("warning", "El carrito está vacío");
       return;
     }
 
+    // Mostrar modal de pago
+    setMostrarModalPago(true);
+  };
+
+  // Confirmar salidas después del pago
+  const confirmarSalidasConPago = async (datosPago) => {
+    setMostrarModalPago(false);
+
     const totalProductos = carritoSalidas.reduce(
       (sum, item) => sum + item.cantidad,
       0,
     );
-
-    const confirmado = await showConfirmAlert(
-      "Confirmar salidas múltiples",
-      `¿Registrar salida de ${totalProductos} unidad(es) de ${carritoSalidas.length} producto(s)?`,
-      "Sí, registrar todo",
-      "Cancelar",
-    );
-
-    if (!confirmado) return;
 
     setProcesando(true);
     let exitosas = 0;
@@ -1042,7 +1036,8 @@ export default function EscanerDeposito() {
           item.id,
           item.cantidad,
           "salida",
-          item.motivo || "Venta por escáner (múltiple)",
+          item.motivo ||
+            `Venta - ${datosPago.metodoPago === "efectivo" ? "Efectivo" : "Transferencia"}`,
         );
 
         if (response.data.success) {
@@ -1050,6 +1045,7 @@ export default function EscanerDeposito() {
           nuevosMovimientos.push({
             ...response.data.data,
             fecha: new Date().toISOString(),
+            metodoPago: datosPago.metodoPago,
           });
         } else {
           fallidas++;
@@ -1063,8 +1059,7 @@ export default function EscanerDeposito() {
     // Recargar inventario
     try {
       await recargarInventario();
-    } catch (e) {
-    }
+    } catch (e) {}
 
     // Emitir evento para actualizar contabilidad
     if (exitosas > 0) {
@@ -1076,19 +1071,35 @@ export default function EscanerDeposito() {
       [...nuevosMovimientos, ...prev].slice(0, 50),
     );
 
+    // Calcular total
+    const totalVenta = carritoSalidas.reduce(
+      (sum, item) => sum + (item.precio || 0) * item.cantidad,
+      0,
+    );
+
     // Vaciar carrito
     setCarritoSalidas([]);
 
     setProcesando(false);
 
+    const metodoPagoTexto =
+      datosPago.metodoPago === "efectivo"
+        ? `💵 Efectivo${datosPago.vuelto > 0 ? ` (Vuelto: $${datosPago.vuelto.toLocaleString("es-AR")})` : ""}`
+        : "📱 Transferencia/QR";
+
     if (fallidas === 0) {
       await showSuccessAlert(
-        "¡Salidas registradas!",
-        `${exitosas} movimiento(s) de salida completados`,
+        "¡Venta completada!",
+        `${exitosas} productos vendidos\nTotal: $${totalVenta.toLocaleString("es-AR")}\n${metodoPagoTexto}`,
       );
     } else {
       showToast("warning", `${exitosas} exitosos, ${fallidas} fallaron`);
     }
+  };
+
+  // Cancelar modal de pago
+  const cancelarPagoDeposito = () => {
+    setMostrarModalPago(false);
   };
 
   // Cancelar y volver a escanear
@@ -2238,6 +2249,27 @@ export default function EscanerDeposito() {
           </ol>
         </div>
       </div>
+
+      {/* Modal de pago para ventas */}
+      <ModalPagoVenta
+        isOpen={mostrarModalPago}
+        onClose={cancelarPagoDeposito}
+        onConfirmar={confirmarSalidasConPago}
+        monto={carritoSalidas.reduce(
+          (sum, item) => sum + (item.precio || 0) * item.cantidad,
+          0,
+        )}
+        concepto={`Venta: ${carritoSalidas.length} producto(s)`}
+        vendedor={usuario}
+        detalleVenta={{
+          productos: carritoSalidas.map((item) => ({
+            nombre: item.nombre,
+            cantidad: item.cantidad,
+            precio: item.precio || 0,
+          })),
+        }}
+        colorPrimario="green"
+      />
     </DepositoLayout>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import DepositoLayout from "@/components/layouts/DepositoLayout";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate, DIAS_SEMANA } from "@/utils/formatters";
+import DatosPagoQR from "@/components/DatosPagoQR";
 import Swal from "sweetalert2";
 
 export default function PerfilDeposito() {
@@ -66,6 +67,7 @@ export default function PerfilDeposito() {
   const secciones = [
     { id: "perfil", label: "Datos del Depósito", icon: "🏪" },
     { id: "horarios", label: "Horarios de Atención", icon: "🕒" },
+    { id: "pagos", label: "Datos de Pago", icon: "💳" },
     { id: "fiscal", label: "Datos Fiscales", icon: "📄" },
     { id: "seguridad", label: "Seguridad", icon: "🔒" },
     { id: "eliminar", label: "Eliminar Cuenta", icon: "🗑️" },
@@ -626,6 +628,17 @@ export default function PerfilDeposito() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Datos de Pago */}
+            {seccionActiva === "pagos" && (
+              <DatosPagoQR
+                usuario={usuario}
+                onGuardar={(datosPago) => {
+                  actualizarPerfil(datosPago);
+                }}
+                colorPrimario="green"
+              />
             )}
 
             {/* Datos Fiscales */}

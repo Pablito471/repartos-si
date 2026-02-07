@@ -1,5 +1,14 @@
+const logger = require("../config/logger");
+
 const errorHandler = (err, req, res, next) => {
-  console.error("Error:", err);
+  // Loguear el error con contexto
+  logger.error("Error en request", {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    ip: req.ip,
+  });
 
   // Errores de Sequelize
   if (err.name === "SequelizeValidationError") {

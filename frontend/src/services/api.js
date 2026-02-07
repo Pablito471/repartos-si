@@ -10,7 +10,7 @@ if (typeof window !== "undefined") {
 // Crear instancia de axios con configuración base
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 30000, // 30 segundos para conexiones lentas
   headers: {
     "Content-Type": "application/json",
   },

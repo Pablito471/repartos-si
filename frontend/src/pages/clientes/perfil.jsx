@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import ClienteLayout from "@/components/layouts/ClienteLayout";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate } from "@/utils/formatters";
+import DatosPagoQR from "@/components/DatosPagoQR";
 import Swal from "sweetalert2";
 
 export default function PerfilCliente() {
@@ -57,6 +58,7 @@ export default function PerfilCliente() {
 
   const secciones = [
     { id: "perfil", label: "Datos Personales", icon: "👤" },
+    { id: "pagos", label: "Datos Bancarios", icon: "💳" },
     { id: "fiscal", label: "Datos Fiscales", icon: "📄" },
     { id: "seguridad", label: "Seguridad", icon: "🔒" },
     { id: "eliminar", label: "Eliminar Cuenta", icon: "🗑️" },
@@ -390,6 +392,17 @@ export default function PerfilCliente() {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Datos Bancarios */}
+            {seccionActiva === "pagos" && (
+              <DatosPagoQR
+                usuario={usuario}
+                onGuardar={(datosPago) => {
+                  actualizarPerfil(datosPago);
+                }}
+                colorPrimario="blue"
+              />
             )}
 
             {/* Datos Fiscales */}

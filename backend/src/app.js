@@ -1,12 +1,15 @@
-// Repartos-SI Backend - v2.1 (columna imagen en stock_clientes)
+// Repartos-SI Backend - v2.2 (seguridad mejorada)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const http = require("http");
 const { sequelize } = require("./models");
 const routes = require("./routes");
 const { errorHandler } = require("./middleware/errorHandler");
 const { initSocket } = require("./socket");
+const logger = require("./config/logger");
 
 const app = express();
 const server = http.createServer(app);
@@ -18,7 +21,29 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-// Middlewares
+// Seguridad: Headers HTTP
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Deshabilitado para compatibilidad con frontend
+  }),
+);
+
+// Rate Limiting: Prevenir ataques de fuerza bruta
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // máx 100 requests por ventana
+  message: {
+    success: false,
+    message: "Demasiadas solicitudes. Por favor, intenta más tarde.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === "/api/health", // Excluir health check
+});
+app.use(limiter);
+
+// CORS
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -35,8 +60,10 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Parseo de body
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Rutas
 app.use("/api", routes);
@@ -78,23 +105,25 @@ const startServer = async () => {
   try {
     // Conectar a la base de datos
     await sequelize.authenticate();
+    logger.info("✅ Base de datos conectada");
+
     // Sincronizar modelos (solo en desarrollo)
-    // NOTA: Las tablas ya fueron creadas con el seed, no usar alter: true
-    // ya que causa problemas con columnas SERIAL
     if (process.env.NODE_ENV === "development") {
-      // No sincronizar automáticamente, usar seed.js para recrear tablas
-      console.log(
-        "✅ Base de datos conectada (usar npm run db:seed para sincronizar tablas)",
+      logger.info(
+        "📝 Modo desarrollo - usar npm run db:seed para sincronizar tablas",
       );
     }
 
     // Inicializar Socket.io
     initSocket(server);
-    // Iniciar servidor HTTP con Socket.io
+
+    // Iniciar servidor HTTP
     server.listen(PORT, () => {
+      logger.info(`🚀 Servidor corriendo en puerto ${PORT}`);
+      logger.info(`🔒 Helmet y Rate Limiting activos`);
     });
   } catch (error) {
-    console.error("❌ Error al iniciar el servidor:", error);
+    logger.error("❌ Error al iniciar el servidor:", error);
     process.exit(1);
   }
 };

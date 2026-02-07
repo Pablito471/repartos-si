@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import FleteLayout from "@/components/layouts/FleteLayout";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate, DIAS_SEMANA } from "@/utils/formatters";
+import DatosPagoQR from "@/components/DatosPagoQR";
 import Swal from "sweetalert2";
 
 export default function PerfilFlete() {
@@ -48,6 +49,7 @@ export default function PerfilFlete() {
   const secciones = [
     { id: "perfil", label: "Datos Personales", icon: "👤" },
     { id: "horarios", label: "Disponibilidad Horaria", icon: "🕒" },
+    { id: "pagos", label: "Datos de Pago", icon: "💳" },
     { id: "fiscal", label: "Datos Fiscales", icon: "📄" },
     { id: "seguridad", label: "Seguridad", icon: "🔒" },
     { id: "eliminar", label: "Eliminar Cuenta", icon: "🗑️" },
@@ -689,6 +691,17 @@ export default function PerfilFlete() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Datos de Pago */}
+            {seccionActiva === "pagos" && (
+              <DatosPagoQR
+                usuario={usuario}
+                onGuardar={(datosPago) => {
+                  actualizarPerfil(datosPago);
+                }}
+                colorPrimario="orange"
+              />
             )}
 
             {/* Datos Fiscales */}

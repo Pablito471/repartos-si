@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 /**
  * Componente de Calendario de Contabilidad
@@ -115,7 +115,7 @@ export default function CalendarioContabilidad({
   };
 
   // Obtener rango de fechas según la vista
-  const getRangoFechas = () => {
+  const getRangoFechas = useCallback(() => {
     const inicio = new Date(fechaActual);
     const fin = new Date(fechaActual);
 
@@ -147,7 +147,7 @@ export default function CalendarioContabilidad({
     }
 
     return { inicio, fin };
-  };
+  }, [fechaActual, vista]);
 
   // Helper para obtener fecha local normalizada (YYYY-MM-DD)
   const getFechaLocal = (fecha) => {
@@ -170,7 +170,7 @@ export default function CalendarioContabilidad({
       const fechaMov = getFechaLocal(mov.fecha || mov.createdAt);
       return fechaMov >= inicioStr && fechaMov <= finStr;
     });
-  }, [movimientos, fechaActual, vista]);
+  }, [movimientos, getRangoFechas]);
 
   // Calcular totales
   const totales = useMemo(() => {
