@@ -29,6 +29,29 @@
 
 ---
 
+## 🎯 ¿Qué es Repartos SI?
+
+<p align="center">
+  <em>La solución completa para digitalizar y optimizar tu negocio de distribución</em>
+</p>
+
+**Repartos SI** es una plataforma web moderna diseñada para **depósitos, distribuidoras y negocios de reparto** que buscan profesionalizar sus operaciones. Conecta de forma inteligente a todos los actores de la cadena: depósitos que gestionan inventario, clientes que realizan pedidos, y transportistas que entregan la mercadería.
+
+### 💡 ¿Por qué elegir Repartos SI?
+
+| Problema                            | Solución                                 |
+| ----------------------------------- | ---------------------------------------- |
+| 📝 Pedidos por WhatsApp o teléfono  | ✅ Sistema de pedidos online organizado  |
+| 📦 Stock desactualizado             | ✅ Control de inventario en tiempo real  |
+| 🚛 Sin seguimiento de entregas      | ✅ Tracking completo de envíos           |
+| 👷 Control de empleados manual      | ✅ Escáner de productos con estadísticas |
+| 💰 Contabilidad desordenada         | ✅ Reportes automáticos por período      |
+| 📱 Múltiples sistemas desconectados | ✅ Todo en una sola plataforma           |
+
+> 🚀 **Ideal para:** Distribuidoras de bebidas, alimentos, productos de limpieza, mayoristas, y cualquier negocio con sistema de reparto.
+
+---
+
 ## ✨ Características
 
 <table>
