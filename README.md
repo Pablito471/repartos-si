@@ -1,265 +1,311 @@
-# Repartos SI 🚚
+<p align="center">
+  <img src="https://img.icons8.com/color/96/delivery-truck.png" alt="Repartos SI Logo"/>
+</p>
 
-Sistema integral de gestión de repartos para clientes, depósitos y transportistas con soporte para empleados, escáner de códigos de barras y estadísticas en tiempo real.
+<h1 align="center">🚚 Repartos SI</h1>
 
-## 🚀 Características
+<p align="center">
+  <strong>Sistema integral de gestión de repartos para clientes, depósitos y transportistas</strong>
+</p>
 
-### Usuarios Principales
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version"/>
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"/>
+  <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg" alt="Node"/>
+  <img src="https://img.shields.io/badge/next.js-14-black.svg" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/express-4.x-lightgrey.svg" alt="Express"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-15-blue.svg" alt="PostgreSQL"/>
+</p>
 
-- **Clientes**: Gestión de pedidos, seguimiento en tiempo real, contabilidad, relaciones con depósitos
-- **Depósitos**: Inventario, preparación de pedidos, envíos, gestión de productos
-- **Fletes**: Rutas, entregas, ganancias, seguimiento GPS
+<p align="center">
+  <a href="#-características">Características</a> •
+  <a href="#-tecnologías">Tecnologías</a> •
+  <a href="#-instalación">Instalación</a> •
+  <a href="#-deploy">Deploy</a> •
+  <a href="#-documentación">Documentación</a>
+</p>
 
-### Sistema de Empleados
+---
 
-- **Empleados de Depósito**: Acceso exclusivo por escáner para ventas y gestión de stock
-- **Empleados de Cliente**: Acceso exclusivo por escáner para ventas y gestión de stock
-- **Estadísticas**: Panel de rendimiento por empleado con filtros de fecha
-- **Multisesión**: Múltiples empleados pueden usar el sistema simultáneamente
+## ✨ Características
 
-### Escáner de Códigos de Barras
+<table>
+<tr>
+<td width="50%">
 
-- **Modos de operación**: Vender, Agregar Stock, Consultar Precio
-- **Formatos soportados**: EAN-13, EAN-8, UPC-A, UPC-E, CODE-128, CODE-39, QR
-- **Creación de productos**: Al escanear un código no existente, permite crear el producto
-- **Debounce**: Evita lecturas duplicadas (2 segundos entre lecturas del mismo código)
+### 👥 Usuarios Principales
 
-### Funcionalidades Adicionales
+| Rol              | Funcionalidades                    |
+| ---------------- | ---------------------------------- |
+| 🔵 **Clientes**  | Pedidos, seguimiento, contabilidad |
+| 🟢 **Depósitos** | Inventario, envíos, productos      |
+| 🟠 **Fletes**    | Rutas, entregas, ganancias         |
+| 🔴 **Admin**     | Panel oculto, gestión total        |
 
-- **Admin**: Panel de administración oculto, gestión de usuarios, calificaciones
-- **Chat en tiempo real**: Comunicación entre usuarios (Pusher/WebSockets)
-- **Notificaciones**: Alertas en tiempo real de pedidos, envíos y stock bajo
-- **Tema oscuro/claro**: Soporte completo para ambos temas
+</td>
+<td width="50%">
 
-## 🛠️ Tecnologías
+### 👷 Sistema de Empleados
 
-### Frontend
+| Característica      | Descripción                           |
+| ------------------- | ------------------------------------- |
+| 📱 **Escáner**      | Acceso exclusivo por código de barras |
+| 📊 **Estadísticas** | Rendimiento con filtros de fecha      |
+| 🔄 **Multisesión**  | Múltiples empleados simultáneos       |
+| 💼 **Tipos**        | Empleados de depósito y cliente       |
 
-- **Next.js 14** - Framework de React
-- **Tailwind CSS** - Estilos
-- **SweetAlert2** - Alertas elegantes
-- **Socket.io Client** - WebSockets
+</td>
+</tr>
+</table>
 
-### Backend
+### 📷 Escáner de Códigos de Barras
 
-- **Express.js** - API REST
-- **PostgreSQL** - Base de datos
-- **Sequelize** - ORM
-- **Socket.io** - WebSockets
-- **JWT** - Autenticación
-
-## 📦 Instalación Local
-
-```bash
-# Clonar el repositorio
-git clone https://github.com/tu-usuario/repartos-si.git
-cd repartos-si
-
-# Instalar dependencias del frontend
-cd frontend
-npm install
-
-# Instalar dependencias del backend
-cd ../backend
-npm install
-
-# Configurar variables de entorno
-cp .env.example .env
-# Editar el archivo .env con tus credenciales
-
-# Ejecutar backend
-npm run dev
-
-# En otra terminal, ejecutar frontend
-cd ../frontend
-npm run dev
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔍 MODOS DE OPERACIÓN                                      │
+├─────────────────────────────────────────────────────────────┤
+│  💰 Vender          │  Registrar venta de producto          │
+│  📦 Agregar Stock   │  Añadir productos al inventario       │
+│  💲 Consultar Precio│  Ver información del producto         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 🌐 Deploy en Vercel
+**Formatos soportados:** `EAN-13` `EAN-8` `UPC-A` `UPC-E` `CODE-128` `CODE-39` `QR`
 
-Este proyecto está configurado para deployar **Frontend y Backend por separado** en Vercel.
-
-### Requisitos previos
-
-1. **Base de datos PostgreSQL en la nube** (recomendados):
-   - [Neon](https://neon.tech) - Gratis, muy rápido
-   - [Supabase](https://supabase.com) - Gratis, con extras
-   - [Railway](https://railway.app) - Simple, escalable
-
-2. **Cuenta en Vercel**: https://vercel.com
-
-### Paso 1: Deploy del Backend
-
-```bash
-# Instalar Vercel CLI
-npm i -g vercel
-
-# Ir a la carpeta del backend
-cd backend
-
-# Login en Vercel
-vercel login
-
-# Deploy (seguir instrucciones)
-vercel
-
-# Deploy a producción
-vercel --prod
-```
-
-**Variables de entorno a configurar en Vercel (Settings > Environment Variables):**
-
-| Variable         | Descripción                 | Ejemplo                                               |
-| ---------------- | --------------------------- | ----------------------------------------------------- |
-| `DATABASE_URL`   | URL completa de PostgreSQL  | `postgresql://user:pass@host:5432/db?sslmode=require` |
-| `DB_HOST`        | Host de la BD (alternativo) | `your-db.neon.tech`                                   |
-| `DB_PORT`        | Puerto de la BD             | `5432`                                                |
-| `DB_NAME`        | Nombre de la BD             | `repartos_si`                                         |
-| `DB_USER`        | Usuario de la BD            | `your_user`                                           |
-| `DB_PASSWORD`    | Contraseña de la BD         | `your_password`                                       |
-| `JWT_SECRET`     | Clave secreta para JWT      | `tu-clave-super-secreta-larga`                        |
-| `FRONTEND_URL`   | URL del frontend desplegado | `https://tu-frontend.vercel.app`                      |
-| `NODE_ENV`       | Entorno                     | `production`                                          |
-| `PUSHER_APP_ID`  | ID de app Pusher            | `123456`                                              |
-| `PUSHER_KEY`     | Key pública de Pusher       | `abc123def456`                                        |
-| `PUSHER_SECRET`  | Secret de Pusher            | `secret123`                                           |
-| `PUSHER_CLUSTER` | Cluster de Pusher           | `us2`                                                 |
-
-### Paso 2: Deploy del Frontend
-
-```bash
-# Ir a la carpeta del frontend
-cd frontend
-
-# Deploy
-vercel
-
-# Deploy a producción
-vercel --prod
-```
-
-**Variables de entorno a configurar en Vercel:**
-
-| Variable                     | Descripción            | Ejemplo                             |
-| ---------------------------- | ---------------------- | ----------------------------------- |
-| `NEXT_PUBLIC_API_URL`        | URL del backend + /api | `https://tu-backend.vercel.app/api` |
-| `NEXT_PUBLIC_PUSHER_KEY`     | Key pública de Pusher  | `abc123def456`                      |
-| `NEXT_PUBLIC_PUSHER_CLUSTER` | Cluster de Pusher      | `us2`                               |
-
-### Paso 3: Actualizar URLs cruzadas
-
-1. En el proyecto del **Backend**, actualiza `FRONTEND_URL` con la URL real del frontend
-2. En el proyecto del **Frontend**, actualiza `NEXT_PUBLIC_API_URL` con la URL real del backend
-3. Redeploya ambos proyectos
-
-### Paso 4: Inicializar Base de Datos
-
-```bash
-# Desde el backend local conectado a la BD de producción
-cd backend
-npm run db:seed
-```
-
-## 🔌 WebSockets con Pusher
-
-Este proyecto usa **Pusher** para WebSockets en modo serverless. Pusher tiene un **tier gratuito** generoso (200K mensajes/día).
-
-### Configurar Pusher
-
-1. Crea una cuenta en [pusher.com](https://pusher.com)
-2. Crea una nueva app (Channels)
-3. Copia las credenciales (App ID, Key, Secret, Cluster)
-4. Configura las variables de entorno en Vercel (backend y frontend)
-
-### Funcionalidades en tiempo real
+### 🔔 Funcionalidades en Tiempo Real
 
 - ✅ Chat entre usuarios y admin
 - ✅ Notificaciones de nuevos pedidos
-- ✅ Actualizaciones de estado de pedidos
-- ✅ Notificaciones de envíos
+- ✅ Actualizaciones de estado
 - ✅ Alertas de stock bajo
+- ✅ Tema oscuro/claro
 
-## 🔐 Usuarios de prueba
+---
 
-### Usuarios Principales
+## 🛠️ Tecnologías
 
-| Tipo     | Email              | Contraseña |
-| -------- | ------------------ | ---------- |
-| Cliente  | cliente@test.com   | 123456     |
-| Depósito | deposito@test.com  | 123456     |
-| Flete    | flete@test.com     | 123456     |
-| Admin    | admin@repartos.com | admin123   |
+<table>
+<tr>
+<td align="center" width="50%">
 
-### Empleados
+### 🎨 Frontend
 
-| Tipo              | Email              | Contraseña |
-| ----------------- | ------------------ | ---------- |
-| Empleado Depósito | empleado1@test.com | 123456     |
-| Empleado Depósito | empleado2@test.com | 123456     |
-| Empleado Cliente  | empleado3@test.com | 123456     |
-| Empleado Cliente  | empleado4@test.com | 123456     |
+<p>
+<img src="https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js"/>
+<img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React"/>
+<img src="https://img.shields.io/badge/Tailwind-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind"/>
+</p>
+
+| Librería     | Uso             |
+| ------------ | --------------- |
+| Next.js 14   | Framework React |
+| Tailwind CSS | Estilos         |
+| SweetAlert2  | Alertas         |
+| html5-qrcode | Escáner         |
+
+</td>
+<td align="center" width="50%">
+
+### ⚙️ Backend
+
+<p>
+<img src="https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express"/>
+<img src="https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+<img src="https://img.shields.io/badge/Sequelize-52B0E7?style=for-the-badge&logo=sequelize&logoColor=white" alt="Sequelize"/>
+</p>
+
+| Librería   | Uso           |
+| ---------- | ------------- |
+| Express.js | API REST      |
+| PostgreSQL | Base de datos |
+| Sequelize  | ORM           |
+| JWT        | Autenticación |
+
+</td>
+</tr>
+</table>
+
+---
+
+## 📦 Instalación
+
+### Requisitos Previos
+
+- **Node.js** >= 18.0.0
+- **PostgreSQL** >= 14
+- **npm** o **yarn**
+
+### ⚡ Inicio Rápido
+
+```bash
+# 1️⃣ Clonar el repositorio
+git clone https://github.com/tu-usuario/repartos-si.git
+cd repartos-si
+
+# 2️⃣ Instalar dependencias
+cd frontend && npm install
+cd ../backend && npm install
+
+# 3️⃣ Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales
+
+# 4️⃣ Ejecutar en desarrollo
+# Terminal 1 - Backend
+cd backend && npm run dev
+
+# Terminal 2 - Frontend
+cd frontend && npm run dev
+```
+
+---
+
+## 🌐 Deploy
+
+### 🔷 Vercel (Recomendado)
+
+<details>
+<summary><b>📋 Variables de Entorno - Backend</b></summary>
+
+| Variable         | Descripción       | Ejemplo                               |
+| ---------------- | ----------------- | ------------------------------------- |
+| `DATABASE_URL`   | URL PostgreSQL    | `postgresql://user:pass@host:5432/db` |
+| `JWT_SECRET`     | Clave secreta JWT | `tu-clave-super-secreta`              |
+| `FRONTEND_URL`   | URL del frontend  | `https://tu-frontend.vercel.app`      |
+| `PUSHER_APP_ID`  | ID de Pusher      | `123456`                              |
+| `PUSHER_KEY`     | Key de Pusher     | `abc123`                              |
+| `PUSHER_SECRET`  | Secret de Pusher  | `secret123`                           |
+| `PUSHER_CLUSTER` | Cluster de Pusher | `us2`                                 |
+
+</details>
+
+<details>
+<summary><b>📋 Variables de Entorno - Frontend</b></summary>
+
+| Variable                     | Descripción     | Ejemplo                             |
+| ---------------------------- | --------------- | ----------------------------------- |
+| `NEXT_PUBLIC_API_URL`        | URL del backend | `https://tu-backend.vercel.app/api` |
+| `NEXT_PUBLIC_PUSHER_KEY`     | Key de Pusher   | `abc123`                            |
+| `NEXT_PUBLIC_PUSHER_CLUSTER` | Cluster         | `us2`                               |
+
+</details>
+
+### 🗄️ Base de Datos Recomendadas
+
+| Servicio                         | Tier Gratuito | Características        |
+| -------------------------------- | ------------- | ---------------------- |
+| [Neon](https://neon.tech)        | ✅            | Muy rápido, serverless |
+| [Supabase](https://supabase.com) | ✅            | Con extras incluidos   |
+| [Railway](https://railway.app)   | ✅            | Simple, escalable      |
+
+---
+
+## 🔐 Usuarios de Prueba
+
+<table>
+<tr>
+<td>
+
+### 👤 Principales
+
+| Tipo        | Email                | Pass       |
+| ----------- | -------------------- | ---------- |
+| 🔵 Cliente  | `cliente@test.com`   | `123456`   |
+| 🟢 Depósito | `deposito@test.com`  | `123456`   |
+| 🟠 Flete    | `flete@test.com`     | `123456`   |
+| 🔴 Admin    | `admin@repartos.com` | `admin123` |
+
+</td>
+<td>
+
+### 👷 Empleados
+
+| Tipo        | Email                | Pass     |
+| ----------- | -------------------- | -------- |
+| 🟣 Depósito | `empleado1@test.com` | `123456` |
+| 🟣 Depósito | `empleado2@test.com` | `123456` |
+| 🟣 Cliente  | `empleado3@test.com` | `123456` |
+| 🟣 Cliente  | `empleado4@test.com` | `123456` |
+
+</td>
+</tr>
+</table>
+
+---
 
 ## 📱 Flujos de Trabajo
 
-### Flujo de Empleado (Escáner)
+### 🔄 Flujo de Empleado (Escáner)
 
-```
-1. Empleado inicia sesión → Redirigido a /empleado
-2. Selecciona modo: Vender | Agregar Stock | Consultar Precio
-3. Inicia escáner de cámara o ingresa código manual
-4. Si producto existe → Muestra info y permite operación
-5. Si producto NO existe → Formulario para crear producto
-6. Confirma operación → Se registra con empleado_id
-```
-
-### Flujo de Venta (Depósito/Cliente)
-
-```
-1. Cliente crea pedido a depósito
-2. Depósito prepara pedido (o empleado vía escáner)
-3. Depósito asigna flete
-4. Flete recoge y entrega
-5. Cliente confirma recepción
-6. Se pueden calificar mutuamente
+```mermaid
+graph LR
+    A[👷 Login] --> B[📱 /empleado]
+    B --> C{Seleccionar Modo}
+    C -->|Vender| D[💰 Registrar Venta]
+    C -->|Stock| E[📦 Agregar Stock]
+    C -->|Precio| F[💲 Consultar]
+    D --> G[✅ Confirmar]
+    E --> G
 ```
 
-## 🔌 API Endpoints Principales
-
-### Autenticación
+### 📦 Flujo de Venta
 
 ```
-POST /api/auth/login          # Iniciar sesión
-POST /api/auth/registro       # Registrar usuario
-GET  /api/auth/me             # Obtener usuario actual
-PUT  /api/auth/perfil         # Actualizar perfil
+Cliente ──────► Depósito ──────► Flete ──────► Cliente
+  │               │               │             │
+  └─ Crea pedido  └─ Prepara      └─ Entrega    └─ Confirma
+                     y asigna                      y califica
 ```
 
-### Empleados (Escáner)
+---
 
-```
-POST /api/empleados/escaner/buscar          # Buscar producto por código
-POST /api/empleados/escaner/venta           # Registrar venta
-POST /api/empleados/escaner/agregar-stock   # Agregar stock
-POST /api/empleados/escaner/crear-producto  # Crear nuevo producto
-GET  /api/empleados/estadisticas            # Estadísticas generales
-GET  /api/empleados/:id/estadisticas        # Estadísticas por empleado
+## 🔌 API Endpoints
+
+<details>
+<summary><b>🔑 Autenticación</b></summary>
+
+```http
+POST   /api/auth/login          # Iniciar sesión
+POST   /api/auth/registro       # Registrar usuario
+GET    /api/auth/me             # Usuario actual
+PUT    /api/auth/perfil         # Actualizar perfil
 ```
 
-### Productos y Stock
+</details>
 
+<details>
+<summary><b>👷 Empleados (Escáner)</b></summary>
+
+```http
+POST   /api/empleados/escaner/buscar          # Buscar producto
+POST   /api/empleados/escaner/venta           # Registrar venta
+POST   /api/empleados/escaner/agregar-stock   # Agregar stock
+POST   /api/empleados/escaner/crear-producto  # Crear producto
+GET    /api/empleados/estadisticas            # Estadísticas
+GET    /api/empleados/:id/estadisticas        # Stats por empleado
 ```
+
+</details>
+
+<details>
+<summary><b>📦 Productos y Stock</b></summary>
+
+```http
 GET    /api/productos              # Listar productos
 POST   /api/productos              # Crear producto
 GET    /api/productos/:id          # Obtener producto
-PUT    /api/productos/:id          # Actualizar producto
-DELETE /api/productos/:id          # Eliminar producto
+PUT    /api/productos/:id          # Actualizar
+DELETE /api/productos/:id          # Eliminar
 GET    /api/stock                  # Obtener stock
 POST   /api/movimientos            # Registrar movimiento
 ```
 
-### Pedidos y Envíos
+</details>
 
-```
+<details>
+<summary><b>📋 Pedidos y Envíos</b></summary>
+
+```http
 GET    /api/pedidos                # Listar pedidos
 POST   /api/pedidos                # Crear pedido
 PUT    /api/pedidos/:id            # Actualizar pedido
@@ -268,146 +314,117 @@ POST   /api/envios                 # Crear envío
 PUT    /api/envios/:id             # Actualizar envío
 ```
 
-## 📁 Estructura del proyecto
+</details>
+
+---
+
+## 📁 Estructura del Proyecto
 
 ```
 repartos-si/
-├── frontend/                 # Aplicación Next.js
+│
+├── 🎨 frontend/                    # Next.js App
 │   ├── src/
-│   │   ├── components/       # Componentes reutilizables
-│   │   │   ├── layouts/      # Layouts por tipo de usuario
-│   │   │   ├── CalificarModal.jsx
+│   │   ├── components/            # Componentes UI
+│   │   │   ├── layouts/           # Layouts por usuario
 │   │   │   ├── ChatWidget.jsx
-│   │   │   └── ...
-│   │   ├── context/          # Contextos de React
-│   │   │   ├── AuthContext.jsx    # Autenticación (multisesión)
-│   │   │   ├── ChatContext.jsx
-│   │   │   └── ...
-│   │   ├── pages/            # Páginas de la aplicación
-│   │   │   ├── empleado/     # Panel del empleado (escáner)
-│   │   │   ├── clientes/     # Panel de clientes
-│   │   │   ├── depositos/    # Panel de depósitos
-│   │   │   ├── fletes/       # Panel de fletes
-│   │   │   ├── admin/        # Panel de administración
-│   │   │   └── auth/         # Login, registro, etc.
-│   │   ├── services/         # Servicios API
-│   │   │   └── api.js        # Cliente HTTP con interceptores
-│   │   └── utils/            # Utilidades
-│   └── vercel.json           # Config Vercel frontend
+│   │   │   └── CalificarModal.jsx
+│   │   ├── context/               # Estado global
+│   │   │   ├── AuthContext.jsx    # Autenticación
+│   │   │   └── ChatContext.jsx
+│   │   ├── pages/                 # Páginas
+│   │   │   ├── empleado/          # 👷 Panel escáner
+│   │   │   ├── clientes/          # 🔵 Panel cliente
+│   │   │   ├── depositos/         # 🟢 Panel depósito
+│   │   │   ├── fletes/            # 🟠 Panel flete
+│   │   │   └── admin/             # 🔴 Panel admin
+│   │   └── services/api.js        # Cliente HTTP
+│   └── vercel.json
 │
-├── backend/                  # API Express.js
-│   ├── api/
-│   │   └── index.js          # Entry point serverless
+├── ⚙️ backend/                     # Express API
 │   ├── src/
-│   │   ├── controllers/      # Controladores
-│   │   │   ├── authController.js
-│   │   │   ├── empleadosController.js  # Lógica del escáner
-│   │   │   ├── productosController.js
-│   │   │   └── ...
-│   │   ├── models/           # Modelos Sequelize
-│   │   │   ├── Usuario.js    # Incluye tipo 'empleado'
-│   │   │   ├── Producto.js
-│   │   │   ├── Movimiento.js # Incluye empleado_id
-│   │   │   └── ...
-│   │   ├── routes/           # Rutas API
-│   │   │   ├── empleados.js  # Rutas del escáner
-│   │   │   └── ...
-│   │   ├── middleware/       # Middlewares
-│   │   │   └── auth.js       # JWT + verificación de empleado
-│   │   ├── services/         # Servicios
-│   │   │   └── pusherService.js
-│   │   └── scripts/          # Scripts de BD
-│   │       ├── seed.js
-│   │       └── limpiarDatosYActualizarEmpleados.js
-│   └── vercel.json           # Config Vercel backend
+│   │   ├── controllers/           # Lógica de negocio
+│   │   ├── models/                # Modelos Sequelize
+│   │   ├── routes/                # Rutas API
+│   │   ├── middleware/            # Auth, errors
+│   │   └── services/              # Pusher, email
+│   └── vercel.json
 │
-└── README.md
+├── 📄 LICENSE
+└── 📖 README.md
 ```
+
+---
 
 ## ⚡ Multisesión
 
-El sistema soporta **múltiples sesiones simultáneas** usando `sessionStorage` en lugar de `localStorage`:
-
-- Cada pestaña del navegador tiene su propia sesión independiente
-- Un depósito puede tener varios empleados trabajando al mismo tiempo
-- No hay conflictos entre usuarios en el mismo navegador
-- Tokens JWT independientes por sesión
+El sistema usa `sessionStorage` para soportar **múltiples sesiones simultáneas**:
 
 ```
-Ejemplo:
-├── Pestaña 1: Depósito (deposito@test.com)
-├── Pestaña 2: Empleado 1 (empleado1@test.com)
-├── Pestaña 3: Empleado 2 (empleado2@test.com)
-└── Pestaña 4: Cliente (cliente@test.com)
-→ Todas funcionando simultáneamente sin conflictos
+┌─────────────────────────────────────────────────────┐
+│  🖥️ MISMO NAVEGADOR - DIFERENTES PESTAÑAS          │
+├─────────────────────────────────────────────────────┤
+│  Pestaña 1  │  🟢 Depósito (deposito@test.com)     │
+│  Pestaña 2  │  🟣 Empleado 1 (empleado1@test.com)  │
+│  Pestaña 3  │  🟣 Empleado 2 (empleado2@test.com)  │
+│  Pestaña 4  │  🔵 Cliente (cliente@test.com)       │
+├─────────────────────────────────────────────────────┤
+│  ✅ Todas funcionando simultáneamente sin conflictos │
+└─────────────────────────────────────────────────────┘
 ```
 
-## 📄 Scripts
+---
 
-### Frontend
+## 🎨 Temas de Colores
 
-```bash
-npm run dev      # Desarrollo
-npm run build    # Build de producción
-npm run start    # Iniciar servidor de producción
-npm run lint     # Verificar código
-```
+| Usuario      | Color   | Hex       |
+| ------------ | ------- | --------- |
+| 🔵 Clientes  | Azul    | `#3B82F6` |
+| 🟢 Depósitos | Verde   | `#22C55E` |
+| 🟠 Fletes    | Naranja | `#F97316` |
+| 🔴 Admin     | Rojo    | `#DC2626` |
+| 🟣 Empleados | Púrpura | `#8B5CF6` |
 
-### Backend
-
-```bash
-npm run dev      # Desarrollo con nodemon
-npm run start    # Producción
-npm run db:sync  # Sincronizar BD
-npm run db:seed  # Poblar BD con datos iniciales
-```
-
-## 🎨 Temas de colores
-
-- **Clientes**: Azul (#3B82F6)
-- **Depósitos**: Verde (#22C55E)
-- **Fletes**: Naranja (#F97316)
-- **Admin**: Rojo (#DC2626)
-- **Empleados**: Púrpura (#8B5CF6)
+---
 
 ## 📊 Estadísticas de Empleados
 
-Los depósitos y clientes pueden ver estadísticas de sus empleados:
+| Métrica         | Descripción                   |
+| --------------- | ----------------------------- |
+| 📈 Total ventas | Número de ventas realizadas   |
+| 💰 Monto total  | Suma de todos los montos      |
+| 📦 Productos    | Cantidad de unidades vendidas |
 
-| Métrica            | Descripción                         |
-| ------------------ | ----------------------------------- |
-| Total ventas       | Número de ventas realizadas         |
-| Monto total        | Suma de todos los montos vendidos   |
-| Productos vendidos | Cantidad total de unidades vendidas |
+**Filtros:** `Hoy` `Esta semana` `Este mes` `Rango personalizado`
 
-**Filtros disponibles:**
+---
 
-- Hoy
-- Esta semana
-- Este mes
-- Rango personalizado
+## 📄 Scripts
 
-## 🔧 Scripts de Mantenimiento
+| Comando           | Descripción         |
+| ----------------- | ------------------- |
+| `npm run dev`     | 🔧 Desarrollo       |
+| `npm run build`   | 📦 Build producción |
+| `npm run start`   | 🚀 Iniciar servidor |
+| `npm run db:sync` | 🔄 Sincronizar BD   |
+| `npm run db:seed` | 🌱 Poblar datos     |
 
-```bash
-# Limpiar base de datos (conserva usuarios)
-cd backend
-node src/scripts/limpiarDatosYActualizarEmpleados.js
-
-# Sincronizar modelos con BD
-npm run db:sync
-
-# Poblar con datos de prueba
-npm run db:seed
-```
+---
 
 ## 📝 Licencia
 
-## MIT
+Este proyecto está bajo la licencia **MIT**. Ver el archivo [LICENSE](LICENSE) para más detalles.
 
-## © Copyright
+---
 
-**© 2026 Rubiño Pablo Hernán. Todos los derechos reservados.**
+<p align="center">
+  <b>© 2026 Rubiño Pablo Hernán. Todos los derechos reservados.</b>
+</p>
 
-Este software y su documentación están protegidos por las leyes de derechos de autor.
-Queda prohibida su reproducción, distribución o uso sin autorización expresa del autor.
+<p align="center">
+  <sub>Hecho con ❤️ en Argentina 🇦🇷</sub>
+</p>
+
+<p align="center">
+  <a href="#-repartos-si">⬆️ Volver arriba</a>
+</p>
