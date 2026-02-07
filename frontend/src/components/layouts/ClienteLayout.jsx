@@ -158,8 +158,8 @@ export default function ClienteLayout({ children }) {
               <p className="font-semibold text-white text-sm truncate">
                 {usuario?.nombre || "Cliente"}
               </p>
-              <p className="text-xs text-primary-200">
-                {usuario?.id || "Cliente"}
+              <p className="text-xs text-primary-200 truncate">
+                {usuario?.email || ""}
               </p>
             </div>
             <span className="flex-shrink-0 text-primary-300">

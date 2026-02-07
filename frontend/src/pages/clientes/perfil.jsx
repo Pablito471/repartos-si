@@ -353,15 +353,6 @@ export default function PerfilCliente() {
                         </p>
                       )}
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ID de Usuario
-                      </label>
-                      <p className="p-3 bg-gray-100 rounded-lg font-mono text-gray-500">
-                        {usuario.id}
-                      </p>
-                    </div>
                   </div>
 
                   <div>

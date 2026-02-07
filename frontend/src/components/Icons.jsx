@@ -7,6 +7,7 @@ import {
   ArchiveBoxIcon,
   TruckIcon,
   CheckCircleIcon,
+  CheckIcon,
   WalletIcon,
   PlusIcon,
   ChartBarIcon,
@@ -26,6 +27,7 @@ import {
   StarIcon as StarOutlineIcon,
   ArrowRightIcon,
   EyeIcon,
+  EyeSlashIcon,
   NoSymbolIcon,
   ShieldCheckIcon,
   LockClosedIcon,
@@ -40,6 +42,8 @@ import {
   XMarkIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
   SparklesIcon,
   ArrowPathIcon,
   InboxIcon,
@@ -63,6 +67,8 @@ import {
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
   LightBulbIcon,
+  EnvelopeIcon,
+  InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 
 import { StarIcon as StarFilledIcon } from "@heroicons/react/24/solid";
@@ -118,7 +124,8 @@ const Icons = {
   Bell: BellIcon,
 
   // Configuración/Engranaje
-  Cog: Cog6ToothIcon,
+  Cog: Cog6ToothIcon,
+
   Logout: ArrowRightStartOnRectangleIcon,
 
   // Alerta/Advertencia
@@ -135,6 +142,9 @@ const Icons = {
 
   // Ojo/Ver
   Eye: EyeIcon,
+
+  // Ocultar/No ver
+  EyeOff: EyeSlashIcon,
 
   // Prohibido/Desactivado
   Ban: NoSymbolIcon,
@@ -246,6 +256,24 @@ const Icons = {
 
   // Chevron izquierda (volver)
   ChevronLeft: ChevronLeftIcon,
+
+  // Chevron derecha
+  ChevronRight: ChevronRightIcon,
+
+  // Chevron arriba
+  ChevronUp: ChevronUpIcon,
+
+  // Check simple
+  Check: CheckIcon,
+
+  // Editar (alias de Pencil)
+  Edit: PencilIcon,
+
+  // Email/Correo
+  Email: EnvelopeIcon,
+
+  // Información
+  Info: InformationCircleIcon,
 
   // Linterna/Bombilla
   LightBulb: LightBulbIcon,

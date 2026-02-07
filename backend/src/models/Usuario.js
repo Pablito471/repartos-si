@@ -105,6 +105,28 @@ const Usuario = sequelize.define(
       type: DataTypes.JSONB,
       allowNull: true,
     },
+    // Campos para reset de contraseña
+    resetPasswordToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    resetPasswordExpires: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    // Campos para verificación de email
+    emailVerificado: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    emailVerificationToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    emailVerificationExpires: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: "usuarios",
@@ -132,7 +154,37 @@ Usuario.prototype.validarPassword = async function (password) {
 Usuario.prototype.toJSON = function () {
   const values = { ...this.get() };
   delete values.password;
+  delete values.resetPasswordToken;
+  delete values.resetPasswordExpires;
+  delete values.emailVerificationToken;
+  delete values.emailVerificationExpires;
   return values;
+};
+
+// Validar fortaleza de contraseña
+Usuario.validarFortalezaPassword = (password) => {
+  const errores = [];
+
+  if (password.length < 8) {
+    errores.push("La contraseña debe tener al menos 8 caracteres");
+  }
+  if (!/[A-Z]/.test(password)) {
+    errores.push("Debe incluir al menos una letra mayúscula");
+  }
+  if (!/[a-z]/.test(password)) {
+    errores.push("Debe incluir al menos una letra minúscula");
+  }
+  if (!/[0-9]/.test(password)) {
+    errores.push("Debe incluir al menos un número");
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    errores.push("Debe incluir al menos un carácter especial (!@#$%^&*...)");
+  }
+
+  return {
+    valido: errores.length === 0,
+    errores,
+  };
 };
 
 module.exports = Usuario;

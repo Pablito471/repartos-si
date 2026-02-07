@@ -96,8 +96,8 @@ export default function FleteLayout({ children }) {
               <p className="font-semibold text-white text-sm truncate">
                 {usuario?.nombre || "Transportista"}
               </p>
-              <p className="text-xs text-primary-200">
-                ID: {usuario?.id || "FLT-001"}
+              <p className="text-xs text-primary-200 truncate">
+                {usuario?.email || ""}
               </p>
             </div>
             <span className="flex-shrink-0 text-primary-300">

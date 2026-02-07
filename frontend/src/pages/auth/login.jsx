@@ -71,6 +71,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 flex items-center justify-center p-3 sm:p-4 transition-colors duration-300">
+      {/* Botón volver */}
+      <Link
+        href="/"
+        className="absolute top-3 left-3 sm:top-4 sm:left-4 p-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg text-white transition-all"
+      >
+        <Icons.ChevronLeft className="w-5 h-5" />
+      </Link>
+
       {/* Theme Toggle */}
       <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
         <ThemeToggle />
@@ -130,6 +138,16 @@ export default function Login() {
             >
               {cargando ? "Ingresando..." : "Ingresar"}
             </button>
+
+            {/* Enlace recuperar contraseña */}
+            <div className="text-center mt-3">
+              <Link
+                href="/auth/recuperar-password"
+                className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
           </form>
 
           <div className="mt-5 sm:mt-6 text-center">

@@ -1,10 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import Swal from "sweetalert2";
 import Logo from "@/components/logo";
 import ThemeToggle from "@/components/ThemeToggle";
+import Icons from "@/components/Icons";
+
+// Validar fortaleza de contraseña
+const validarFortalezaPassword = (password) => {
+  const errores = [];
+
+  if (password.length < 8) {
+    errores.push("8 caracteres");
+  }
+  if (!/[A-Z]/.test(password)) {
+    errores.push("mayúscula");
+  }
+  if (!/[a-z]/.test(password)) {
+    errores.push("minúscula");
+  }
+  if (!/[0-9]/.test(password)) {
+    errores.push("número");
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    errores.push("especial");
+  }
+
+  return {
+    valido: errores.length === 0,
+    errores,
+    fortaleza: Math.max(0, 5 - errores.length),
+  };
+};
 
 export default function Registro() {
   const router = useRouter();
@@ -21,6 +49,19 @@ export default function Registro() {
     licencia: "",
   });
   const [cargando, setCargando] = useState(false);
+
+  // Validar fortaleza de password en tiempo real
+  const validacionPassword = useMemo(() => {
+    return validarFortalezaPassword(formData.password);
+  }, [formData.password]);
+
+  const getFortalezaColor = () => {
+    if (validacionPassword.fortaleza <= 1) return "bg-red-500";
+    if (validacionPassword.fortaleza <= 2) return "bg-orange-500";
+    if (validacionPassword.fortaleza <= 3) return "bg-yellow-500";
+    if (validacionPassword.fortaleza <= 4) return "bg-lime-500";
+    return "bg-green-500";
+  };
 
   // Redirigir si ya está autenticado
   if (estaAutenticado) {
@@ -70,14 +111,18 @@ export default function Registro() {
       Swal.fire({ icon: "error", title: "Error", text: "Ingresa tu email" });
       return false;
     }
-    if (formData.password.length < 6) {
+
+    // Validar fortaleza de contraseña
+    const validacion = validarFortalezaPassword(formData.password);
+    if (!validacion.valido) {
       Swal.fire({
         icon: "error",
-        title: "Error",
-        text: "La contraseña debe tener al menos 6 caracteres",
+        title: "Contraseña insegura",
+        html: `La contraseña debe incluir: ${validacion.errores.join(", ")}`,
       });
       return false;
     }
+
     if (formData.password !== formData.confirmarPassword) {
       Swal.fire({
         icon: "error",
@@ -126,6 +171,14 @@ export default function Registro() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 flex items-center justify-center p-4 transition-colors duration-300">
+      {/* Botón volver */}
+      <Link
+        href="/"
+        className="absolute top-4 left-4 p-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg text-white transition-all"
+      >
+        <Icons.ChevronLeft className="w-5 h-5" />
+      </Link>
+
       {/* Theme Toggle */}
       <div className="absolute top-4 right-4">
         <ThemeToggle />
@@ -274,9 +327,31 @@ export default function Registro() {
                       value={formData.password}
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
-                      placeholder="••••••"
+                      placeholder="••••••••"
                       required
                     />
+                    {/* Indicador de fortaleza */}
+                    {formData.password && (
+                      <div className="mt-1.5">
+                        <div className="flex gap-0.5 mb-1">
+                          {[1, 2, 3, 4, 5].map((nivel) => (
+                            <div
+                              key={nivel}
+                              className={`h-1 flex-1 rounded-full transition-all ${
+                                nivel <= validacionPassword.fortaleza
+                                  ? getFortalezaColor()
+                                  : "bg-neutral-200 dark:bg-neutral-600"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        {!validacionPassword.valido && (
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                            Falta: {validacionPassword.errores.join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
@@ -288,9 +363,23 @@ export default function Registro() {
                       value={formData.confirmarPassword}
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
-                      placeholder="••••••"
+                      placeholder="••••••••"
                       required
                     />
+                    {/* Indicador de coincidencia */}
+                    {formData.confirmarPassword && (
+                      <p
+                        className={`text-xs mt-1 ${
+                          formData.password === formData.confirmarPassword
+                            ? "text-green-500"
+                            : "text-red-500"
+                        }`}
+                      >
+                        {formData.password === formData.confirmarPassword
+                          ? "✓ Coinciden"
+                          : "✗ No coinciden"}
+                      </p>
+                    )}
                   </div>
                 </div>
 

@@ -111,8 +111,8 @@ export default function DepositoLayout({ children }) {
               <p className="font-semibold text-white text-sm truncate">
                 {usuario?.nombre || "Depósito"}
               </p>
-              <p className="text-xs text-primary-200">
-                ID: {usuario?.id || "DEP-001"}
+              <p className="text-xs text-primary-200 truncate">
+                {usuario?.email || ""}
               </p>
             </div>
             <span className="flex-shrink-0 text-primary-300">

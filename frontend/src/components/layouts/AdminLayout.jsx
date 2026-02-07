@@ -33,6 +33,11 @@ const menuItems = [
     href: "/admin/desactivados",
     icon: "Ban",
   },
+  {
+    name: "Mi Perfil",
+    href: "/admin/perfil",
+    icon: "User",
+  },
 ];
 
 export default function AdminLayout({ children }) {
@@ -89,10 +94,21 @@ export default function AdminLayout({ children }) {
         </div>
 
         {/* Admin info */}
-        <div className="flex-shrink-0 p-3 border-b border-primary-700 bg-primary-800/50">
+        <Link
+          href="/admin/perfil"
+          className="flex-shrink-0 p-3 border-b border-primary-700 bg-primary-800/50 hover:bg-primary-700/50 transition-colors block"
+        >
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-primary-500 rounded-full flex items-center justify-center text-white font-bold">
-              <Icons.Shield className="w-5 h-5" />
+            <div className="w-9 h-9 bg-primary-500 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
+              {usuario?.foto ? (
+                <img
+                  src={usuario.foto}
+                  alt={usuario.nombre}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Icons.Shield className="w-5 h-5" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-white text-sm truncate">
@@ -100,8 +116,9 @@ export default function AdminLayout({ children }) {
               </p>
               <p className="text-xs text-primary-300">Super Administrador</p>
             </div>
+            <Icons.ChevronRight className="w-4 h-4 text-primary-400" />
           </div>
-        </div>
+        </Link>
 
         {/* Navigation - scrollable */}
         <nav className="flex-1 overflow-y-auto p-3">

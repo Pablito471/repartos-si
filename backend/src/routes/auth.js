@@ -6,6 +6,10 @@ const { auth } = require("../middleware/auth");
 // Rutas públicas
 router.post("/registro", authController.registro);
 router.post("/login", authController.login);
+router.post("/solicitar-recuperacion", authController.solicitarRecuperacion);
+router.post("/reset-password", authController.resetPassword);
+router.post("/verificar-email", authController.verificarEmail);
+router.post("/reenviar-verificacion", authController.reenviarVerificacion);
 
 // Rutas protegidas
 router.get("/me", auth, authController.getMe);

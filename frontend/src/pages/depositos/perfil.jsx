@@ -388,15 +388,6 @@ export default function PerfilDeposito() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ID del Depósito
-                      </label>
-                      <p className="p-3 bg-gray-100 rounded-lg font-mono text-gray-500">
-                        {usuario.id}
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Horario Apertura
                       </label>
                       {editando ? (
