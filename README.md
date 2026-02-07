@@ -11,10 +11,12 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"/>
-  <img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg" alt="Node"/>
-  <img src="https://img.shields.io/badge/next.js-14-black.svg" alt="Next.js"/>
-  <img src="https://img.shields.io/badge/express-4.x-lightgrey.svg" alt="Express"/>
-  <img src="https://img.shields.io/badge/PostgreSQL-15-blue.svg" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/node-%3E%3D18.x-brightgreen.svg" alt="Node"/>
+  <img src="https://img.shields.io/badge/next.js-14.1.0-black.svg" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/express-4.18.2-lightgrey.svg" alt="Express"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-14+-blue.svg" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/react-18.2.0-61DAFB.svg" alt="React"/>
+  <img src="https://img.shields.io/badge/tailwind-3.4.1-38B2AC.svg" alt="Tailwind"/>
 </p>
 
 <p align="center">
@@ -96,12 +98,23 @@
 <img src="https://img.shields.io/badge/Tailwind-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind"/>
 </p>
 
-| Librería     | Uso             |
-| ------------ | --------------- |
-| Next.js 14   | Framework React |
-| Tailwind CSS | Estilos         |
-| SweetAlert2  | Alertas         |
-| html5-qrcode | Escáner         |
+| Librería         | Versión   | Uso             |
+| ---------------- | --------- | --------------- |
+| Next.js          | `14.1.0`  | Framework React |
+| React            | `18.2.0`  | UI Library      |
+| Tailwind CSS     | `3.4.1`   | Estilos         |
+| Axios            | `1.6.7`   | Cliente HTTP    |
+| SweetAlert2      | `11.10.5` | Alertas/Modales |
+| html5-qrcode     | `2.3.8`   | Escáner códigos |
+| Pusher JS        | `8.4.0`   | WebSockets      |
+| Socket.io Client | `4.8.3`   | Tiempo real     |
+| JsBarcode        | `3.12.3`  | Generar códigos |
+| jsPDF            | `4.1.0`   | Generar PDF     |
+| Tesseract.js     | `7.0.0`   | OCR             |
+| Heroicons        | `2.2.0`   | Iconos          |
+
+**Testing:**
+| Jest `30.2.0` | Testing Library React `16.3.2` | Jest DOM `6.9.1` |
 
 </td>
 <td align="center" width="50%">
@@ -114,12 +127,22 @@
 <img src="https://img.shields.io/badge/Sequelize-52B0E7?style=for-the-badge&logo=sequelize&logoColor=white" alt="Sequelize"/>
 </p>
 
-| Librería   | Uso           |
-| ---------- | ------------- |
-| Express.js | API REST      |
-| PostgreSQL | Base de datos |
-| Sequelize  | ORM           |
-| JWT        | Autenticación |
+| Librería          | Versión  | Uso              |
+| ----------------- | -------- | ---------------- |
+| Express.js        | `4.18.2` | API REST         |
+| Sequelize         | `6.35.2` | ORM              |
+| PostgreSQL (pg)   | `8.11.3` | Driver BD        |
+| JSON Web Token    | `9.0.2`  | Autenticación    |
+| Bcrypt.js         | `2.4.3`  | Hash contraseñas |
+| Express Validator | `7.0.1`  | Validaciones     |
+| Pusher            | `5.3.2`  | Notificaciones   |
+| Socket.io         | `4.8.3`  | Tiempo real      |
+| Nodemailer        | `7.0.13` | Envío emails     |
+| CORS              | `2.8.5`  | Cross-origin     |
+| Dotenv            | `16.3.1` | Variables env    |
+
+**Testing:**
+| Jest `30.2.0` | Supertest `7.2.2` |
 
 </td>
 </tr>
@@ -131,9 +154,11 @@
 
 ### Requisitos Previos
 
-- **Node.js** >= 18.0.0
-- **PostgreSQL** >= 14
-- **npm** o **yarn**
+| Requisito      | Versión Mínima | Recomendada |
+| -------------- | -------------- | ----------- |
+| **Node.js**    | `>=18.x`       | `20.x LTS`  |
+| **PostgreSQL** | `>=14`         | `15+`       |
+| **npm**        | `>=9.x`        | `10.x`      |
 
 ### ⚡ Inicio Rápido
 
@@ -399,15 +424,79 @@ El sistema usa `sessionStorage` para soportar **múltiples sesiones simultáneas
 
 ---
 
+## 🧪 Testing
+
+El proyecto incluye una suite completa de tests automatizados.
+
+### Ejecutar Tests
+
+```bash
+# Backend
+cd backend
+npm test              # Ejecutar todos los tests
+npm run test:watch    # Modo watch
+npm run test:coverage # Con cobertura
+
+# Frontend
+cd frontend
+npm test              # Ejecutar todos los tests
+npm run test:watch    # Modo watch
+npm run test:coverage # Con cobertura
+```
+
+### Cobertura de Tests
+
+| Área           | Tests                                |
+| -------------- | ------------------------------------ |
+| 🔐 Auth        | Login, registro, JWT, middleware     |
+| 👷 Empleados   | Escáner, ventas, stock, estadísticas |
+| 📦 Productos   | CRUD, búsqueda, validaciones         |
+| 🛡️ Middleware  | Autenticación, roles, permisos       |
+| 🎨 Componentes | Forms, botones, contextos            |
+| 🔧 Utilidades  | Formateo, validaciones, cálculos     |
+
+### Estructura de Tests
+
+```
+backend/tests/
+├── controllers/     # Tests de controladores
+├── middleware/      # Tests de middleware
+├── mocks/          # Mocks de modelos
+└── utils/          # Tests de utilidades
+
+frontend/src/__tests__/
+├── components/      # Tests de componentes React
+├── services/        # Tests de servicios API
+└── utils/          # Tests de helpers
+```
+
+---
+
 ## 📄 Scripts
 
-| Comando           | Descripción         |
-| ----------------- | ------------------- |
-| `npm run dev`     | 🔧 Desarrollo       |
-| `npm run build`   | 📦 Build producción |
-| `npm run start`   | 🚀 Iniciar servidor |
-| `npm run db:sync` | 🔄 Sincronizar BD   |
-| `npm run db:seed` | 🌱 Poblar datos     |
+### Frontend
+
+| Comando                 | Descripción             |
+| ----------------------- | ----------------------- |
+| `npm run dev`           | 🔧 Desarrollo (Next.js) |
+| `npm run build`         | 📦 Build producción     |
+| `npm run start`         | 🚀 Iniciar servidor     |
+| `npm run lint`          | 🔍 Ejecutar ESLint      |
+| `npm run test`          | 🧪 Ejecutar tests       |
+| `npm run test:watch`    | 👀 Tests en modo watch  |
+| `npm run test:coverage` | 📊 Tests con cobertura  |
+
+### Backend
+
+| Comando                 | Descripción             |
+| ----------------------- | ----------------------- |
+| `npm run dev`           | 🔧 Desarrollo (Nodemon) |
+| `npm run start`         | 🚀 Iniciar servidor     |
+| `npm run db:sync`       | 🔄 Sincronizar BD       |
+| `npm run db:seed`       | 🌱 Poblar datos         |
+| `npm run test`          | 🧪 Ejecutar tests       |
+| `npm run test:watch`    | 👀 Tests en modo watch  |
+| `npm run test:coverage` | 📊 Tests con cobertura  |
 
 ---
 
