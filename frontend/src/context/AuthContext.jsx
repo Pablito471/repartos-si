@@ -189,16 +189,16 @@ export const AuthProvider = ({ children }) => {
   // Cargar datos del localStorage al iniciar
   useEffect(() => {
     const cargarDatos = async () => {
-      // Modo API - intentar cargar usuario desde el token
+      // Modo API - intentar cargar usuario desde el token (sessionStorage para multisesión)
       if (MODO_CONEXION === "api") {
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token");
         if (token) {
           try {
             const response = await authService.getMe();
             if (response.usuario) {
               const usuarioMapeado = mapearUsuarioBackend(response.usuario);
               setUsuario(usuarioMapeado);
-              localStorage.setItem(
+              sessionStorage.setItem(
                 "repartos_usuario_actual",
                 JSON.stringify(usuarioMapeado),
               );
@@ -206,8 +206,8 @@ export const AuthProvider = ({ children }) => {
           } catch (error) {
             console.error("Error al cargar usuario:", error);
             // Token inválido, limpiar
-            localStorage.removeItem("token");
-            localStorage.removeItem("repartos_usuario_actual");
+            sessionStorage.removeItem("token");
+            sessionStorage.removeItem("repartos_usuario_actual");
           }
         }
         setCargando(false);
@@ -216,7 +216,7 @@ export const AuthProvider = ({ children }) => {
 
       // Modo local
       const usuariosGuardados = localStorage.getItem("repartos_usuarios");
-      const usuarioActual = localStorage.getItem("repartos_usuario_actual");
+      const usuarioActual = sessionStorage.getItem("repartos_usuario_actual");
 
       if (usuariosGuardados) {
         setUsuarios(JSON.parse(usuariosGuardados));
@@ -245,10 +245,13 @@ export const AuthProvider = ({ children }) => {
     }
   }, [usuarios]);
 
-  // Guardar usuario actual cuando cambie
+  // Guardar usuario actual cuando cambie (sessionStorage para multisesión)
   useEffect(() => {
     if (usuario) {
-      localStorage.setItem("repartos_usuario_actual", JSON.stringify(usuario));
+      sessionStorage.setItem(
+        "repartos_usuario_actual",
+        JSON.stringify(usuario),
+      );
     }
   }, [usuario]);
 
@@ -264,7 +267,7 @@ export const AuthProvider = ({ children }) => {
           // Mapear campos del backend al formato del frontend
           const usuarioMapeado = mapearUsuarioBackend(usuario);
           setUsuario(usuarioMapeado);
-          localStorage.setItem(
+          sessionStorage.setItem(
             "repartos_usuario_actual",
             JSON.stringify(usuarioMapeado),
           );
@@ -363,7 +366,7 @@ export const AuthProvider = ({ children }) => {
         if (response.usuario) {
           const usuarioMapeado = mapearUsuarioBackend(response.usuario);
           setUsuario(usuarioMapeado);
-          localStorage.setItem(
+          sessionStorage.setItem(
             "repartos_usuario_actual",
             JSON.stringify(usuarioMapeado),
           );
@@ -427,7 +430,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUsuario(null);
-    localStorage.removeItem("repartos_usuario_actual");
+    sessionStorage.removeItem("repartos_usuario_actual");
 
     // En modo API, también limpiar el token
     if (MODO_CONEXION === "api") {
@@ -446,7 +449,7 @@ export const AuthProvider = ({ children }) => {
         if (usuarioData) {
           const usuarioMapeado = mapearUsuarioBackend(usuarioData);
           setUsuario(usuarioMapeado);
-          localStorage.setItem(
+          sessionStorage.setItem(
             "repartos_usuario_actual",
             JSON.stringify(usuarioMapeado),
           );
@@ -480,7 +483,7 @@ export const AuthProvider = ({ children }) => {
         if (usuarioData) {
           const usuarioMapeado = mapearUsuarioBackend(usuarioData);
           setUsuario(usuarioMapeado);
-          localStorage.setItem(
+          sessionStorage.setItem(
             "repartos_usuario_actual",
             JSON.stringify(usuarioMapeado),
           );
@@ -518,7 +521,7 @@ export const AuthProvider = ({ children }) => {
         if (usuarioData) {
           const usuarioMapeado = mapearUsuarioBackend(usuarioData);
           setUsuario(usuarioMapeado);
-          localStorage.setItem(
+          sessionStorage.setItem(
             "repartos_usuario_actual",
             JSON.stringify(usuarioMapeado),
           );
@@ -581,7 +584,7 @@ export const AuthProvider = ({ children }) => {
 
     // Cerrar sesión
     setUsuario(null);
-    localStorage.removeItem("repartos_usuario_actual");
+    sessionStorage.removeItem("repartos_usuario_actual");
 
     // Actualizar localStorage con la lista actualizada
     const usuariosActualizados = usuarios.filter((u) => u.id !== idUsuario);

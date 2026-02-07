@@ -110,7 +110,6 @@ export default function EmpleadoEscaner() {
 
       const config = {
         fps: 15,
-        qrbox: { width: 280, height: 150 },
         aspectRatio: 1.777,
       };
 
@@ -269,13 +268,16 @@ export default function EmpleadoEscaner() {
         Swal.fire({
           icon: "success",
           title: "Producto creado",
-          text: `${response.data.nombre} creado exitosamente`,
-          timer: 2000,
+          html: `
+            <p><strong>${response.data.nombre}</strong></p>
+            <p>Stock inicial: ${response.data.stock || response.data.cantidad || 0} unidades</p>
+          `,
+          timer: 2500,
           showConfirmButton: false,
         });
 
-        // Mostrar el producto recién creado
-        setProductoEscaneado(response.data);
+        // NO mostrar el producto como escaneado para evitar operaciones accidentales
+        setProductoEscaneado(null);
         setMostrarFormCrear(false);
         setCantidad(1);
         setNuevoProducto({

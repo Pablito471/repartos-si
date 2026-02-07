@@ -19,9 +19,9 @@ const api = axios.create({
 // Interceptor para requests
 api.interceptors.request.use(
   (config) => {
-    // Agregar token de autenticación si existe
+    // Agregar token de autenticación si existe (sessionStorage para multisesión)
     const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      typeof window !== "undefined" ? sessionStorage.getItem("token") : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -90,7 +90,7 @@ export const authService = {
     // La respuesta viene como { success, message, data: { usuario, token } }
     const data = response.data || response;
     if (data.token) {
-      localStorage.setItem("token", data.token);
+      sessionStorage.setItem("token", data.token);
     }
     return data;
   },
@@ -99,7 +99,7 @@ export const authService = {
     const response = await api.post("/auth/registro", userData);
     const data = response.data || response;
     if (data.token) {
-      localStorage.setItem("token", data.token);
+      sessionStorage.setItem("token", data.token);
     }
     return data;
   },
@@ -126,8 +126,8 @@ export const authService = {
     api.post("/auth/reenviar-verificacion", { email }),
 
   logout: () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("currentUser");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("currentUser");
   },
 };
 
