@@ -1,14 +1,35 @@
 # Repartos SI 🚚
 
-Sistema integral de gestión de repartos para clientes, depósitos y transportistas.
+Sistema integral de gestión de repartos para clientes, depósitos y transportistas con soporte para empleados, escáner de códigos de barras y estadísticas en tiempo real.
 
 ## 🚀 Características
 
-- **Clientes**: Gestión de pedidos, seguimiento en tiempo real, contabilidad
-- **Depósitos**: Inventario, preparación de pedidos, envíos
-- **Fletes**: Rutas, entregas, ganancias
+### Usuarios Principales
+
+- **Clientes**: Gestión de pedidos, seguimiento en tiempo real, contabilidad, relaciones con depósitos
+- **Depósitos**: Inventario, preparación de pedidos, envíos, gestión de productos
+- **Fletes**: Rutas, entregas, ganancias, seguimiento GPS
+
+### Sistema de Empleados
+
+- **Empleados de Depósito**: Acceso exclusivo por escáner para ventas y gestión de stock
+- **Empleados de Cliente**: Acceso exclusivo por escáner para ventas y gestión de stock
+- **Estadísticas**: Panel de rendimiento por empleado con filtros de fecha
+- **Multisesión**: Múltiples empleados pueden usar el sistema simultáneamente
+
+### Escáner de Códigos de Barras
+
+- **Modos de operación**: Vender, Agregar Stock, Consultar Precio
+- **Formatos soportados**: EAN-13, EAN-8, UPC-A, UPC-E, CODE-128, CODE-39, QR
+- **Creación de productos**: Al escanear un código no existente, permite crear el producto
+- **Debounce**: Evita lecturas duplicadas (2 segundos entre lecturas del mismo código)
+
+### Funcionalidades Adicionales
+
 - **Admin**: Panel de administración oculto, gestión de usuarios, calificaciones
-- **Chat en tiempo real**: Comunicación entre usuarios (WebSockets)
+- **Chat en tiempo real**: Comunicación entre usuarios (Pusher/WebSockets)
+- **Notificaciones**: Alertas en tiempo real de pedidos, envíos y stock bajo
+- **Tema oscuro/claro**: Soporte completo para ambos temas
 
 ## 🛠️ Tecnologías
 
@@ -160,12 +181,92 @@ Este proyecto usa **Pusher** para WebSockets en modo serverless. Pusher tiene un
 
 ## 🔐 Usuarios de prueba
 
+### Usuarios Principales
+
 | Tipo     | Email              | Contraseña |
 | -------- | ------------------ | ---------- |
 | Cliente  | cliente@test.com   | 123456     |
 | Depósito | deposito@test.com  | 123456     |
 | Flete    | flete@test.com     | 123456     |
 | Admin    | admin@repartos.com | admin123   |
+
+### Empleados
+
+| Tipo              | Email              | Contraseña |
+| ----------------- | ------------------ | ---------- |
+| Empleado Depósito | empleado1@test.com | 123456     |
+| Empleado Depósito | empleado2@test.com | 123456     |
+| Empleado Cliente  | empleado3@test.com | 123456     |
+| Empleado Cliente  | empleado4@test.com | 123456     |
+
+## 📱 Flujos de Trabajo
+
+### Flujo de Empleado (Escáner)
+
+```
+1. Empleado inicia sesión → Redirigido a /empleado
+2. Selecciona modo: Vender | Agregar Stock | Consultar Precio
+3. Inicia escáner de cámara o ingresa código manual
+4. Si producto existe → Muestra info y permite operación
+5. Si producto NO existe → Formulario para crear producto
+6. Confirma operación → Se registra con empleado_id
+```
+
+### Flujo de Venta (Depósito/Cliente)
+
+```
+1. Cliente crea pedido a depósito
+2. Depósito prepara pedido (o empleado vía escáner)
+3. Depósito asigna flete
+4. Flete recoge y entrega
+5. Cliente confirma recepción
+6. Se pueden calificar mutuamente
+```
+
+## 🔌 API Endpoints Principales
+
+### Autenticación
+
+```
+POST /api/auth/login          # Iniciar sesión
+POST /api/auth/registro       # Registrar usuario
+GET  /api/auth/me             # Obtener usuario actual
+PUT  /api/auth/perfil         # Actualizar perfil
+```
+
+### Empleados (Escáner)
+
+```
+POST /api/empleados/escaner/buscar          # Buscar producto por código
+POST /api/empleados/escaner/venta           # Registrar venta
+POST /api/empleados/escaner/agregar-stock   # Agregar stock
+POST /api/empleados/escaner/crear-producto  # Crear nuevo producto
+GET  /api/empleados/estadisticas            # Estadísticas generales
+GET  /api/empleados/:id/estadisticas        # Estadísticas por empleado
+```
+
+### Productos y Stock
+
+```
+GET    /api/productos              # Listar productos
+POST   /api/productos              # Crear producto
+GET    /api/productos/:id          # Obtener producto
+PUT    /api/productos/:id          # Actualizar producto
+DELETE /api/productos/:id          # Eliminar producto
+GET    /api/stock                  # Obtener stock
+POST   /api/movimientos            # Registrar movimiento
+```
+
+### Pedidos y Envíos
+
+```
+GET    /api/pedidos                # Listar pedidos
+POST   /api/pedidos                # Crear pedido
+PUT    /api/pedidos/:id            # Actualizar pedido
+GET    /api/envios                 # Listar envíos
+POST   /api/envios                 # Crear envío
+PUT    /api/envios/:id             # Actualizar envío
+```
 
 ## 📁 Estructura del proyecto
 
@@ -174,9 +275,23 @@ repartos-si/
 ├── frontend/                 # Aplicación Next.js
 │   ├── src/
 │   │   ├── components/       # Componentes reutilizables
+│   │   │   ├── layouts/      # Layouts por tipo de usuario
+│   │   │   ├── CalificarModal.jsx
+│   │   │   ├── ChatWidget.jsx
+│   │   │   └── ...
 │   │   ├── context/          # Contextos de React
+│   │   │   ├── AuthContext.jsx    # Autenticación (multisesión)
+│   │   │   ├── ChatContext.jsx
+│   │   │   └── ...
 │   │   ├── pages/            # Páginas de la aplicación
+│   │   │   ├── empleado/     # Panel del empleado (escáner)
+│   │   │   ├── clientes/     # Panel de clientes
+│   │   │   ├── depositos/    # Panel de depósitos
+│   │   │   ├── fletes/       # Panel de fletes
+│   │   │   ├── admin/        # Panel de administración
+│   │   │   └── auth/         # Login, registro, etc.
 │   │   ├── services/         # Servicios API
+│   │   │   └── api.js        # Cliente HTTP con interceptores
 │   │   └── utils/            # Utilidades
 │   └── vercel.json           # Config Vercel frontend
 │
@@ -185,13 +300,46 @@ repartos-si/
 │   │   └── index.js          # Entry point serverless
 │   ├── src/
 │   │   ├── controllers/      # Controladores
+│   │   │   ├── authController.js
+│   │   │   ├── empleadosController.js  # Lógica del escáner
+│   │   │   ├── productosController.js
+│   │   │   └── ...
 │   │   ├── models/           # Modelos Sequelize
+│   │   │   ├── Usuario.js    # Incluye tipo 'empleado'
+│   │   │   ├── Producto.js
+│   │   │   ├── Movimiento.js # Incluye empleado_id
+│   │   │   └── ...
 │   │   ├── routes/           # Rutas API
+│   │   │   ├── empleados.js  # Rutas del escáner
+│   │   │   └── ...
 │   │   ├── middleware/       # Middlewares
-│   │   └── services/         # Servicios
+│   │   │   └── auth.js       # JWT + verificación de empleado
+│   │   ├── services/         # Servicios
+│   │   │   └── pusherService.js
+│   │   └── scripts/          # Scripts de BD
+│   │       ├── seed.js
+│   │       └── limpiarDatosYActualizarEmpleados.js
 │   └── vercel.json           # Config Vercel backend
 │
 └── README.md
+```
+
+## ⚡ Multisesión
+
+El sistema soporta **múltiples sesiones simultáneas** usando `sessionStorage` en lugar de `localStorage`:
+
+- Cada pestaña del navegador tiene su propia sesión independiente
+- Un depósito puede tener varios empleados trabajando al mismo tiempo
+- No hay conflictos entre usuarios en el mismo navegador
+- Tokens JWT independientes por sesión
+
+```
+Ejemplo:
+├── Pestaña 1: Depósito (deposito@test.com)
+├── Pestaña 2: Empleado 1 (empleado1@test.com)
+├── Pestaña 3: Empleado 2 (empleado2@test.com)
+└── Pestaña 4: Cliente (cliente@test.com)
+→ Todas funcionando simultáneamente sin conflictos
 ```
 
 ## 📄 Scripts
@@ -220,7 +368,46 @@ npm run db:seed  # Poblar BD con datos iniciales
 - **Depósitos**: Verde (#22C55E)
 - **Fletes**: Naranja (#F97316)
 - **Admin**: Rojo (#DC2626)
+- **Empleados**: Púrpura (#8B5CF6)
+
+## 📊 Estadísticas de Empleados
+
+Los depósitos y clientes pueden ver estadísticas de sus empleados:
+
+| Métrica            | Descripción                         |
+| ------------------ | ----------------------------------- |
+| Total ventas       | Número de ventas realizadas         |
+| Monto total        | Suma de todos los montos vendidos   |
+| Productos vendidos | Cantidad total de unidades vendidas |
+
+**Filtros disponibles:**
+
+- Hoy
+- Esta semana
+- Este mes
+- Rango personalizado
+
+## 🔧 Scripts de Mantenimiento
+
+```bash
+# Limpiar base de datos (conserva usuarios)
+cd backend
+node src/scripts/limpiarDatosYActualizarEmpleados.js
+
+# Sincronizar modelos con BD
+npm run db:sync
+
+# Poblar con datos de prueba
+npm run db:seed
+```
 
 ## 📝 Licencia
 
-MIT
+## MIT
+
+## © Copyright
+
+**© 2026 Rubiño Pablo Hernán. Todos los derechos reservados.**
+
+Este software y su documentación están protegidos por las leyes de derechos de autor.
+Queda prohibida su reproducción, distribución o uso sin autorización expresa del autor.
