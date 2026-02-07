@@ -46,6 +46,11 @@ const menuItems = [
     icon: "Wallet",
   },
   {
+    name: "Empleados",
+    href: "/depositos/empleados",
+    icon: "Users",
+  },
+  {
     name: "Notificaciones",
     href: "/depositos/notificaciones",
     icon: "Bell",

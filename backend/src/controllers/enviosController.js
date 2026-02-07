@@ -5,6 +5,7 @@ const {
   PedidoProducto,
   StockCliente,
   Producto,
+  Movimiento,
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
@@ -317,6 +318,38 @@ exports.cambiarEstadoEnvio = async (req, res, next) => {
         }
       } catch (stockError) {
         console.error("Error al agregar productos al stock:", stockError);
+        // No lanzar error para no interrumpir la entrega
+      }
+
+      // Registrar movimiento contable para el depósito (ingreso por venta)
+      try {
+        // Obtener datos del cliente para el concepto
+        const cliente = await Usuario.findByPk(envio.pedido.clienteId, {
+          attributes: ["id", "nombre"],
+        });
+
+        // Verificar si ya existe un movimiento para este pedido y depósito
+        const movimientoExistente = await Movimiento.findOne({
+          where: {
+            pedidoId: envio.pedido.id,
+            usuarioId: envio.pedido.depositoId,
+            categoria: "ventas",
+          },
+        });
+
+        if (!movimientoExistente) {
+          await Movimiento.create({
+            usuarioId: envio.pedido.depositoId,
+            tipo: "ingreso",
+            concepto: `Venta - Pedido #${envio.pedido.numero || envio.pedido.id.substring(0, 8)} - ${cliente?.nombre || "Cliente"}`,
+            monto: parseFloat(envio.pedido.total),
+            categoria: "ventas",
+            pedidoId: envio.pedido.id,
+            notas: `Entrega confirmada por flete`,
+          });
+        }
+      } catch (movError) {
+        console.error("Error al registrar movimiento contable:", movError);
         // No lanzar error para no interrumpir la entrega
       }
 

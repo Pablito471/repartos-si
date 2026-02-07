@@ -432,6 +432,70 @@ export const stockService = {
   eliminar: (id) => api.delete(`/stock/${id}`),
 };
 
+// ============== EMPLEADOS ==============
+export const empleadosAPI = {
+  // Listar empleados
+  listar: () => api.get("/empleados"),
+
+  // Crear empleado
+  crear: (datos) => api.post("/empleados", datos),
+
+  // Actualizar empleado
+  actualizar: (id, datos) => api.put(`/empleados/${id}`, datos),
+
+  // Cambiar contraseña
+  cambiarPassword: (id, password) =>
+    api.put(`/empleados/${id}/password`, { password }),
+
+  // Activar/desactivar empleado
+  toggle: (id) => api.put(`/empleados/${id}/toggle`),
+
+  // Eliminar empleado
+  eliminar: (id) => api.delete(`/empleados/${id}`),
+
+  // === Funciones para el escáner del empleado ===
+  // Buscar producto por código
+  buscarProducto: (codigo) => api.get(`/empleados/escaner/buscar/${codigo}`),
+
+  // Realizar venta
+  vender: (productoId, cantidad, precioVenta) =>
+    api.post("/empleados/escaner/vender", {
+      productoId,
+      cantidad,
+      precioVenta,
+    }),
+
+  // Agregar stock
+  agregarStock: (productoId, cantidad) =>
+    api.post("/empleados/escaner/agregar-stock", {
+      productoId,
+      cantidad,
+    }),
+
+  // Crear producto nuevo
+  crearProducto: (datos) =>
+    api.post("/empleados/escaner/crear-producto", datos),
+
+  // === Estadísticas ===
+  // Obtener estadísticas de todos los empleados
+  obtenerEstadisticas: (fechaDesde, fechaHasta) => {
+    const params = new URLSearchParams();
+    if (fechaDesde) params.append("fechaDesde", fechaDesde);
+    if (fechaHasta) params.append("fechaHasta", fechaHasta);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return api.get(`/empleados/estadisticas${query}`);
+  },
+
+  // Obtener estadísticas de un empleado específico
+  obtenerEstadisticasEmpleado: (id, fechaDesde, fechaHasta) => {
+    const params = new URLSearchParams();
+    if (fechaDesde) params.append("fechaDesde", fechaDesde);
+    if (fechaHasta) params.append("fechaHasta", fechaHasta);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return api.get(`/empleados/${id}/estadisticas${query}`);
+  },
+};
+
 // ============== HEALTH CHECK ==============
 export const healthCheck = () => api.get("/health");
 

@@ -5,6 +5,7 @@ const {
   StockCliente,
   PedidoProducto,
   Producto,
+  Movimiento,
   sequelize,
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
@@ -192,6 +193,42 @@ exports.confirmarEntrega = async (req, res, next) => {
       { estado: "entregado", fechaEntrega: new Date() },
       { where: { id: entrega.pedidoId }, transaction: t },
     );
+
+    // Registrar movimiento contable para el depósito (ingreso por venta)
+    const cliente = await Usuario.findByPk(entrega.clienteId, {
+      attributes: ["id", "nombre"],
+      transaction: t,
+    });
+
+    // Obtener el pedido para tener el número y total
+    const pedido = await Pedido.findByPk(entrega.pedidoId, {
+      transaction: t,
+    });
+
+    // Verificar si ya existe un movimiento para este pedido y depósito
+    const movimientoExistente = await Movimiento.findOne({
+      where: {
+        pedidoId: entrega.pedidoId,
+        usuarioId: entrega.depositoId,
+        categoria: "ventas",
+      },
+      transaction: t,
+    });
+
+    if (!movimientoExistente) {
+      await Movimiento.create(
+        {
+          usuarioId: entrega.depositoId,
+          tipo: "ingreso",
+          concepto: `Venta - Pedido #${pedido?.numero || entrega.pedidoId.substring(0, 8)} - ${cliente?.nombre || "Cliente"}`,
+          monto: parseFloat(entrega.total),
+          categoria: "ventas",
+          pedidoId: entrega.pedidoId,
+          notas: "Entrega confirmada por cliente",
+        },
+        { transaction: t },
+      );
+    }
 
     await t.commit();
 

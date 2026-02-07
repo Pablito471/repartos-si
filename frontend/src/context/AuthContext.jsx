@@ -340,6 +340,10 @@ export const AuthProvider = ({ children }) => {
       esOculto: usuarioBackend.es_oculto || usuarioBackend.esOculto,
       fechaRegistro: usuarioBackend.created_at || usuarioBackend.createdAt,
       calificaciones: usuarioBackend.calificaciones || [],
+      // Campos para empleados
+      empleadorId: usuarioBackend.empleador_id || usuarioBackend.empleadorId,
+      tipoEmpleador:
+        usuarioBackend.tipo_empleador || usuarioBackend.tipoEmpleador,
     };
   };
 

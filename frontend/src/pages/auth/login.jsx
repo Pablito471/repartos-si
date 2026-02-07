@@ -45,6 +45,7 @@ export default function Login() {
           deposito: "/depositos",
           flete: "/fletes",
           admin: "/admin",
+          empleado: "/empleado",
         };
         router.push(rutas[resultado.usuario.tipoUsuario] || "/");
       });

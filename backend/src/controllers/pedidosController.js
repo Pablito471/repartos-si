@@ -4,6 +4,7 @@ const {
   Usuario,
   Producto,
   Envio,
+  Movimiento,
   sequelize,
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
@@ -359,6 +360,43 @@ exports.cambiarEstado = async (req, res, next) => {
       estado,
       fechaEntrega: estado === "entregado" ? new Date() : pedido.fechaEntrega,
     });
+
+    // Registrar movimiento contable para el depósito si el pedido se marcó como entregado
+    if (estado === "entregado") {
+      try {
+        // Obtener datos del cliente para el concepto
+        const cliente = await Usuario.findByPk(pedido.clienteId, {
+          attributes: ["id", "nombre"],
+        });
+
+        // Verificar si ya existe un movimiento para este pedido y depósito
+        const movimientoExistente = await Movimiento.findOne({
+          where: {
+            pedidoId: pedido.id,
+            usuarioId: pedido.depositoId,
+            categoria: "ventas",
+          },
+        });
+
+        if (!movimientoExistente) {
+          await Movimiento.create({
+            usuarioId: pedido.depositoId,
+            tipo: "ingreso",
+            concepto: `Venta - Pedido #${pedido.numero || pedido.id.substring(0, 8)} - ${cliente?.nombre || "Cliente"}`,
+            monto: parseFloat(pedido.total),
+            categoria: "ventas",
+            pedidoId: pedido.id,
+            notas:
+              pedido.tipoEnvio === "retiro"
+                ? "Retiro en depósito"
+                : "Entrega confirmada",
+          });
+        }
+      } catch (movError) {
+        console.error("Error al registrar movimiento contable:", movError);
+        // No lanzar error para no interrumpir el cambio de estado
+      }
+    }
 
     // Emitir notificación al cliente
     emitirPedidoActualizado(pedido.clienteId, {

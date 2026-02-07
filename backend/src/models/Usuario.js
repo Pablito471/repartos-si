@@ -23,12 +23,25 @@ const Usuario = sequelize.define(
       allowNull: false,
     },
     tipoUsuario: {
-      type: DataTypes.ENUM("admin", "cliente", "deposito", "flete"),
+      type: DataTypes.ENUM("admin", "cliente", "deposito", "flete", "empleado"),
       allowNull: false,
     },
     nombre: {
       type: DataTypes.STRING,
       allowNull: false,
+    },
+    // Campos para empleados
+    empleadorId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "usuarios",
+        key: "id",
+      },
+    },
+    tipoEmpleador: {
+      type: DataTypes.ENUM("cliente", "deposito"),
+      allowNull: true,
     },
     telefono: {
       type: DataTypes.STRING,

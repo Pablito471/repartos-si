@@ -48,6 +48,14 @@ const Movimiento = sequelize.define(
         key: "id",
       },
     },
+    empleadoId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "usuarios",
+        key: "id",
+      },
+    },
     notas: {
       type: DataTypes.TEXT,
       allowNull: true,

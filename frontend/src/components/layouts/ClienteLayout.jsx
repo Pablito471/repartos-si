@@ -51,6 +51,11 @@ const menuItems = [
     href: "/clientes/contabilidad",
     icon: "Wallet",
   },
+  {
+    name: "Empleados",
+    href: "/clientes/empleados",
+    icon: "Users",
+  },
 ];
 
 export default function ClienteLayout({ children }) {
