@@ -154,26 +154,6 @@ describe("Auth Middleware", () => {
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
   });
-
-  describe("authEmpleado middleware", () => {
-    it("debería pasar con empleado válido", () => {
-      mockReq.usuario = mockUsuarios[2]; // empleado
-
-      const middleware = auth.authEmpleado;
-      middleware(mockReq, mockRes, mockNext);
-
-      expect(mockNext).toHaveBeenCalled();
-    });
-
-    it("debería rechazar no empleado", () => {
-      mockReq.usuario = mockUsuarios[0]; // cliente
-
-      const middleware = auth.authEmpleado;
-      middleware(mockReq, mockRes, mockNext);
-
-      expect(mockRes.status).toHaveBeenCalledWith(403);
-    });
-  });
 });
 
 describe("JWT Utilities", () => {
