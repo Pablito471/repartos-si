@@ -2,6 +2,7 @@ import { useState } from "react";
 import FleteLayout from "@/components/layouts/FleteLayout";
 import { useFlete } from "@/context/FleteContext";
 import { formatNumber } from "@/utils/formatters";
+import { movimientosService } from "@/services/api";
 import Swal from "sweetalert2";
 
 export default function FleteRuta() {
@@ -159,11 +160,10 @@ export default function FleteRuta() {
           <div className="flex items-center gap-3 mt-4 md:mt-0">
             <button
               onClick={() => setVistaOptimizada(!vistaOptimizada)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                vistaOptimizada
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-200 text-gray-700"
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors ${vistaOptimizada
+                ? "bg-orange-500 text-white"
+                : "bg-gray-200 text-gray-700"
+                }`}
             >
               {vistaOptimizada ? "🗺️ Vista Optimizada" : "📋 Vista Lista"}
             </button>
@@ -254,15 +254,14 @@ export default function FleteRuta() {
                   <div key={envio.id} className="relative pl-14 pb-6">
                     {/* Punto en timeline */}
                     <div
-                      className={`absolute left-4 w-5 h-5 rounded-full border-4 border-white ${
-                        envio.estado === "entregado"
-                          ? "bg-green-500"
-                          : envio.estado === "en_camino"
-                            ? "bg-blue-500"
-                            : envio.prioridad === "alta"
-                              ? "bg-red-500"
-                              : "bg-orange-500"
-                      }`}
+                      className={`absolute left-4 w-5 h-5 rounded-full border-4 border-white ${envio.estado === "entregado"
+                        ? "bg-green-500"
+                        : envio.estado === "en_camino"
+                          ? "bg-blue-500"
+                          : envio.prioridad === "alta"
+                            ? "bg-red-500"
+                            : "bg-orange-500"
+                        }`}
                     ></div>
 
                     {/* Número de parada */}
@@ -272,15 +271,14 @@ export default function FleteRuta() {
 
                     {/* Card de parada */}
                     <div
-                      className={`card ${
-                        envio.estado === "entregado"
-                          ? "opacity-60 bg-gray-50"
-                          : envio.estado === "en_camino"
-                            ? "border-2 border-blue-400 bg-blue-50"
-                            : envio.prioridad === "alta"
-                              ? "border-2 border-red-400"
-                              : ""
-                      }`}
+                      className={`card ${envio.estado === "entregado"
+                        ? "opacity-60 bg-gray-50"
+                        : envio.estado === "en_camino"
+                          ? "border-2 border-blue-400 bg-blue-50"
+                          : envio.prioridad === "alta"
+                            ? "border-2 border-red-400"
+                            : ""
+                        }`}
                     >
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div className="flex-1">
@@ -347,11 +345,10 @@ export default function FleteRuta() {
                           {envio.estado !== "entregado" && (
                             <button
                               onClick={() => handleAccionRapida(envio)}
-                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                                envio.estado === "pendiente"
-                                  ? "bg-blue-500 text-white hover:bg-blue-600"
-                                  : "bg-green-500 text-white hover:bg-green-600"
-                              }`}
+                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${envio.estado === "pendiente"
+                                ? "bg-blue-500 text-white hover:bg-blue-600"
+                                : "bg-green-500 text-white hover:bg-green-600"
+                                }`}
                             >
                               {envio.estado === "pendiente"
                                 ? "Recoger"
@@ -370,9 +367,8 @@ export default function FleteRuta() {
                 {enviosOrdenados.map((envio, index) => (
                   <div
                     key={envio.id}
-                    className={`card ${
-                      envio.estado === "entregado" ? "opacity-50" : ""
-                    }`}
+                    className={`card ${envio.estado === "entregado" ? "opacity-50" : ""
+                      }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center font-bold text-orange-600">
@@ -457,24 +453,46 @@ export default function FleteRuta() {
               <span className="text-sm font-medium">Ver Resumen</span>
             </button>
             <button
-              onClick={() => {
-                Swal.fire({
+              onClick={async () => {
+                const { value: novedad } = await Swal.fire({
                   title: "Reportar Novedad",
                   input: "textarea",
                   inputPlaceholder: "Describe la novedad...",
                   showCancelButton: true,
                   confirmButtonText: "Enviar",
                   confirmButtonColor: "#f97316",
-                }).then((result) => {
-                  if (result.isConfirmed && result.value) {
+                  inputValidator: (value) => {
+                    if (!value) {
+                      return "Debes escribir algo";
+                    }
+                  },
+                });
+
+                if (novedad) {
+                  try {
+                    await movimientosService.crear({
+                      tipo: "egreso",
+                      monto: 0,
+                      concepto: `Novedad de ruta: ${novedad.substring(0, 50)}`,
+                      categoria: "otros",
+                      notas: novedad,
+                    });
+
                     Swal.fire({
                       icon: "success",
                       title: "Novedad reportada",
+                      text: "Tu reporte fue guardado correctamente",
                       timer: 1500,
                       showConfirmButton: false,
                     });
+                  } catch (error) {
+                    Swal.fire({
+                      icon: "error",
+                      title: "Error",
+                      text: "No se pudo guardar la novedad",
+                    });
                   }
-                });
+                }
               }}
               className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-center"
             >
