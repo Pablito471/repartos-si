@@ -9,6 +9,9 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
+    "test": "jest --testPathIgnorePatterns=node_modules",
+    "test:watch": "jest --watch --testPathIgnorePatterns=node_modules",
+    "test:coverage": "jest --coverage --testPathIgnorePatterns=node_modules",
     "db:clean-except-users": "node src/scripts/cleanDbExceptUsers.js"
   },
   "keywords": [
