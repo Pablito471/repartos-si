@@ -260,7 +260,6 @@ export const AuthProvider = ({ children }) => {
     if (MODO_CONEXION === "api") {
       try {
         const response = await authService.login(email, password);
-        console.log("Login response:", response); // Debug
         // La respuesta puede venir como { usuario, token } directamente
         const usuario = response.usuario || response.data?.usuario;
         if (usuario) {
@@ -656,10 +655,10 @@ export const AuthProvider = ({ children }) => {
       prev.map((u) =>
         u.id === idUsuario
           ? {
-              ...u,
-              desactivado: true,
-              fechaDesactivacion: new Date().toISOString(),
-            }
+            ...u,
+            desactivado: true,
+            fechaDesactivacion: new Date().toISOString(),
+          }
           : u,
       ),
     );
@@ -880,7 +879,7 @@ export const AuthProvider = ({ children }) => {
         promedio:
           u.calificaciones?.length > 0
             ? u.calificaciones.reduce((acc, c) => acc + c.puntuacion, 0) /
-              u.calificaciones.length
+            u.calificaciones.length
             : 0,
         totalCalificaciones: u.calificaciones?.length || 0,
       }))
@@ -907,7 +906,7 @@ export const AuthProvider = ({ children }) => {
         promedioGeneral:
           todasCalificaciones.length > 0
             ? todasCalificaciones.reduce((acc, c) => acc + c.puntuacion, 0) /
-              todasCalificaciones.length
+            todasCalificaciones.length
             : 0,
       };
     });
@@ -924,7 +923,7 @@ export const AuthProvider = ({ children }) => {
       promedioGlobal:
         todasLasCalificaciones.length > 0
           ? todasLasCalificaciones.reduce((acc, c) => acc + c.puntuacion, 0) /
-            todasLasCalificaciones.length
+          todasLasCalificaciones.length
           : 0,
     };
   };

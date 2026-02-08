@@ -11,363 +11,6 @@ import { toLocalDateString } from "../utils/formatters";
 
 const ClienteContext = createContext();
 
-// Configurar modo de conexión: 'api' o 'local'
-const MODO_CONEXION = process.env.NEXT_PUBLIC_MODE || "api";
-
-// Datos de ejemplo para demostración
-const pedidosIniciales = [
-  {
-    id: 1,
-    fecha: "2026-02-01",
-    productos: [
-      { nombre: "Producto A", cantidad: 10, precio: 150 },
-      { nombre: "Producto B", cantidad: 5, precio: 200 },
-    ],
-    deposito: "Depósito Central",
-    tipoEnvio: "flete",
-    estado: "pendiente",
-    total: 2500,
-    direccion: "Calle Principal 123",
-  },
-  {
-    id: 2,
-    fecha: "2026-01-28",
-    productos: [{ nombre: "Producto C", cantidad: 20, precio: 80 }],
-    deposito: "Depósito Norte",
-    tipoEnvio: "envio",
-    estado: "entregado",
-    total: 1600,
-    direccion: "Av. Libertad 456",
-  },
-  {
-    id: 3,
-    fecha: "2026-01-25",
-    productos: [
-      { nombre: "Producto A", cantidad: 15, precio: 150 },
-      { nombre: "Producto D", cantidad: 8, precio: 300 },
-    ],
-    deposito: "Depósito Sur",
-    tipoEnvio: "retiro",
-    estado: "en_camino",
-    total: 4650,
-    direccion: "Pasaje Los Robles 789",
-  },
-];
-
-const depositosIniciales = [
-  {
-    id: 1,
-    nombre: "Depósito Central",
-    direccion: "Av. Industrial 1000",
-    telefono: "555-0100",
-    horarioApertura: "08:00",
-    horarioCierre: "18:00",
-    diasLaborales: [1, 2, 3, 4, 5], // Lunes a Viernes
-    disponible: true,
-    tiposEnvio: ["envio", "flete", "retiro"],
-    imagen: "🏭",
-    productos: [
-      {
-        id: 1,
-        codigo: "PROD-001",
-        nombre: "Producto A",
-        categoria: "Categoría 1",
-        precio: 150,
-        stock: 100,
-        imagen:
-          "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200",
-      },
-      {
-        id: 2,
-        codigo: "PROD-002",
-        nombre: "Producto B",
-        categoria: "Categoría 1",
-        precio: 200,
-        stock: 50,
-        imagen:
-          "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=200",
-      },
-      {
-        id: 3,
-        codigo: "PROD-003",
-        nombre: "Producto C",
-        categoria: "Categoría 2",
-        precio: 80,
-        stock: 200,
-        imagen:
-          "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=200",
-      },
-      {
-        id: 4,
-        codigo: "PROD-004",
-        nombre: "Producto D",
-        categoria: "Categoría 2",
-        precio: 300,
-        stock: 15,
-        imagen:
-          "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=200",
-      },
-      {
-        id: 5,
-        codigo: "PROD-005",
-        nombre: "Producto E",
-        categoria: "Categoría 3",
-        precio: 450,
-        stock: 30,
-        imagen:
-          "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=200",
-      },
-      {
-        id: 6,
-        codigo: "PROD-006",
-        nombre: "Producto F",
-        categoria: "Categoría 3",
-        precio: 120,
-        stock: 150,
-        imagen: "",
-      },
-    ],
-  },
-  {
-    id: 2,
-    nombre: "Depósito Norte",
-    direccion: "Ruta 5 Km 12",
-    telefono: "555-0200",
-    horarioApertura: "07:00",
-    horarioCierre: "17:00",
-    diasLaborales: [1, 2, 3, 4, 5, 6], // Lunes a Sábado
-    disponible: true,
-    tiposEnvio: ["envio", "flete"],
-    imagen: "🏢",
-    productos: [
-      {
-        id: 7,
-        codigo: "PROD-007",
-        nombre: "Producto G",
-        categoria: "Categoría 1",
-        precio: 180,
-        stock: 80,
-        imagen:
-          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200",
-      },
-      {
-        id: 8,
-        codigo: "PROD-008",
-        nombre: "Producto H",
-        categoria: "Categoría 2",
-        precio: 250,
-        stock: 45,
-        imagen:
-          "https://images.unsplash.com/photo-1491553895911-0055uj47a85?w=200",
-      },
-      {
-        id: 9,
-        codigo: "PROD-009",
-        nombre: "Producto I",
-        categoria: "Categoría 3",
-        precio: 90,
-        stock: 120,
-        imagen: "",
-      },
-      {
-        id: 10,
-        codigo: "PROD-010",
-        nombre: "Producto J",
-        categoria: "Categoría 1",
-        precio: 350,
-        stock: 25,
-        imagen:
-          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200",
-      },
-    ],
-  },
-  {
-    id: 3,
-    nombre: "Depósito Sur",
-    direccion: "Parque Logístico Sur",
-    telefono: "555-0300",
-    horarioApertura: "09:00",
-    horarioCierre: "19:00",
-    diasLaborales: [1, 2, 3, 4, 5], // Lunes a Viernes
-    disponible: true,
-    tiposEnvio: ["envio", "retiro"],
-    imagen: "🏗️",
-    productos: [
-      {
-        id: 11,
-        codigo: "PROD-011",
-        nombre: "Producto K",
-        categoria: "Categoría 1",
-        precio: 220,
-        stock: 60,
-        imagen:
-          "https://images.unsplash.com/photo-1503602642458-232111445657?w=200",
-      },
-      {
-        id: 12,
-        codigo: "PROD-012",
-        nombre: "Producto L",
-        categoria: "Categoría 2",
-        precio: 175,
-        stock: 90,
-        imagen: "",
-      },
-      {
-        id: 13,
-        codigo: "PROD-013",
-        nombre: "Producto M",
-        categoria: "Categoría 3",
-        precio: 400,
-        stock: 20,
-        imagen:
-          "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=200",
-      },
-      {
-        id: 14,
-        codigo: "PROD-014",
-        nombre: "Producto N",
-        categoria: "Categoría 1",
-        precio: 130,
-        stock: 110,
-        imagen:
-          "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200",
-      },
-      {
-        id: 15,
-        codigo: "PROD-015",
-        nombre: "Producto O",
-        categoria: "Categoría 2",
-        precio: 280,
-        stock: 35,
-        imagen: "",
-      },
-    ],
-  },
-  {
-    id: 4,
-    nombre: "Depósito Este",
-    direccion: "Zona Franca Este",
-    telefono: "555-0400",
-    horario: "Lun-Vie 8:00 - 16:00",
-    disponible: false,
-    tiposEnvio: ["flete"],
-    imagen: "🏚️",
-    productos: [],
-  },
-];
-
-const movimientosIniciales = [
-  {
-    id: 1,
-    fecha: "2026-02-01",
-    tipo: "ingreso",
-    concepto: "Venta de productos",
-    monto: 5000,
-    categoria: "ventas",
-  },
-  {
-    id: 2,
-    fecha: "2026-02-01",
-    tipo: "egreso",
-    concepto: "Pago de flete",
-    monto: 350,
-    categoria: "logistica",
-  },
-  {
-    id: 3,
-    fecha: "2026-01-31",
-    tipo: "ingreso",
-    concepto: "Venta de productos",
-    monto: 3200,
-    categoria: "ventas",
-  },
-  {
-    id: 4,
-    fecha: "2026-01-31",
-    tipo: "egreso",
-    concepto: "Compra de mercadería",
-    monto: 2000,
-    categoria: "compras",
-  },
-  {
-    id: 5,
-    fecha: "2026-01-30",
-    tipo: "ingreso",
-    concepto: "Cobro a cliente",
-    monto: 1500,
-    categoria: "cobranzas",
-  },
-  {
-    id: 6,
-    fecha: "2026-01-30",
-    tipo: "egreso",
-    concepto: "Pago de servicios",
-    monto: 800,
-    categoria: "servicios",
-  },
-  {
-    id: 7,
-    fecha: "2026-01-29",
-    tipo: "ingreso",
-    concepto: "Venta de productos",
-    monto: 4500,
-    categoria: "ventas",
-  },
-  {
-    id: 8,
-    fecha: "2026-01-28",
-    tipo: "egreso",
-    concepto: "Compra de insumos",
-    monto: 1200,
-    categoria: "compras",
-  },
-];
-
-const productosDisponibles = [
-  {
-    id: 1,
-    nombre: "Producto A",
-    precio: 150,
-    stock: 100,
-    categoria: "Categoría 1",
-  },
-  {
-    id: 2,
-    nombre: "Producto B",
-    precio: 200,
-    stock: 50,
-    categoria: "Categoría 1",
-  },
-  {
-    id: 3,
-    nombre: "Producto C",
-    precio: 80,
-    stock: 200,
-    categoria: "Categoría 2",
-  },
-  {
-    id: 4,
-    nombre: "Producto D",
-    precio: 300,
-    stock: 75,
-    categoria: "Categoría 2",
-  },
-  {
-    id: 5,
-    nombre: "Producto E",
-    precio: 450,
-    stock: 30,
-    categoria: "Categoría 3",
-  },
-  {
-    id: 6,
-    nombre: "Producto F",
-    precio: 120,
-    stock: 150,
-    categoria: "Categoría 3",
-  },
-];
-
 export function ClienteProvider({ children }) {
   const { usuario } = useAuth();
   const [pedidos, setPedidos] = useState([]);
@@ -382,12 +25,12 @@ export function ClienteProvider({ children }) {
     categorias: {},
     porMes: {},
   });
-  const [productos] = useState(productosDisponibles);
+  const [productos] = useState([]);
   const [cargandoDepositos, setCargandoDepositos] = useState(true);
   const [cargandoPedidos, setCargandoPedidos] = useState(true);
   const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
   const [carrito, setCarrito] = useState({
-    productos: [], // Cada producto incluye depositoId
+    productos: [],
   });
 
   // Función para validar UUID
@@ -402,76 +45,71 @@ export function ClienteProvider({ children }) {
   useEffect(() => {
     const cargarDepositos = async () => {
       setCargandoDepositos(true);
-      if (MODO_CONEXION === "api") {
-        try {
-          const response = await usuariosService.getDepositos();
-          // response.data contiene { success, data: [...] }
-          const depositosBackend = response.data || response || [];
+      try {
+        const response = await usuariosService.getDepositos();
+        const depositosBackend = response.data || response || [];
 
-          // Cargar productos para cada depósito
-          const depositosConProductos = await Promise.all(
-            depositosBackend.map(async (dep) => {
-              try {
-                const prodResponse = await productosService.getByDeposito(
-                  dep.id,
-                );
-                const productos = prodResponse.data || prodResponse || [];
-                return {
-                  id: dep.id,
-                  nombre: dep.nombre,
-                  direccion: dep.direccion || "",
-                  telefono: dep.telefono || "",
-                  horarioApertura:
-                    dep.horarioApertura || dep.horario_apertura || "08:00",
-                  horarioCierre:
-                    dep.horarioCierre || dep.horario_cierre || "18:00",
-                  diasLaborales: dep.diasLaborales ||
-                    dep.dias_laborales || [1, 2, 3, 4, 5],
-                  tiposEnvio: dep.tiposEnvio || dep.tipos_envio || ["envio"],
-                  disponible: true,
-                  imagen: dep.foto || "🏭",
-                  productos: productos.map((p) => ({
-                    id: p.id,
-                    codigo: p.codigo,
-                    nombre: p.nombre,
-                    categoria: p.categoria || "Sin categoría",
-                    precio: parseFloat(p.precio) || 0,
-                    stock: p.stock || 0,
-                    imagen: p.imagen || "",
-                  })),
-                };
-              } catch (error) {
-                console.error(
-                  `Error al cargar productos del depósito ${dep.id}:`,
-                  error,
-                );
-                return {
-                  id: dep.id,
-                  nombre: dep.nombre,
-                  direccion: dep.direccion || "",
-                  telefono: dep.telefono || "",
-                  horarioApertura:
-                    dep.horarioApertura || dep.horario_apertura || "08:00",
-                  horarioCierre:
-                    dep.horarioCierre || dep.horario_cierre || "18:00",
-                  diasLaborales: dep.diasLaborales ||
-                    dep.dias_laborales || [1, 2, 3, 4, 5],
-                  tiposEnvio: dep.tiposEnvio || dep.tipos_envio || ["envio"],
-                  disponible: true,
-                  imagen: dep.foto || "🏭",
-                  productos: [],
-                };
-              }
-            }),
-          );
+        // Cargar productos para cada depósito
+        const depositosConProductos = await Promise.all(
+          depositosBackend.map(async (dep) => {
+            try {
+              const prodResponse = await productosService.getByDeposito(
+                dep.id,
+              );
+              const productos = prodResponse.data || prodResponse || [];
+              return {
+                id: dep.id,
+                nombre: dep.nombre,
+                direccion: dep.direccion || "",
+                telefono: dep.telefono || "",
+                horarioApertura:
+                  dep.horarioApertura || dep.horario_apertura || "08:00",
+                horarioCierre:
+                  dep.horarioCierre || dep.horario_cierre || "18:00",
+                diasLaborales: dep.diasLaborales ||
+                  dep.dias_laborales || [1, 2, 3, 4, 5],
+                tiposEnvio: dep.tiposEnvio || dep.tipos_envio || ["envio"],
+                disponible: true,
+                imagen: dep.foto || "🏭",
+                productos: productos.map((p) => ({
+                  id: p.id,
+                  codigo: p.codigo,
+                  nombre: p.nombre,
+                  categoria: p.categoria || "Sin categoría",
+                  precio: parseFloat(p.precio) || 0,
+                  stock: p.stock || 0,
+                  imagen: p.imagen || "",
+                })),
+              };
+            } catch (error) {
+              console.error(
+                `Error al cargar productos del depósito ${dep.id}:`,
+                error,
+              );
+              return {
+                id: dep.id,
+                nombre: dep.nombre,
+                direccion: dep.direccion || "",
+                telefono: dep.telefono || "",
+                horarioApertura:
+                  dep.horarioApertura || dep.horario_apertura || "08:00",
+                horarioCierre:
+                  dep.horarioCierre || dep.horario_cierre || "18:00",
+                diasLaborales: dep.diasLaborales ||
+                  dep.dias_laborales || [1, 2, 3, 4, 5],
+                tiposEnvio: dep.tiposEnvio || dep.tipos_envio || ["envio"],
+                disponible: true,
+                imagen: dep.foto || "🏭",
+                productos: [],
+              };
+            }
+          }),
+        );
 
-          setDepositos(depositosConProductos);
-        } catch (error) {
-          console.error("Error al cargar depósitos:", error);
-          setDepositos(depositosIniciales); // Fallback a datos de ejemplo
-        }
-      } else {
-        setDepositos(depositosIniciales);
+        setDepositos(depositosConProductos);
+      } catch (error) {
+        console.error("Error al cargar depósitos:", error);
+        setDepositos([]);
       }
       setCargandoDepositos(false);
     };
@@ -482,45 +120,42 @@ export function ClienteProvider({ children }) {
   // Cargar pedidos desde el backend
   useEffect(() => {
     const cargarPedidos = async () => {
-      if (MODO_CONEXION === "api" && usuario?.id) {
-        setCargandoPedidos(true);
-        try {
-          const response = await pedidosService.getAll();
-          const pedidosBackend = response.data || response || [];
-          // Mapear pedidos del backend al formato del frontend
-          const pedidosMapeados = pedidosBackend.map((pedido) => ({
-            id: pedido.id,
-            fecha: pedido.createdAt
-              ? toLocalDateString(pedido.createdAt)
-              : pedido.fecha,
-            productos:
-              pedido.productos?.map((p) => ({
-                nombre: p.nombre || p.producto?.nombre,
-                cantidad: p.cantidad,
-                precio: parseFloat(p.precioUnitario || p.precio) || 0,
-              })) || [],
-            deposito: pedido.deposito?.nombre || "Sin depósito",
-            depositoId: pedido.depositoId,
-            tipoEnvio: pedido.tipoEnvio || "envio",
-            estado: pedido.estado || "pendiente",
-            total: parseFloat(pedido.total) || 0,
-            direccion: pedido.direccionEntrega || pedido.direccion || "",
-            notas: pedido.notas || "",
-            prioridad: pedido.prioridad || "normal",
-          }));
-
-          setPedidos(pedidosMapeados);
-        } catch (error) {
-          console.error("Error al cargar pedidos:", error);
-          setPedidos([]); // Sin pedidos si hay error
-        } finally {
-          setCargandoPedidos(false);
-        }
-      } else if (!usuario?.id) {
+      if (!usuario?.id) {
         setPedidos([]);
         setCargandoPedidos(false);
-      } else {
-        setPedidos(pedidosIniciales);
+        return;
+      }
+
+      setCargandoPedidos(true);
+      try {
+        const response = await pedidosService.getAll();
+        const pedidosBackend = response.data || response || [];
+        const pedidosMapeados = pedidosBackend.map((pedido) => ({
+          id: pedido.id,
+          fecha: pedido.createdAt
+            ? toLocalDateString(pedido.createdAt)
+            : pedido.fecha,
+          productos:
+            pedido.productos?.map((p) => ({
+              nombre: p.nombre || p.producto?.nombre,
+              cantidad: p.cantidad,
+              precio: parseFloat(p.precioUnitario || p.precio) || 0,
+            })) || [],
+          deposito: pedido.deposito?.nombre || "Sin depósito",
+          depositoId: pedido.depositoId,
+          tipoEnvio: pedido.tipoEnvio || "envio",
+          estado: pedido.estado || "pendiente",
+          total: parseFloat(pedido.total) || 0,
+          direccion: pedido.direccionEntrega || pedido.direccion || "",
+          notas: pedido.notas || "",
+          prioridad: pedido.prioridad || "normal",
+        }));
+
+        setPedidos(pedidosMapeados);
+      } catch (error) {
+        console.error("Error al cargar pedidos:", error);
+        setPedidos([]);
+      } finally {
         setCargandoPedidos(false);
       }
     };
@@ -530,7 +165,7 @@ export function ClienteProvider({ children }) {
 
   // Escuchar eventos del navegador desde NotificacionContext (socket centralizado)
   useEffect(() => {
-    if (MODO_CONEXION !== "api" || !usuario?.id) return;
+    if (!usuario?.id) return;
 
     const handlePedidoActualizado = (event) => {
       const data = event.detail;
@@ -599,7 +234,7 @@ export function ClienteProvider({ children }) {
   // Cargar movimientos contables desde el backend
   useEffect(() => {
     const cargarMovimientos = async () => {
-      if (MODO_CONEXION !== "api" || !usuario?.id) return;
+      if (!usuario?.id) return;
 
       setCargandoMovimientos(true);
       try {
@@ -644,7 +279,7 @@ export function ClienteProvider({ children }) {
   // Cargar stock del cliente desde el backend
   useEffect(() => {
     const cargarStock = async () => {
-      if (MODO_CONEXION !== "api" || !usuario?.id) return;
+      if (!usuario?.id) return;
 
       setCargandoStock(true);
       try {
@@ -668,7 +303,6 @@ export function ClienteProvider({ children }) {
 
   // Funciones del carrito
   const agregarAlCarrito = (producto, depositoId) => {
-    // Buscar si ya existe el producto del mismo depósito
     const existe = carrito.productos.find(
       (p) =>
         String(p.id) === String(producto.id) &&
@@ -678,7 +312,7 @@ export function ClienteProvider({ children }) {
       setCarrito({
         productos: carrito.productos.map((p) =>
           String(p.id) === String(producto.id) &&
-          String(p.depositoId) === String(depositoId)
+            String(p.depositoId) === String(depositoId)
             ? { ...p, cantidad: p.cantidad + 1 }
             : p,
         ),
@@ -701,7 +335,7 @@ export function ClienteProvider({ children }) {
       setCarrito({
         productos: carrito.productos.map((p) =>
           String(p.id) === String(productoId) &&
-          String(p.depositoId) === String(depositoId)
+            String(p.depositoId) === String(depositoId)
             ? { ...p, cantidad }
             : p,
         ),
@@ -755,55 +389,41 @@ export function ClienteProvider({ children }) {
 
   // Crear pedido
   const crearPedido = async (nuevoPedido) => {
-    if (MODO_CONEXION === "api") {
-      try {
-        // Preparar datos para el backend
-        const pedidoBackend = {
-          depositoId: nuevoPedido.depositoId,
-          tipoEnvio: nuevoPedido.tipoEnvio,
-          direccion: nuevoPedido.direccion,
-          notas: nuevoPedido.notas || "",
-          productos: nuevoPedido.productos.map((p) => ({
-            productoId: p.id,
-            nombre: p.nombre,
-            cantidad: p.cantidad,
-            precio: p.precio,
-          })),
-        };
-        const response = await pedidosService.crear(pedidoBackend);
-        const pedidoCreado = response.data || response;
-        // Agregar al estado local
-        const pedidoMapeado = {
-          id: pedidoCreado.id,
-          fecha: pedidoCreado.createdAt
-            ? toLocalDateString(pedidoCreado.createdAt)
-            : toLocalDateString(new Date()),
-          productos: nuevoPedido.productos,
-          deposito: nuevoPedido.deposito,
-          depositoId: nuevoPedido.depositoId,
-          tipoEnvio: nuevoPedido.tipoEnvio,
-          estado: pedidoCreado.estado || "pendiente",
-          total: parseFloat(pedidoCreado.total) || nuevoPedido.total,
-          direccion: nuevoPedido.direccion,
-          notas: nuevoPedido.notas,
-        };
-
-        setPedidos((prev) => [pedidoMapeado, ...prev]);
-        return pedidoMapeado;
-      } catch (error) {
-        console.error("Error al crear pedido:", error);
-        throw error;
-      }
-    } else {
-      // Modo local (fallback)
-      const pedido = {
-        ...nuevoPedido,
-        id: pedidos.length + 1,
-        fecha: toLocalDateString(new Date()),
-        estado: "pendiente",
+    try {
+      const pedidoBackend = {
+        depositoId: nuevoPedido.depositoId,
+        tipoEnvio: nuevoPedido.tipoEnvio,
+        direccion: nuevoPedido.direccion,
+        notas: nuevoPedido.notas || "",
+        productos: nuevoPedido.productos.map((p) => ({
+          productoId: p.id,
+          nombre: p.nombre,
+          cantidad: p.cantidad,
+          precio: p.precio,
+        })),
       };
-      setPedidos([pedido, ...pedidos]);
-      return pedido;
+      const response = await pedidosService.crear(pedidoBackend);
+      const pedidoCreado = response.data || response;
+      const pedidoMapeado = {
+        id: pedidoCreado.id,
+        fecha: pedidoCreado.createdAt
+          ? toLocalDateString(pedidoCreado.createdAt)
+          : toLocalDateString(new Date()),
+        productos: nuevoPedido.productos,
+        deposito: nuevoPedido.deposito,
+        depositoId: nuevoPedido.depositoId,
+        tipoEnvio: nuevoPedido.tipoEnvio,
+        estado: pedidoCreado.estado || "pendiente",
+        total: parseFloat(pedidoCreado.total) || nuevoPedido.total,
+        direccion: nuevoPedido.direccion,
+        notas: nuevoPedido.notas,
+      };
+
+      setPedidos((prev) => [pedidoMapeado, ...prev]);
+      return pedidoMapeado;
+    } catch (error) {
+      console.error("Error al crear pedido:", error);
+      throw error;
     }
   };
 
@@ -1006,12 +626,12 @@ export function ClienteProvider({ children }) {
           prev.map((m) =>
             m.id === id
               ? {
-                  ...m,
-                  tipo: movimientoActualizado.tipo,
-                  concepto: movimientoActualizado.concepto,
-                  monto: parseFloat(movimientoActualizado.monto),
-                  categoria: movimientoActualizado.categoria,
-                }
+                ...m,
+                tipo: movimientoActualizado.tipo,
+                concepto: movimientoActualizado.concepto,
+                monto: parseFloat(movimientoActualizado.monto),
+                categoria: movimientoActualizado.categoria,
+              }
               : m,
           ),
         );

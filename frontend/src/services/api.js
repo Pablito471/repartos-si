@@ -1,11 +1,7 @@
 import axios from "axios";
 import { API_URL, isLocalBackend } from "../config/api.config";
 
-if (typeof window !== "undefined") {
-  console.log(
-    `🔗 API conectada a: ${API_URL} (${isLocalBackend() ? "LOCAL" : "RENDER"})`,
-  );
-}
+
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
@@ -25,10 +21,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log(
-      `📤 ${config.method?.toUpperCase()} ${config.url}`,
-      token ? "(con token)" : "(sin token)",
-    );
+
     return config;
   },
   (error) => {

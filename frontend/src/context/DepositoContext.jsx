@@ -11,279 +11,17 @@ import { toLocalDateString } from "../utils/formatters";
 
 const DepositoContext = createContext();
 
-// Configurar modo de conexión: 'api' o 'local'
-const MODO_CONEXION = process.env.NEXT_PUBLIC_MODE || "api";
-
-// Datos de ejemplo para el depósito
-const pedidosDepositoIniciales = [
-  {
-    id: 1,
-    clienteId: "CLI-001",
-    cliente: "Tienda La Esquina",
-    fecha: "2026-02-02",
-    productos: [
-      { nombre: "Producto A", cantidad: 10, precio: 150 },
-      { nombre: "Producto B", cantidad: 5, precio: 200 },
-    ],
-    tipoEnvio: "envio",
-    direccion: "Calle Principal 123",
-    estado: "pendiente",
-    total: 2500,
-    prioridad: "alta",
-  },
-  {
-    id: 2,
-    clienteId: "CLI-002",
-    cliente: "Minimercado Sol",
-    fecha: "2026-02-02",
-    productos: [{ nombre: "Producto C", cantidad: 20, precio: 80 }],
-    tipoEnvio: "flete",
-    direccion: "Av. Libertad 456",
-    estado: "preparando",
-    total: 1600,
-    prioridad: "media",
-  },
-  {
-    id: 3,
-    clienteId: "CLI-003",
-    cliente: "Supermercado Norte",
-    fecha: "2026-02-01",
-    productos: [
-      { nombre: "Producto A", cantidad: 15, precio: 150 },
-      { nombre: "Producto D", cantidad: 8, precio: 300 },
-    ],
-    tipoEnvio: "retiro",
-    direccion: "Retiro en depósito",
-    estado: "listo",
-    total: 4650,
-    prioridad: "baja",
-  },
-  {
-    id: 4,
-    clienteId: "CLI-001",
-    cliente: "Tienda La Esquina",
-    fecha: "2026-02-01",
-    productos: [{ nombre: "Producto E", cantidad: 5, precio: 450 }],
-    tipoEnvio: "envio",
-    direccion: "Calle Principal 123",
-    estado: "enviado",
-    total: 2250,
-    prioridad: "media",
-  },
-  {
-    id: 5,
-    clienteId: "CLI-004",
-    cliente: "Kiosco Central",
-    fecha: "2026-01-31",
-    productos: [{ nombre: "Producto F", cantidad: 30, precio: 120 }],
-    tipoEnvio: "envio",
-    direccion: "Plaza Mayor 789",
-    estado: "entregado",
-    total: 3600,
-    prioridad: "baja",
-  },
-];
-
-const inventarioInicial = [
-  {
-    id: 1,
-    codigo: "PROD-001",
-    nombre: "Producto A",
-    categoria: "Categoría 1",
-    stock: 100,
-    stockMinimo: 20,
-    stockMaximo: 200,
-    precio: 150,
-    costo: 100,
-    ubicacion: "A-01",
-    imagen:
-      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200",
-    ultimaActualizacion: "2026-02-01",
-  },
-  {
-    id: 2,
-    codigo: "PROD-002",
-    nombre: "Producto B",
-    categoria: "Categoría 1",
-    stock: 50,
-    stockMinimo: 15,
-    stockMaximo: 100,
-    precio: 200,
-    costo: 140,
-    ubicacion: "A-02",
-    imagen:
-      "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=200",
-    ultimaActualizacion: "2026-02-01",
-  },
-  {
-    id: 3,
-    codigo: "PROD-003",
-    nombre: "Producto C",
-    categoria: "Categoría 2",
-    stock: 200,
-    stockMinimo: 50,
-    stockMaximo: 300,
-    precio: 80,
-    costo: 55,
-    ubicacion: "B-01",
-    imagen: "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=200",
-    ultimaActualizacion: "2026-02-02",
-  },
-  {
-    id: 4,
-    codigo: "PROD-004",
-    nombre: "Producto D",
-    categoria: "Categoría 2",
-    stock: 15,
-    stockMinimo: 25,
-    stockMaximo: 100,
-    precio: 300,
-    costo: 210,
-    ubicacion: "B-02",
-    imagen:
-      "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=200",
-    ultimaActualizacion: "2026-01-30",
-  },
-  {
-    id: 5,
-    codigo: "PROD-005",
-    nombre: "Producto E",
-    categoria: "Categoría 3",
-    stock: 30,
-    stockMinimo: 10,
-    stockMaximo: 50,
-    precio: 450,
-    costo: 320,
-    ubicacion: "C-01",
-    imagen:
-      "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=200",
-    ultimaActualizacion: "2026-02-01",
-  },
-  {
-    id: 6,
-    codigo: "PROD-006",
-    nombre: "Producto F",
-    categoria: "Categoría 3",
-    stock: 150,
-    stockMinimo: 30,
-    stockMaximo: 200,
-    precio: 120,
-    costo: 85,
-    ubicacion: "C-02",
-    imagen: "https://images.unsplash.com/photo-1491553895911-0055uj47a85?w=200",
-    ultimaActualizacion: "2026-02-02",
-  },
-];
-
-// Ya no usamos datos demo para envíos - siempre desde backend
-const enviosIniciales = [];
-
-const movimientosDepositoIniciales = [
-  {
-    id: 1,
-    fecha: "2026-02-02",
-    tipo: "ingreso",
-    concepto: "Venta pedido #4",
-    monto: 2250,
-    categoria: "ventas",
-  },
-  {
-    id: 2,
-    fecha: "2026-02-02",
-    tipo: "egreso",
-    concepto: "Combustible flota",
-    monto: 500,
-    categoria: "logistica",
-  },
-  {
-    id: 3,
-    fecha: "2026-02-01",
-    tipo: "ingreso",
-    concepto: "Venta pedido #5",
-    monto: 3600,
-    categoria: "ventas",
-  },
-  {
-    id: 4,
-    fecha: "2026-02-01",
-    tipo: "egreso",
-    concepto: "Compra de stock",
-    monto: 15000,
-    categoria: "compras",
-  },
-  {
-    id: 5,
-    fecha: "2026-01-31",
-    tipo: "ingreso",
-    concepto: "Ventas del día",
-    monto: 8500,
-    categoria: "ventas",
-  },
-  {
-    id: 6,
-    fecha: "2026-01-31",
-    tipo: "egreso",
-    concepto: "Salarios personal",
-    monto: 12000,
-    categoria: "personal",
-  },
-  {
-    id: 7,
-    fecha: "2026-01-30",
-    tipo: "egreso",
-    concepto: "Servicios (luz, agua)",
-    monto: 2500,
-    categoria: "servicios",
-  },
-  {
-    id: 8,
-    fecha: "2026-01-30",
-    tipo: "ingreso",
-    concepto: "Ventas del día",
-    monto: 6200,
-    categoria: "ventas",
-  },
-];
-
-// Ya no usamos vehículos/conductores separados - ahora usamos fletes vinculados
-const vehiculosIniciales = [];
-const conductoresIniciales = [];
-
-// Notificaciones iniciales
-const notificacionesIniciales = [
-  {
-    id: 1,
-    tipo: "pedido",
-    titulo: "Nuevo pedido recibido",
-    mensaje: "Tienda La Esquina ha realizado un pedido por $2,500",
-    fecha: "2026-02-02T10:30:00",
-    leida: false,
-    datos: { pedidoId: 1 },
-  },
-  {
-    id: 2,
-    tipo: "stock",
-    titulo: "Stock bajo",
-    mensaje: "El Producto D tiene stock bajo (8 unidades)",
-    fecha: "2026-02-02T09:15:00",
-    leida: true,
-    datos: { productoId: 4 },
-  },
-];
-
 export function DepositoProvider({ children }) {
   const { usuario } = useAuth();
   const [pedidos, setPedidos] = useState([]);
   const [inventario, setInventario] = useState([]);
   const [productosInactivos, setProductosInactivos] = useState([]);
   const [envios, setEnvios] = useState([]);
-  const [movimientos, setMovimientos] = useState(
-    MODO_CONEXION === "api" ? [] : movimientosDepositoIniciales,
-  );
+  const [movimientos, setMovimientos] = useState([]);
   const [totalesContables, setTotalesContables] = useState(null);
   const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
-  const [vehiculos, setVehiculos] = useState(vehiculosIniciales);
-  const [conductores, setConductores] = useState(conductoresIniciales);
+  const [vehiculos, setVehiculos] = useState([]);
+  const [conductores, setConductores] = useState([]);
   const [fletes, setFletes] = useState([]);
   const [notificaciones, setNotificaciones] = useState([]);
   const [cargandoPedidos, setCargandoPedidos] = useState(true);
@@ -301,16 +39,16 @@ export function DepositoProvider({ children }) {
         const fletesData = response?.data || response || [];
         const fletesMapeados = Array.isArray(fletesData)
           ? fletesData.map((f) => ({
-              id: f.id,
-              nombre: f.nombre,
-              telefono: f.telefono || "",
-              email: f.email || "",
-              vehiculoTipo: f.vehiculoTipo || "",
-              vehiculoPatente: f.vehiculoPatente || "",
-              vehiculoCapacidad: f.vehiculoCapacidad || "",
-              estado: "disponible",
-              foto: f.foto || null,
-            }))
+            id: f.id,
+            nombre: f.nombre,
+            telefono: f.telefono || "",
+            email: f.email || "",
+            vehiculoTipo: f.vehiculoTipo || "",
+            vehiculoPatente: f.vehiculoPatente || "",
+            vehiculoCapacidad: f.vehiculoCapacidad || "",
+            estado: "disponible",
+            foto: f.foto || null,
+          }))
           : [];
 
         setFletes(fletesMapeados);
@@ -982,10 +720,10 @@ export function DepositoProvider({ children }) {
         prev.map((p) =>
           p.id === productoId
             ? {
-                ...p,
-                ...datosActualizados,
-                ultimaActualizacion: toLocalDateString(new Date()),
-              }
+              ...p,
+              ...datosActualizados,
+              ultimaActualizacion: toLocalDateString(new Date()),
+            }
             : p,
         ),
       );
