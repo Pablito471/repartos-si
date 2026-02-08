@@ -524,28 +524,37 @@ npm run test:coverage # Con cobertura
 
 ### Cobertura de Tests
 
-| Área           | Tests                                |
-| -------------- | ------------------------------------ |
-| 🔐 Auth        | Login, registro, JWT, middleware     |
-| 👷 Empleados   | Escáner, ventas, stock, estadísticas |
-| 📦 Productos   | CRUD, búsqueda, validaciones         |
-| 🛡️ Middleware  | Autenticación, roles, permisos       |
-| 🎨 Componentes | Forms, botones, contextos            |
-| 🔧 Utilidades  | Formateo, validaciones, cálculos     |
+| Área             | Tests                                    |
+| ---------------- | ---------------------------------------- |
+| 🔐 Auth          | Login, registro, JWT, middleware         |
+| 👷 Empleados     | Escáner, ventas, stock, estadísticas     |
+| 📦 Productos     | CRUD, búsqueda, validaciones             |
+| 💰 Movimientos   | CRUD, totales, filtros por tipo          |
+| 📋 Pedidos       | CRUD, cambio de estado, validaciones     |
+| 🚚 Envíos        | CRUD, tracking, cambio de estado         |
+| 🛡️ Middleware   | Autenticación, roles, permisos           |
+| 🎨 Componentes   | Forms, botones, contextos                |
+| 🔧 Utilidades    | Formateo, validaciones, cálculos         |
 
 ### Estructura de Tests
 
 ```
 backend/tests/
 ├── controllers/     # Tests de controladores
+│   ├── auth.test.js
+│   ├── empleados.test.js
+│   ├── productos.test.js
+│   ├── movimientos.test.js
+│   ├── pedidos.test.js
+│   └── envios.test.js
 ├── middleware/      # Tests de middleware
-├── mocks/          # Mocks de modelos
-└── utils/          # Tests de utilidades
+├── mocks/           # Mocks de modelos
+└── utils/           # Tests de utilidades
 
 frontend/src/__tests__/
 ├── components/      # Tests de componentes React
 ├── services/        # Tests de servicios API
-└── utils/          # Tests de helpers
+└── utils/           # Tests de helpers
 ```
 
 ---

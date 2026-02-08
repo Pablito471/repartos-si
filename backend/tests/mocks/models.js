@@ -216,6 +216,10 @@ const Producto = {
 };
 
 const Movimiento = {
+  findOne: jest.fn((options = {}) => {
+    const mov = mockMovimientos.find((m) => m.id === options.where?.id);
+    return Promise.resolve(mov || null);
+  }),
   findAll: jest.fn((options = {}) => {
     let result = [...mockMovimientos];
     if (options.where?.empleadoId) {
@@ -245,6 +249,90 @@ const StockCliente = {
   create: jest.fn((data) => Promise.resolve({ id: 1, ...data })),
 };
 
+// Mock de Pedido
+const mockPedidos = [
+  {
+    id: "ped-1",
+    numero: "PED-001",
+    clienteId: 1,
+    depositoId: 2,
+    estado: "pendiente",
+    total: 5000.0,
+    direccion: "Calle Test 123",
+    productos: [],
+    createdAt: new Date(),
+    toJSON: function () {
+      return { ...this };
+    },
+  },
+];
+
+const Pedido = {
+  findOne: jest.fn((options = {}) => {
+    const pedido = mockPedidos.find((p) => p.id === options.where?.id);
+    return Promise.resolve(pedido || null);
+  }),
+  findByPk: jest.fn((id) => {
+    return Promise.resolve(mockPedidos.find((p) => p.id === id) || null);
+  }),
+  findAll: jest.fn((options = {}) => {
+    return Promise.resolve([...mockPedidos]);
+  }),
+  create: jest.fn((data) => {
+    const newPedido = {
+      id: `ped-${mockPedidos.length + 1}`,
+      numero: `PED-${String(mockPedidos.length + 1).padStart(3, "0")}`,
+      ...data,
+      createdAt: new Date(),
+      toJSON: function () {
+        return { ...this };
+      },
+    };
+    mockPedidos.push(newPedido);
+    return Promise.resolve(newPedido);
+  }),
+};
+
+// Mock de Envio
+const mockEnvios = [
+  {
+    id: "env-1",
+    pedidoId: "ped-1",
+    fleteId: 3,
+    estado: "pendiente",
+    fechaEstimada: new Date(),
+    createdAt: new Date(),
+    toJSON: function () {
+      return { ...this };
+    },
+  },
+];
+
+const Envio = {
+  findOne: jest.fn((options = {}) => {
+    const envio = mockEnvios.find((e) => e.id === options.where?.id);
+    return Promise.resolve(envio || null);
+  }),
+  findByPk: jest.fn((id) => {
+    return Promise.resolve(mockEnvios.find((e) => e.id === id) || null);
+  }),
+  findAll: jest.fn((options = {}) => {
+    return Promise.resolve([...mockEnvios]);
+  }),
+  create: jest.fn((data) => {
+    const newEnvio = {
+      id: `env-${mockEnvios.length + 1}`,
+      ...data,
+      createdAt: new Date(),
+      toJSON: function () {
+        return { ...this };
+      },
+    };
+    mockEnvios.push(newEnvio);
+    return Promise.resolve(newEnvio);
+  }),
+};
+
 const sequelize = {
   authenticate: jest.fn(() => Promise.resolve()),
   sync: jest.fn(() => Promise.resolve()),
@@ -261,8 +349,12 @@ module.exports = {
   Producto,
   Movimiento,
   StockCliente,
+  Pedido,
+  Envio,
   sequelize,
   mockUsuarios,
   mockProductos,
   mockMovimientos,
+  mockPedidos,
+  mockEnvios,
 };
