@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { empleadosAPI } from "@/services/api";
 import Swal from "sweetalert2";
+import Link from "next/link";
 import Image from "next/image";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import ModalPagoVenta from "@/components/ModalPagoVenta";
@@ -122,7 +123,7 @@ export default function EmpleadoEscaner() {
         { facingMode: "environment" },
         config,
         onScanSuccess,
-        () => {},
+        () => { },
       );
     } catch (err) {
       console.error("Error al iniciar escáner:", err);
@@ -466,7 +467,7 @@ export default function EmpleadoEscaner() {
   useEffect(() => {
     return () => {
       if (html5QrcodeRef.current) {
-        html5QrcodeRef.current.stop().catch(() => {});
+        html5QrcodeRef.current.stop().catch(() => { });
       }
     };
   }, []);
@@ -488,6 +489,15 @@ export default function EmpleadoEscaner() {
           </div>
         </div>
 
+        {/* Botón para Gestión Completa de Stock */}
+        <Link
+          href="/empleado/stock"
+          className="block w-full bg-gradient-to-r from-orange-500 to-red-500 text-white text-center py-3 rounded-lg font-bold mb-4 hover:from-orange-600 hover:to-red-600 transition-all shadow-md flex items-center justify-center gap-2"
+        >
+          <span>📋</span> Ir a Gestión de Stock Completa
+        </Link>
+
+
         {/* Selector de modo de operación */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-2 mb-4">
           <div className="flex gap-1">
@@ -496,11 +506,10 @@ export default function EmpleadoEscaner() {
                 setModoOperacion("vender");
                 setProductoEscaneado(null);
               }}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
-                modoOperacion === "vender"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${modoOperacion === "vender"
+                ? "bg-green-600 text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
             >
               💰 Vender
             </button>
@@ -509,11 +518,10 @@ export default function EmpleadoEscaner() {
                 setModoOperacion("stock");
                 setProductoEscaneado(null);
               }}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
-                modoOperacion === "stock"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${modoOperacion === "stock"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
             >
               📦 Agregar Stock
             </button>
@@ -522,11 +530,10 @@ export default function EmpleadoEscaner() {
                 setModoOperacion("precio");
                 setProductoEscaneado(null);
               }}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
-                modoOperacion === "precio"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${modoOperacion === "precio"
+                ? "bg-purple-600 text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
             >
               🏷️ Consultar
             </button>
@@ -537,21 +544,19 @@ export default function EmpleadoEscaner() {
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setModoManual(false)}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-              !modoManual
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-            }`}
+            className={`flex-1 py-2 rounded-lg font-medium transition-colors ${!modoManual
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+              }`}
           >
             📷 Escáner
           </button>
           <button
             onClick={() => setModoManual(true)}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-              modoManual
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-            }`}
+            className={`flex-1 py-2 rounded-lg font-medium transition-colors ${modoManual
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+              }`}
           >
             ⌨️ Código Manual
           </button>
@@ -769,24 +774,22 @@ export default function EmpleadoEscaner() {
         {/* Producto escaneado */}
         {productoEscaneado && (
           <div
-            className={`bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 border-2 ${
-              modoOperacion === "vender"
-                ? "border-green-500"
-                : modoOperacion === "stock"
-                  ? "border-blue-500"
-                  : "border-purple-500"
-            }`}
+            className={`bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 border-2 ${modoOperacion === "vender"
+              ? "border-green-500"
+              : modoOperacion === "stock"
+                ? "border-blue-500"
+                : "border-purple-500"
+              }`}
           >
             {/* Badge de modo */}
             <div className="mb-3">
               <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  modoOperacion === "vender"
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                    : modoOperacion === "stock"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                      : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                }`}
+                className={`px-3 py-1 rounded-full text-xs font-medium ${modoOperacion === "vender"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                  : modoOperacion === "stock"
+                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                    : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
+                  }`}
               >
                 {modoOperacion === "vender"
                   ? "💰 Modo Venta"
@@ -832,7 +835,7 @@ export default function EmpleadoEscaner() {
                   {productoEscaneado.precio &&
                     productoEscaneado.precioVenta &&
                     productoEscaneado.precio !==
-                      productoEscaneado.precioVenta && (
+                    productoEscaneado.precioVenta && (
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Precio Costo
@@ -991,14 +994,14 @@ export default function EmpleadoEscaner() {
         detalleVenta={
           ventaPendiente
             ? {
-                productos: [
-                  {
-                    nombre: ventaPendiente.producto?.nombre,
-                    cantidad: ventaPendiente.cantidad,
-                    precio: ventaPendiente.precioUnitario,
-                  },
-                ],
-              }
+              productos: [
+                {
+                  nombre: ventaPendiente.producto?.nombre,
+                  cantidad: ventaPendiente.cantidad,
+                  precio: ventaPendiente.precioUnitario,
+                },
+              ],
+            }
             : null
         }
         colorPrimario="green"

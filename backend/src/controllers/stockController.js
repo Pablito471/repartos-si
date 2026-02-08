@@ -11,11 +11,17 @@ const {
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
 
+// Helper para obtener el ID del cliente (dueño del stock)
+const getClienteId = (usuario) => {
+  return usuario.tipoUsuario === "empleado" ? usuario.empleadorId : usuario.id;
+};
+
 // GET /api/stock - Obtener stock del cliente autenticado
 exports.obtenerStock = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const stock = await StockCliente.findAll({
-      where: { clienteId: req.usuario.id },
+      where: { clienteId },
       order: [["nombre", "ASC"]],
     });
 
@@ -68,9 +74,10 @@ exports.obtenerStock = async (req, res, next) => {
 // GET /api/stock/categorias - Obtener categorías del cliente
 exports.obtenerCategorias = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const stock = await StockCliente.findAll({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         categoria: { [Op.ne]: null },
       },
       attributes: ["categoria"],
@@ -97,8 +104,9 @@ exports.obtenerCategorias = async (req, res, next) => {
 // GET /api/stock/detallado - Obtener stock con detalle de cada entrada
 exports.obtenerStockDetallado = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const stock = await StockCliente.findAll({
-      where: { clienteId: req.usuario.id },
+      where: { clienteId },
       order: [["createdAt", "DESC"]],
     });
 
@@ -114,8 +122,9 @@ exports.obtenerStockDetallado = async (req, res, next) => {
 // GET /api/stock/totales - Obtener totales del stock
 exports.obtenerTotales = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const stock = await StockCliente.findAll({
-      where: { clienteId: req.usuario.id },
+      where: { clienteId },
     });
 
     const totalProductos = stock.reduce((sum, item) => sum + item.cantidad, 0);
@@ -151,6 +160,7 @@ exports.obtenerTotales = async (req, res, next) => {
 exports.agregarDesdePedido = async (req, res, next) => {
   try {
     const { pedidoId } = req.params;
+    const clienteId = getClienteId(req.usuario);
 
     // Buscar el pedido con sus productos e incluir el producto original para obtener el código
     const pedido = await Pedido.findByPk(pedidoId, {
@@ -174,7 +184,7 @@ exports.agregarDesdePedido = async (req, res, next) => {
     }
 
     // Verificar que el pedido pertenece al cliente
-    if (pedido.clienteId !== req.usuario.id) {
+    if (pedido.clienteId !== clienteId) {
       throw new AppError("No autorizado", 403);
     }
 
@@ -186,7 +196,7 @@ exports.agregarDesdePedido = async (req, res, next) => {
     // Verificar si ya se agregó este pedido al stock
     const yaAgregado = await StockCliente.findOne({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         pedidoId: pedidoId,
       },
     });
@@ -202,7 +212,7 @@ exports.agregarDesdePedido = async (req, res, next) => {
     const productosAgregados = [];
     for (const producto of pedido.productos) {
       const stockItem = await StockCliente.create({
-        clienteId: req.usuario.id,
+        clienteId,
         nombre: producto.nombre,
         cantidad: producto.cantidad,
         precioCosto: producto.precioUnitario, // El precio del pedido es el costo
@@ -230,6 +240,7 @@ exports.agregarDesdePedido = async (req, res, next) => {
 // POST /api/stock/agregar - Agregar producto manualmente al stock
 exports.agregarProducto = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const {
       nombre,
       cantidad,
@@ -255,7 +266,7 @@ exports.agregarProducto = async (req, res, next) => {
     if (codigoBarras) {
       const codigoExistente = await StockCliente.findOne({
         where: {
-          clienteId: req.usuario.id,
+          clienteId,
           codigoBarras: codigoBarras,
         },
       });
@@ -281,7 +292,7 @@ exports.agregarProducto = async (req, res, next) => {
         : null;
 
     const stockItem = await StockCliente.create({
-      clienteId: req.usuario.id,
+      clienteId,
       nombre: nombreMayusculas,
       cantidad: parseFloat(cantidad),
       precioCosto: costoParsed,
@@ -300,7 +311,7 @@ exports.agregarProducto = async (req, res, next) => {
     if (registrarCompra && precioParaCompra > 0) {
       const montoCompra = precioParaCompra * parseInt(cantidad);
       await Movimiento.create({
-        usuarioId: req.usuario.id,
+        usuarioId: clienteId,
         tipo: "egreso",
         concepto: `Compra: ${cantidad}x ${nombreMayusculas}`,
         monto: montoCompra,
@@ -322,10 +333,11 @@ exports.agregarProducto = async (req, res, next) => {
 // PUT /api/stock/:id - Actualizar cantidad de un producto
 exports.actualizarStock = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const stockItem = await StockCliente.findOne({
       where: {
         id: req.params.id,
-        clienteId: req.usuario.id,
+        clienteId,
       },
     });
 
@@ -368,6 +380,7 @@ exports.actualizarStock = async (req, res, next) => {
 // DELETE /api/stock/:id - Eliminar un producto del stock (por ID o por nombre)
 exports.eliminarProducto = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const idOrName = req.params.id;
 
     // Verificar si es un UUID o un nombre
@@ -381,7 +394,7 @@ exports.eliminarProducto = async (req, res, next) => {
       const stockItem = await StockCliente.findOne({
         where: {
           id: idOrName,
-          clienteId: req.usuario.id,
+          clienteId,
         },
       });
 
@@ -400,7 +413,7 @@ exports.eliminarProducto = async (req, res, next) => {
       const eliminados = await StockCliente.destroy({
         where: {
           nombre: idOrName,
-          clienteId: req.usuario.id,
+          clienteId,
         },
       });
 
@@ -421,6 +434,7 @@ exports.eliminarProducto = async (req, res, next) => {
 // POST /api/stock/descontar - Descontar cantidad de un producto (venta)
 exports.descontarStock = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const {
       nombre,
       cantidad,
@@ -436,7 +450,7 @@ exports.descontarStock = async (req, res, next) => {
     // Buscar productos con ese nombre
     const stockItems = await StockCliente.findAll({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         nombre: nombre,
       },
       order: [["createdAt", "ASC"]], // FIFO - primero los más antiguos
@@ -483,7 +497,7 @@ exports.descontarStock = async (req, res, next) => {
     // Registrar movimiento contable de ingreso (venta) solo si se indica
     if (registrarVenta && montoVenta > 0) {
       await Movimiento.create({
-        usuarioId: req.usuario.id,
+        usuarioId: clienteId,
         tipo: "ingreso",
         concepto: `Venta: ${cantidad}x ${nombre}`,
         monto: montoVenta,
@@ -510,6 +524,7 @@ exports.descontarStock = async (req, res, next) => {
 // POST /api/stock/descontar-por-codigo - Descontar por código de barras
 exports.descontarPorCodigo = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const { codigo, cantidad = 1, motivo, precioVenta } = req.body;
 
     if (!codigo) {
@@ -521,7 +536,7 @@ exports.descontarPorCodigo = async (req, res, next) => {
     // Primero buscar por código de barras personalizado
     stockItem = await StockCliente.findOne({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         codigoBarras: codigo,
       },
     });
@@ -534,7 +549,7 @@ exports.descontarPorCodigo = async (req, res, next) => {
         stockItem = await StockCliente.findOne({
           where: {
             id: stockId,
-            clienteId: req.usuario.id,
+            clienteId,
           },
         });
       }
@@ -549,7 +564,7 @@ exports.descontarPorCodigo = async (req, res, next) => {
     // Ahora buscar todos los items con ese nombre para el descuento FIFO
     const stockItems = await StockCliente.findAll({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         nombre: nombreProducto,
       },
       order: [["createdAt", "ASC"]], // FIFO
@@ -590,7 +605,7 @@ exports.descontarPorCodigo = async (req, res, next) => {
     // Registrar movimiento contable de ingreso (venta)
     if (montoVenta > 0) {
       await Movimiento.create({
-        usuarioId: req.usuario.id,
+        usuarioId: clienteId,
         tipo: "ingreso",
         concepto: `Venta (escáner): ${cantidad}x ${nombreProducto}`,
         monto: montoVenta,
@@ -619,6 +634,7 @@ exports.descontarPorCodigo = async (req, res, next) => {
 // GET /api/stock/buscar-por-codigo/:codigo - Buscar producto por código de barras
 exports.buscarPorCodigo = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const { codigo } = req.params;
     // Normalizar código de barras (trim y mayúsculas)
     const codigoNormalizado = codigo.trim().toUpperCase();
@@ -629,7 +645,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
     // 1. Primero buscar por código de barras personalizado en StockCliente
     stockItem = await StockCliente.findOne({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         codigoBarras: codigoNormalizado,
       },
     });
@@ -642,7 +658,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
         stockItem = await StockCliente.findOne({
           where: {
             id: stockId,
-            clienteId: req.usuario.id,
+            clienteId,
           },
         });
       }
@@ -652,7 +668,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
     if (!stockItem) {
       const codigoAltCliente = await CodigoAlternativoCliente.findOne({
         where: {
-          clienteId: req.usuario.id,
+          clienteId,
           codigo: codigoNormalizado,
           activo: true,
         },
@@ -662,7 +678,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
         // Buscar por nombre del producto
         stockItem = await StockCliente.findOne({
           where: {
-            clienteId: req.usuario.id,
+            clienteId,
             nombre: codigoAltCliente.nombreProducto,
           },
         });
@@ -693,7 +709,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
         // Buscar si el cliente tiene este producto en su stock (por nombre)
         stockItem = await StockCliente.findOne({
           where: {
-            clienteId: req.usuario.id,
+            clienteId,
             nombre: codigoAlt.producto.nombre,
           },
         });
@@ -711,7 +727,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
     // Obtener cantidad total de este producto (por nombre)
     const stockItems = await StockCliente.findAll({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         nombre: stockItem.nombre,
       },
     });
@@ -745,6 +761,7 @@ exports.buscarPorCodigo = async (req, res, next) => {
 // GET /api/stock/buscar?termino=xxx - Buscar productos por nombre
 exports.buscarProductos = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     const { termino } = req.query;
 
     if (!termino || termino.trim().length < 2) {
@@ -757,7 +774,7 @@ exports.buscarProductos = async (req, res, next) => {
     // Buscar productos que coincidan con el término
     const stock = await StockCliente.findAll({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         nombre: {
           [Op.iLike]: `%${termino}%`,
         },
@@ -794,10 +811,11 @@ exports.buscarProductos = async (req, res, next) => {
 // GET /api/stock/historial - Obtener historial de entregas que agregaron stock
 exports.obtenerHistorial = async (req, res, next) => {
   try {
+    const clienteId = getClienteId(req.usuario);
     // Obtener pedidos entregados del cliente
     const pedidosEntregados = await Pedido.findAll({
       where: {
-        clienteId: req.usuario.id,
+        clienteId,
         estado: "entregado",
       },
       include: [
