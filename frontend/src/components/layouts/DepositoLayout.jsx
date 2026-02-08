@@ -46,6 +46,11 @@ const menuItems = [
     icon: "Wallet",
   },
   {
+    name: "Pagos QR",
+    href: "/depositos/pagos",
+    icon: "CreditCard",
+  },
+  {
     name: "Empleados",
     href: "/depositos/empleados",
     icon: "Users",
@@ -84,9 +89,8 @@ export default function DepositoLayout({ children }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-30 h-full w-64 bg-gradient-to-b from-primary-700 to-primary-900 dark:from-primary-800 dark:to-primary-950 shadow-lg transform transition-transform duration-300 lg:translate-x-0 flex flex-col ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 z-30 h-full w-64 bg-gradient-to-b from-primary-700 to-primary-900 dark:from-primary-800 dark:to-primary-950 shadow-lg transform transition-transform duration-300 lg:translate-x-0 flex flex-col ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         {/* Logo */}
         <div className="h-20 flex-shrink-0 flex items-center justify-center border-b border-primary-600 dark:border-primary-700 py-3">
@@ -143,11 +147,10 @@ export default function DepositoLayout({ children }) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors ${
-                      isActive
+                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors ${isActive
                         ? "bg-primary-500 text-white"
                         : "text-primary-100 hover:bg-primary-600 hover:text-white"
-                    }`}
+                      }`}
                   >
                     {renderIcon(item.icon)}
                     <span className="font-medium text-sm flex-1">
