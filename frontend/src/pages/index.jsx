@@ -58,11 +58,11 @@ export default function Home() {
           {/* Hero Section */}
           <section className="text-center py-8 sm:py-12 lg:py-16">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 sm:mb-6 leading-tight">
-              Gestiona tus repartos de forma{" "}
+              Gestiona tu negocio y repartos de forma{" "}
               <span className="text-accent-400">inteligente</span>
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-white/80 dark:text-neutral-300 mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
-              Sistema integral para clientes, depósitos y transportistas.
+              Sistema integral para negocios, depósitos y transportistas.
               Conecta tu negocio con la logística perfecta.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
