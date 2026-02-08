@@ -3,7 +3,6 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
 const http = require("http");
 const { sequelize } = require("./models");
 const routes = require("./routes");
@@ -26,29 +25,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-// Seguridad: Headers HTTP
-app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: false, // Deshabilitado para compatibilidad con frontend
-  }),
-);
-
-// Rate Limiting: Prevenir ataques de fuerza bruta
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // máx 100 requests por ventana
-  message: {
-    success: false,
-    message: "Demasiadas solicitudes. Por favor, intenta más tarde.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === "/api/health", // Excluir health check
-});
-app.use(limiter);
-
-// CORS
+// CORS - DEBE IR PRIMERO para que todos los errors incluyan headers CORS
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -63,6 +40,14 @@ app.use(
       }
     },
     credentials: true,
+  }),
+);
+
+// Seguridad: Headers HTTP
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Deshabilitado para compatibilidad con frontend
   }),
 );
 
