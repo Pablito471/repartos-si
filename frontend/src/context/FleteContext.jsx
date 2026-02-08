@@ -28,14 +28,19 @@ export function FleteProvider({ children }) {
   useEffect(() => {
     if (usuario && usuario.tipoUsuario === "flete") {
       setVehiculo({
-        tipo: usuario.vehiculoTipo || "No especificado",
+        tipo: usuario.vehiculoTipo || "Camioneta",
         marca: usuario.vehiculoTipo || "Vehículo",
-        modelo: "",
+        modelo: usuario.vehiculoModelo || "",
+        año: 2020,
         patente: usuario.vehiculoPatente || "Sin patente",
-        capacidad: usuario.vehiculoCapacidad || "No especificada",
+        capacidad: usuario.vehiculoCapacidad || "1000 kg",
+        tipoCombustible: "Diesel",
         estado: "operativo",
-        kmActual: 0,
-        licenciaTipo: usuario.licenciaTipo || "No especificada",
+        kmActual: 45000,
+        proximoService: 50000,
+        vencimientoVTV: "2025-12-31",
+        vencimientoSeguro: "2025-06-30",
+        licenciaTipo: usuario.licenciaTipo || "B2",
         licenciaVencimiento: usuario.licenciaVencimiento || null,
       });
     }
@@ -119,9 +124,9 @@ export function FleteProvider({ children }) {
               : null,
             horarioEntrega: envio.fechaEstimada
               ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
+                hour: "2-digit",
+                minute: "2-digit",
+              })
               : "Sin horario",
             estado: envio.estado || "pendiente",
             prioridad: envio.pedido?.prioridad || "media",
@@ -177,9 +182,9 @@ export function FleteProvider({ children }) {
             : null,
           horarioEntrega: envio.fechaEstimada
             ? new Date(envio.fechaEstimada).toLocaleTimeString("es-AR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+              hour: "2-digit",
+              minute: "2-digit",
+            })
             : "Sin horario",
           estado: envio.estado || "pendiente",
           prioridad: envio.pedido?.prioridad || "media",
@@ -213,11 +218,11 @@ export function FleteProvider({ children }) {
           envios.map((e) =>
             String(e.id) === String(id)
               ? {
-                  ...e,
-                  estado: nuevoEstado,
-                  notas: notas || e.notas,
-                  fechaActualizacion: new Date().toISOString(),
-                }
+                ...e,
+                estado: nuevoEstado,
+                notas: notas || e.notas,
+                fechaActualizacion: new Date().toISOString(),
+              }
               : e,
           ),
         );
@@ -230,11 +235,11 @@ export function FleteProvider({ children }) {
         envios.map((e) =>
           e.id === id
             ? {
-                ...e,
-                estado: nuevoEstado,
-                notas: notas || e.notas,
-                fechaActualizacion: new Date().toISOString(),
-              }
+              ...e,
+              estado: nuevoEstado,
+              notas: notas || e.notas,
+              fechaActualizacion: new Date().toISOString(),
+            }
             : e,
         ),
       );
@@ -372,10 +377,10 @@ export function FleteProvider({ children }) {
           prev.map((m) =>
             m.id === id
               ? {
-                  ...m,
-                  ...datos,
-                  monto: parseFloat(datos.monto || m.monto),
-                }
+                ...m,
+                ...datos,
+                monto: parseFloat(datos.monto || m.monto),
+              }
               : m,
           ),
         );
@@ -502,7 +507,11 @@ export function FleteProvider({ children }) {
   // ============ VEHÍCULO ============
 
   const actualizarKilometraje = (km) => {
-    setVehiculo({ ...vehiculo, kmActual: km });
+    setVehiculo((prev) => ({ ...prev, kmActual: km }));
+  };
+
+  const actualizarVehiculo = (datos) => {
+    setVehiculo((prev) => ({ ...prev, ...datos }));
   };
 
   // ============ ESTADÍSTICAS ============
@@ -569,6 +578,7 @@ export function FleteProvider({ children }) {
     marcarTodasLeidas,
     getNotificacionesNoLeidas,
     actualizarKilometraje,
+    actualizarVehiculo,
     getEstadisticas,
   };
 
