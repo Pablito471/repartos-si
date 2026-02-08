@@ -11,6 +11,9 @@ import { toLocalDateString } from "../utils/formatters";
 
 const DepositoContext = createContext();
 
+// Configurar modo de conexión: 'api' o 'local'
+const MODO_CONEXION = process.env.NEXT_PUBLIC_MODE || "api";
+
 export function DepositoProvider({ children }) {
   const { usuario } = useAuth();
   const [pedidos, setPedidos] = useState([]);
