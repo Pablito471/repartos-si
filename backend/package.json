@@ -12,6 +12,7 @@
     "db:sync": "node src/scripts/syncDb.js",
     "db:seed": "node src/scripts/seed.js",
     "db:add-bancarios": "node src/scripts/addDatosBancariosColumns.js",
+    "db:clean-except-users": "node src/scripts/cleanDbExceptUsers.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
