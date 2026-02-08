@@ -25,11 +25,14 @@ exports.obtenerStock = async (req, res, next) => {
       order: [["nombre", "ASC"]],
     });
 
-    // Agrupar por nombre de producto y sumar cantidades
     const stockAgrupado = {};
     stock.forEach((item) => {
-      if (!stockAgrupado[item.nombre]) {
-        stockAgrupado[item.nombre] = {
+      // Create a composite key to group by Name AND Cost AND Barcode
+      // This ensures items with different costs or barcodes are treated as separate batches
+      const uniqueKey = `${item.nombre}-${item.precioCosto}-${item.codigoBarras || "no-code"}`;
+
+      if (!stockAgrupado[uniqueKey]) {
+        stockAgrupado[uniqueKey] = {
           id: item.id,
           nombre: item.nombre,
           cantidad: 0,
@@ -37,28 +40,23 @@ exports.obtenerStock = async (req, res, next) => {
             parseFloat(item.precioCosto) || parseFloat(item.precio) || 0,
           precioVenta:
             parseFloat(item.precioVenta) || parseFloat(item.precio) || 0,
-          precio: parseFloat(item.precioVenta) || parseFloat(item.precio) || 0, // Mantener para compatibilidad
+          precio: parseFloat(item.precioVenta) || parseFloat(item.precio) || 0,
           categoria: item.categoria || "General",
           imagen: item.imagen || null,
           codigoBarras: item.codigoBarras || null,
+          esGranel: item.esGranel || false,
+          unidadMedida: item.unidadMedida || "unidad",
+          precioUnidad: parseFloat(item.precioUnidad) || null,
           ultimaActualizacion: item.updatedAt,
         };
       }
-      stockAgrupado[item.nombre].cantidad += item.cantidad;
-      // Mantener la fecha más reciente y la imagen si existe
+      stockAgrupado[uniqueKey].cantidad += parseFloat(item.cantidad);
+      // Keep most recent update date
       if (
         new Date(item.updatedAt) >
-        new Date(stockAgrupado[item.nombre].ultimaActualizacion)
+        new Date(stockAgrupado[uniqueKey].ultimaActualizacion)
       ) {
-        stockAgrupado[item.nombre].ultimaActualizacion = item.updatedAt;
-      }
-      // Si el item actual tiene imagen y el agrupado no, usar la del item
-      if (item.imagen && !stockAgrupado[item.nombre].imagen) {
-        stockAgrupado[item.nombre].imagen = item.imagen;
-      }
-      // Si el item actual tiene código de barras y el agrupado no, usar el del item
-      if (item.codigoBarras && !stockAgrupado[item.nombre].codigoBarras) {
-        stockAgrupado[item.nombre].codigoBarras = item.codigoBarras;
+        stockAgrupado[uniqueKey].ultimaActualizacion = item.updatedAt;
       }
     });
 
@@ -349,7 +347,7 @@ exports.actualizarStock = async (req, res, next) => {
 
     await stockItem.update({
       cantidad:
-        cantidad !== undefined ? parseInt(cantidad) : stockItem.cantidad,
+        cantidad !== undefined ? parseFloat(cantidad) : stockItem.cantidad,
       precioCosto:
         precioCosto !== undefined
           ? parseFloat(precioCosto)
@@ -837,7 +835,7 @@ exports.obtenerHistorial = async (req, res, next) => {
       pedidosEntregados.map(async (pedido) => {
         const yaAgregado = await StockCliente.findOne({
           where: {
-            clienteId: req.usuario.id,
+            clienteId,
             pedidoId: pedido.id,
           },
         });
@@ -954,7 +952,7 @@ exports.agregarStockPorCodigo = async (req, res, next) => {
     }
 
     // Agregar nueva entrada de stock (acumular al existente)
-    const nuevaCantidad = stockItem.cantidad + parseInt(cantidad);
+    const nuevaCantidad = parseFloat(stockItem.cantidad) + parseFloat(cantidad);
     const nuevoPrecioCosto = precioCosto
       ? parseFloat(precioCosto)
       : stockItem.precioCosto;

@@ -144,11 +144,11 @@ export default function CatalogoProductos() {
   // Calcular totales
   const totales = useMemo(() => {
     const totalProductos = stockConImagenes.reduce(
-      (sum, p) => sum + (p.cantidad || 0),
+      (sum, p) => sum + (parseFloat(p.cantidad) || 0),
       0,
     );
     const valorTotal = stockConImagenes.reduce(
-      (sum, p) => sum + (p.cantidad || 0) * (p.precio || 0),
+      (sum, p) => sum + (parseFloat(p.cantidad) || 0) * (parseFloat(p.precio) || 0),
       0,
     );
     return {
@@ -487,22 +487,20 @@ export default function CatalogoProductos() {
             </button>
             <button
               onClick={() => setVistaGrid(true)}
-              className={`p-2 rounded-lg transition-colors ${
-                vistaGrid
-                  ? "bg-primary text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border"
-              }`}
+              className={`p-2 rounded-lg transition-colors ${vistaGrid
+                ? "bg-primary text-white"
+                : "bg-white text-gray-600 hover:bg-gray-100 border"
+                }`}
               title="Vista de cuadrícula"
             >
               ▦
             </button>
             <button
               onClick={() => setVistaGrid(false)}
-              className={`p-2 rounded-lg transition-colors ${
-                !vistaGrid
-                  ? "bg-primary text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border"
-              }`}
+              className={`p-2 rounded-lg transition-colors ${!vistaGrid
+                ? "bg-primary text-white"
+                : "bg-white text-gray-600 hover:bg-gray-100 border"
+                }`}
               title="Vista de lista"
             >
               ☰
@@ -596,11 +594,10 @@ export default function CatalogoProductos() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => handleFiltroCategoria("todas")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              filtroCategoria === "todas"
-                ? "bg-primary text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${filtroCategoria === "todas"
+              ? "bg-primary text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
           >
             Todos
           </button>
@@ -608,11 +605,10 @@ export default function CatalogoProductos() {
             <button
               key={cat}
               onClick={() => handleFiltroCategoria(cat)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                filtroCategoria === cat
-                  ? "bg-primary text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${filtroCategoria === cat
+                ? "bg-primary text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
             >
               {cat}
             </button>
@@ -716,11 +712,10 @@ export default function CatalogoProductos() {
                         )}
                         <button
                           onClick={() => handleCambiarPagina(num)}
-                          className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                            paginaActual === num
-                              ? "bg-primary text-white"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          }`}
+                          className={`w-10 h-10 rounded-lg font-medium transition-colors ${paginaActual === num
+                            ? "bg-primary text-white"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
                         >
                           {num}
                         </button>
@@ -812,7 +807,7 @@ function ProductoCard({ producto, onVerCodigoBarras, onImprimirCodigoBarras }) {
           <p
             className={`text-sm ${stockBajo ? "text-orange-500 font-medium" : "text-gray-500"}`}
           >
-            {producto.cantidad} unidades
+            {parseFloat(producto.cantidad)} unidades
           </p>
         </div>
 
@@ -820,7 +815,7 @@ function ProductoCard({ producto, onVerCodigoBarras, onImprimirCodigoBarras }) {
           <p className="text-sm text-gray-500">
             Valor total:{" "}
             <span className="font-semibold text-gray-700">
-              ${formatNumber(producto.cantidad * producto.precio)}
+              ${formatNumber(parseFloat(producto.cantidad) * parseFloat(producto.precio))}
             </span>
           </p>
         </div>
@@ -904,14 +899,14 @@ function ProductoListItem({
               <p
                 className={`text-sm ${stockBajo ? "text-orange-500 font-medium" : "text-gray-500"}`}
               >
-                {producto.cantidad} unidades
+                {parseFloat(producto.cantidad)} unidades
               </p>
             </div>
             <div className="flex items-center gap-2">
               <p className="text-sm text-gray-600">
                 Valor:{" "}
                 <span className="font-semibold">
-                  ${formatNumber(producto.cantidad * producto.precio)}
+                  ${formatNumber(parseFloat(producto.cantidad) * parseFloat(producto.precio))}
                 </span>
               </p>
               <button

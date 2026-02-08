@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ path: "./.env" }); // Asegurar que cargue el .env correctamente desde root o backend
 const {
   sequelize,
   Producto,
@@ -23,14 +23,14 @@ const cleanDbExceptUsers = async () => {
     console.log("✅ Conectado a la base de datos.");
 
     // Orden de borrado para respetar claves foráneas (hijos primero)
-    
-    // 1. Tablas que dependen de otras (hojas)
+
+    // 1. Tablas dependientes (hojas)
     console.log("🗑️ Eliminando StockCliente...");
-    await StockCliente.destroy({ where: {}, truncate: false }); // truncate: cascade en algunos dialectos
+    await StockCliente.destroy({ where: {}, truncate: false });
 
     console.log("🗑️ Eliminando Detalles de Pedidos (PedidoProducto)...");
     await PedidoProducto.destroy({ where: {}, truncate: false });
-    
+
     console.log("🗑️ Eliminando Movimientos...");
     await Movimiento.destroy({ where: {}, truncate: false });
 
@@ -57,14 +57,16 @@ const cleanDbExceptUsers = async () => {
     console.log("🗑️ Eliminando Conversaciones...");
     await Conversacion.destroy({ where: {}, truncate: false });
 
-     console.log("🗑️ Eliminando Relaciones de Usuarios...");
-    await UsuarioRelacion.destroy({ where: {}, truncate: false });
+    // 3. Tablas relacionales de usuarios (opcional, depende si quieres resetear relaciones entre empleados/jefes)
+    // Si NO quieres borrar relaciones entre usuarios, comenta las siguientes lineas:
+    // console.log("🗑️ Eliminando Relaciones de Usuarios...");
+    // await UsuarioRelacion.destroy({ where: {}, truncate: false });
 
-    // 3. Tablas principales (excepto Usuarios)
+    // 4. Tablas principales (excepto Usuarios)
     console.log("🗑️ Eliminando Pedidos...");
     await Pedido.destroy({ where: {}, truncate: false });
 
-    console.log("🗑️ Eliminando Productos...");
+    console.log("🗑️ Eliminando Productos (Globales o del sistema)...");
     await Producto.destroy({ where: {}, truncate: false });
 
     console.log("✨ Base de datos limpiada exitosamente (Usuarios conservados).");

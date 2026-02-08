@@ -43,6 +43,49 @@ export default function StockManager() {
         registrarVenta: true,
     });
 
+
+
+    // State for edit modal
+    const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
+    const [productoEditar, setProductoEditar] = useState(null);
+
+    const abrirModalEditar = (producto) => {
+        setProductoEditar({
+            ...producto,
+            precioVenta: parseFloat(producto.precioVenta) || parseFloat(producto.precio) || 0,
+            precioCosto: parseFloat(producto.precioCosto) || 0
+        });
+        setMostrarModalEditar(true);
+    };
+
+    const handleEditarProducto = async (e) => {
+        e.preventDefault();
+        setGuardando(true);
+        try {
+            const res = await api.put(`/stock/${productoEditar.id}`, {
+                nombre: productoEditar.nombre,
+                precioVenta: productoEditar.precioVenta,
+                precioCosto: productoEditar.precioCosto
+            });
+
+            if (res.success) {
+                Swal.fire({
+                    icon: "success",
+                    title: "Producto actualizado",
+                    showConfirmButton: false,
+                    timer: 1500,
+                });
+                setMostrarModalEditar(false);
+                setProductoEditar(null);
+                cargarDatos();
+            }
+        } catch (error) {
+            Swal.fire("Error", "No se pudo actualizar el producto", "error");
+        } finally {
+            setGuardando(false);
+        }
+    };
+
     useEffect(() => {
         cargarDatos();
     }, []);
@@ -54,11 +97,11 @@ export default function StockManager() {
                 api.get("/stock/historial"),
             ]);
 
-            if (resStock.data.success) {
-                setStock(resStock.data.data);
+            if (resStock.success) {
+                setStock(resStock.data);
             }
-            if (resHistorial.data.success) {
-                setHistorial(resHistorial.data.data);
+            if (resHistorial.success) {
+                setHistorial(resHistorial.data);
             }
         } catch (error) {
             console.error("Error al cargar datos:", error);
@@ -75,7 +118,7 @@ export default function StockManager() {
         try {
             const res = await api.post("/stock/agregar", nuevoProducto);
 
-            if (res.data.success) {
+            if (res.success) {
                 Swal.fire({
                     icon: "success",
                     title: "Producto agregado",
@@ -119,13 +162,12 @@ export default function StockManager() {
                 esGranel: true,
                 unidadMedida: "kg",
                 cantidad: 0, // Inicia con 0 kg
-                precioCosto: 0,
                 registrarCompra: false,
             };
 
             const res = await api.post("/stock/agregar", productoGranel);
 
-            if (res.data.success) {
+            if (res.success) {
                 Swal.fire({
                     icon: "success",
                     title: "Producto a granel creado",
@@ -166,7 +208,7 @@ export default function StockManager() {
         try {
             const res = await api.post("/stock/descontar", descuento);
 
-            if (res.data.success) {
+            if (res.success) {
                 Swal.fire({
                     icon: "success",
                     title: "Stock actualizado",
@@ -208,7 +250,7 @@ export default function StockManager() {
 
             if (result.isConfirmed) {
                 const res = await api.post(`/stock/agregar-desde-pedido/${pedidoId}`);
-                if (res.data.success) {
+                if (res.success) {
                     Swal.fire("¡Listo!", "Productos agregados al stock", "success");
                     cargarDatos();
                 }
@@ -237,7 +279,7 @@ export default function StockManager() {
 
             if (result.isConfirmed) {
                 const res = await api.delete(`/stock/${id}`);
-                if (res.data.success) {
+                if (res.success) {
                     Swal.fire("Eliminado", "El producto ha sido eliminado", "success");
                     cargarDatos();
                 }
@@ -503,7 +545,7 @@ export default function StockManager() {
                                             <div className="flex items-center gap-4 text-sm text-gray-500">
                                                 <span className="flex items-center gap-1">
                                                     <Icons.Package className="w-4 h-4" />
-                                                    {item.cantidad} {item.esGranel ? (item.unidadMedida === 'kg' ? 'Kg' : item.unidadMedida) : 'unidades'}
+                                                    {parseFloat(item.cantidad)} {item.esGranel ? (item.unidadMedida === 'kg' ? 'Kg' : item.unidadMedida) : 'unidades'}
                                                 </span>
                                                 {item.codigoBarras && (
                                                     <span className="flex items-center gap-1 font-mono bg-gray-100 px-1 rounded text-xs">
@@ -515,18 +557,25 @@ export default function StockManager() {
                                         </div>
                                     </div>
                                     <div className="text-right flex items-center gap-4">
-                                        <div>
+                                        <div className="flex flex-col items-end">
                                             <p className="font-bold text-lg text-gray-800">
+                                                <span className="text-xs text-gray-400 font-normal mr-1">Venta:</span>
                                                 ${(parseFloat(item.precioVenta) || parseFloat(item.precio) || 0).toLocaleString()}
                                                 {item.esGranel && <span className="text-xs font-normal text-gray-500"> / kg</span>}
                                             </p>
-                                            {(parseFloat(item.precioCosto) || 0) > 0 && (
-                                                <p className="text-xs text-gray-400">
-                                                    Costo: ${parseFloat(item.precioCosto).toLocaleString()}
-                                                </p>
-                                            )}
+                                            <p className="text-sm text-gray-500">
+                                                <span className="text-xs text-gray-400 mr-1">Costo:</span>
+                                                ${(parseFloat(item.precioCosto) || 0).toLocaleString()}
+                                            </p>
                                         </div>
                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => abrirModalEditar(item)}
+                                                className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                                                title="Editar Precio"
+                                            >
+                                                <Icons.Edit2 className="w-5 h-5" />
+                                            </button>
                                             <button
                                                 onClick={() => generarQR(item)}
                                                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -673,6 +722,32 @@ export default function StockManager() {
                                     />
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">/ kg</span>
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    💰 Precio de costo (por Kilo)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                                        $
+                                    </span>
+                                    <input
+                                        type="number"
+                                        className="input-field pl-8"
+                                        placeholder="0.00"
+                                        min="0"
+                                        step="0.01"
+                                        value={nuevoProducto.precioCosto}
+                                        onChange={(e) =>
+                                            setNuevoProducto({
+                                                ...nuevoProducto,
+                                                precioCosto: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Opcional</p>
                             </div>
 
                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -960,6 +1035,86 @@ export default function StockManager() {
                                     {guardando ? "Guardando..." : "Agregar"}
                                 </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Editar Producto */}
+            {mostrarModalEditar && productoEditar && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md animation-fade-in">
+                        <div className="p-6 border-b">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-gray-800">
+                                    Editar Producto
+                                </h2>
+                                <button
+                                    onClick={() => setMostrarModalEditar(false)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleEditarProducto} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Nombre
+                                </label>
+                                <input
+                                    type="text"
+                                    className="input-field w-full"
+                                    value={productoEditar.nombre}
+                                    onChange={(e) =>
+                                        setProductoEditar({ ...productoEditar, nombre: e.target.value })
+                                    }
+                                    required
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Precio Venta
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input
+                                            type="number"
+                                            className="input-field w-full pl-7"
+                                            value={productoEditar.precioVenta}
+                                            onChange={(e) =>
+                                                setProductoEditar({ ...productoEditar, precioVenta: e.target.value })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Costo
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                        <input
+                                            type="number"
+                                            className="input-field w-full pl-7 bg-gray-100 text-gray-500 cursor-not-allowed"
+                                            value={productoEditar.precioCosto}
+                                            readOnly
+                                            title="El costo no se puede modificar. Agregue un nuevo lote con distinto código si el costo cambió."
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={guardando}
+                                className="w-full py-3 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold text-lg shadow-md transition-all active:scale-95"
+                            >
+                                {guardando ? "Guardando..." : "Guardar Cambios"}
+                            </button>
                         </form>
                     </div>
                 </div>
