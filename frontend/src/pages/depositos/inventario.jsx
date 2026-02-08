@@ -3,6 +3,7 @@ import { useDeposito } from "@/context/DepositoContext";
 import { formatNumber } from "@/utils/formatters";
 import { useState, useEffect } from "react";
 import { showSuccessAlert, showConfirmAlert, showToast } from "@/utils/alerts";
+import QRCode from "qrcode";
 
 export default function Inventario() {
   const {
@@ -37,6 +38,9 @@ export default function Inventario() {
     ubicacion: "",
     imagen: "",
     registrarCompra: true,
+    esGranel: false,
+    unidadMedida: "unidad",
+    precioUnidad: 0,
   });
   const [movimiento, setMovimiento] = useState({
     cantidad: 0,
@@ -48,6 +52,10 @@ export default function Inventario() {
   // Paginación
   const [paginaActual, setPaginaActual] = useState(1);
   const productosPorPagina = 10;
+
+  // Estado para modal QR
+  const [mostrarModalQR, setMostrarModalQR] = useState(false);
+  const [productoQR, setProductoQR] = useState(null);
 
   // Mostrar loading mientras se carga el inventario
   if (cargandoInventario) {
@@ -111,6 +119,9 @@ export default function Inventario() {
       ubicacion: "",
       imagen: "",
       registrarCompra: true,
+      esGranel: false,
+      unidadMedida: "unidad",
+      precioUnidad: 0,
     });
     setMostrarModal(true);
   };
@@ -129,6 +140,9 @@ export default function Inventario() {
       costo: producto.costo || 0,
       ubicacion: producto.ubicacion || "",
       imagen: producto.imagen || "",
+      esGranel: producto.esGranel || false,
+      unidadMedida: producto.unidadMedida || "unidad",
+      precioUnidad: producto.precioUnidad || 0,
     });
     setMostrarModal(true);
   };
@@ -148,6 +162,9 @@ export default function Inventario() {
       costo: 0,
       ubicacion: "",
       imagen: "",
+      esGranel: false,
+      unidadMedida: "unidad",
+      precioUnidad: 0,
     });
   };
 
@@ -173,7 +190,7 @@ export default function Inventario() {
           showToast(
             "error",
             "Error al actualizar producto: " +
-              (error.message || "Error desconocido"),
+            (error.message || "Error desconocido"),
           );
         }
       }
@@ -208,7 +225,7 @@ export default function Inventario() {
           showToast(
             "error",
             "Error al agregar producto: " +
-              (error.message || "Error desconocido"),
+            (error.message || "Error desconocido"),
           );
         }
       }
@@ -256,7 +273,7 @@ export default function Inventario() {
         showToast(
           "error",
           "Error al agregar producto: " +
-            (error.message || "Error desconocido"),
+          (error.message || "Error desconocido"),
         );
       }
     }
@@ -300,7 +317,7 @@ export default function Inventario() {
         showToast(
           "error",
           "Error al actualizar stock: " +
-            (error.message || "Error desconocido"),
+          (error.message || "Error desconocido"),
         );
       }
     }
@@ -335,7 +352,7 @@ export default function Inventario() {
         showToast(
           "error",
           "Error al desactivar producto: " +
-            (error.message || "Error desconocido"),
+          (error.message || "Error desconocido"),
         );
       }
     }
@@ -359,7 +376,7 @@ export default function Inventario() {
         showToast(
           "error",
           "Error al eliminar producto: " +
-            (error.message || "Error desconocido"),
+          (error.message || "Error desconocido"),
         );
       }
     }
@@ -383,10 +400,16 @@ export default function Inventario() {
         showToast(
           "error",
           "Error al reactivar producto: " +
-            (error.message || "Error desconocido"),
+          (error.message || "Error desconocido"),
         );
       }
     }
+  };
+
+  // Generar QR
+  const handleGenerarQR = (producto) => {
+    setProductoQR(producto);
+    setMostrarModalQR(true);
   };
 
   // Abrir modal de productos inactivos
@@ -396,6 +419,73 @@ export default function Inventario() {
   };
 
   // Calcular estadísticas
+  // Generar QR en canvas cuando se abre el modal
+  useEffect(() => {
+    if (mostrarModalQR && productoQR) {
+      setTimeout(() => {
+        const canvas = document.getElementById("qr-canvas");
+        if (canvas) {
+          QRCode.toCanvas(
+            canvas,
+            productoQR.codigo,
+            { width: 300, margin: 2 },
+            function (error) {
+              if (error) console.error(error);
+            },
+          );
+        }
+      }, 100);
+    }
+  }, [mostrarModalQR, productoQR]);
+
+  const descargarQR = () => {
+    const canvas = document.getElementById("qr-canvas");
+    if (canvas) {
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `QR-${productoQR.nombre}.png`;
+      link.href = url;
+      link.click();
+    }
+  };
+
+  const imprimirQR = () => {
+    const canvas = document.getElementById("qr-canvas");
+    if (canvas) {
+      const imgUrl = canvas.toDataURL("image/png");
+      const win = window.open("", "_blank");
+      win.document.write(`
+        <html>
+          <head>
+            <title>Imprimir QR - ${productoQR.nombre}</title>
+            <style>
+              body { font-family: sans-serif; text-align: center; padding: 20px; }
+              .container { border: 2px solid #000; display: inline-block; padding: 20px; border-radius: 10px; }
+              h1 { margin: 10px 0; font-size: 24px; }
+              p { margin: 5px 0; font-size: 18px; }
+              .price { font-size: 20px; font-weight: bold; margin-top: 10px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>${productoQR.nombre}</h1>
+              <img src="${imgUrl}" width="300" height="300" />
+              <p>${productoQR.codigo}</p>
+              ${productoQR.esGranel
+          ? `<p class="price">$${productoQR.precio} / ${productoQR.unidadMedida === "kg" ? "Kg" : productoQR.unidadMedida}</p>`
+          : `<p class="price">$${productoQR.precio}</p>`
+        }
+            </div>
+            <script>
+              window.onload = function() { window.print(); }
+            </script>
+          </body>
+        </html>
+      `);
+      win.document.close();
+    }
+  };
+
   const totalProductos = inventario.length;
   const valorInventario = inventario.reduce(
     (sum, p) => sum + p.stock * p.costo,
@@ -651,6 +741,13 @@ export default function Inventario() {
                       <td className="p-4">
                         <div className="flex items-center justify-center space-x-1">
                           <button
+                            onClick={() => handleGenerarQR(producto)}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            title="Generar QR"
+                          >
+                            📷
+                          </button>
+                          <button
                             onClick={() => abrirModalEditar(producto)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Editar producto"
@@ -732,11 +829,10 @@ export default function Inventario() {
                         )}
                         <button
                           onClick={() => setPaginaActual(num)}
-                          className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-                            paginaActual === num
-                              ? "bg-orange-500 text-white"
-                              : "border hover:bg-gray-100"
-                          }`}
+                          className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${paginaActual === num
+                            ? "bg-orange-500 text-white"
+                            : "border hover:bg-gray-100"
+                            }`}
                         >
                           {num}
                         </button>
@@ -890,6 +986,57 @@ export default function Inventario() {
                   />
                 </div>
 
+                {/* Configuración Granel */}
+                <div className="md:col-span-2">
+                  <label className="flex items-center space-x-3 p-3 border dark:border-neutral-600 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-700 cursor-pointer transition-colors">
+                    <div className="flex items-center h-5">
+                      <input
+                        type="checkbox"
+                        checked={nuevoProducto.esGranel}
+                        onChange={(e) =>
+                          setNuevoProducto({
+                            ...nuevoProducto,
+                            esGranel: e.target.checked,
+                            unidadMedida: e.target.checked ? "kg" : "unidad",
+                          })
+                        }
+                        className="w-5 h-5 text-orange-600 rounded focus:ring-orange-500 border-gray-300 dark:border-neutral-500 bg-white dark:bg-neutral-600"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">
+                        ⚖️ Venta a granel (por peso)
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Activa esta opción para productos que se venden por kilo
+                        o pesaje (ej: Pan, Fiambres, Verduras)
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {nuevoProducto.esGranel && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Unidad de Medida
+                    </label>
+                    <select
+                      className="input-field"
+                      value={nuevoProducto.unidadMedida}
+                      onChange={(e) =>
+                        setNuevoProducto({
+                          ...nuevoProducto,
+                          unidadMedida: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="kg">Kilogramos (kg)</option>
+                      <option value="g">Gramos (g)</option>
+                      <option value="L">Litros (L)</option>
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Stock inicial
@@ -948,8 +1095,10 @@ export default function Inventario() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Precio de venta
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {nuevoProducto.esGranel
+                      ? `Precio por ${nuevoProducto.unidadMedida === "kg" ? "Kilo" : nuevoProducto.unidadMedida}`
+                      : "Precio de venta"}
                   </label>
                   <input
                     type="number"
@@ -1111,9 +1260,9 @@ export default function Inventario() {
                     {movimiento.tipo === "entrada"
                       ? productoSeleccionado.stock + movimiento.cantidad
                       : Math.max(
-                          0,
-                          productoSeleccionado.stock - movimiento.cantidad,
-                        )}
+                        0,
+                        productoSeleccionado.stock - movimiento.cantidad,
+                      )}
                   </p>
                 </div>
               )}
@@ -1262,6 +1411,58 @@ export default function Inventario() {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Modal QR */}
+      {mostrarModalQR && productoQR && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-xl w-full max-w-sm flex flex-col items-center p-6 space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
+              Código QR
+            </h3>
+
+            <div className="bg-white p-2 rounded-lg border">
+              <canvas id="qr-canvas"></canvas>
+            </div>
+
+            <div className="text-center">
+              <p className="font-bold text-lg text-gray-800 dark:text-white">
+                {productoQR.nombre}
+              </p>
+              <p className="font-mono text-gray-500">{productoQR.codigo}</p>
+              {productoQR.esGranel && (
+                <span className="inline-block px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs mt-1">
+                  ⚖️ Venta a granel (${productoQR.precio}/
+                  {productoQR.unidadMedida === "kg"
+                    ? "Kg"
+                    : productoQR.unidadMedida}
+                  )
+                </span>
+              )}
+            </div>
+
+            <div className="flex w-full gap-2 pt-2">
+              <button
+                onClick={imprimirQR}
+                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                🖨️ Imprimir
+              </button>
+              <button
+                onClick={descargarQR}
+                className="flex-1 py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+              >
+                ⬇️ Descargar
+              </button>
+            </div>
+
+            <button
+              onClick={() => setMostrarModalQR(false)}
+              className="w-full py-2 px-4 bg-gray-200 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

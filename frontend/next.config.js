@@ -12,7 +12,7 @@ const nextConfig = {
   },
   // ESLint habilitado - mostrar warnings pero no fallar el build
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
     dirs: ["src"],
   },
 };

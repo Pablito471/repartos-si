@@ -80,4 +80,25 @@ router.delete(
   productosController.eliminarPermanente,
 );
 
+// Rutas para códigos alternativos
+router.post(
+  "/:id/codigos-alternativos",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.agregarCodigoAlternativo,
+);
+router.get(
+  "/:id/codigos-alternativos",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.getCodigosAlternativos,
+);
+router.delete(
+  "/:id/codigos-alternativos/:codigoId",
+  auth,
+  requireRole("deposito", "admin"),
+  productosController.eliminarCodigoAlternativo,
+);
+
 module.exports = router;
+

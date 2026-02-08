@@ -185,6 +185,16 @@ export const productosService = {
   // Registrar movimiento de stock (entrada/salida)
   registrarMovimientoStock: (id, cantidad, tipo, motivo) =>
     api.put(`/productos/${id}/movimiento-stock`, { cantidad, tipo, motivo }),
+
+  // Códigos alternativos
+  agregarCodigoAlternativo: (productoId, codigo, agregarStock = false, cantidad = 0) =>
+    api.post(`/productos/${productoId}/codigos-alternativos`, { codigo, agregarStock, cantidad }),
+
+  getCodigosAlternativos: (productoId) =>
+    api.get(`/productos/${productoId}/codigos-alternativos`),
+
+  eliminarCodigoAlternativo: (productoId, codigoId) =>
+    api.delete(`/productos/${productoId}/codigos-alternativos/${codigoId}`),
 };
 
 // ============== PEDIDOS ==============
@@ -421,6 +431,14 @@ export const stockService = {
   // Buscar producto por código de barras
   buscarPorCodigo: (codigo) => api.get(`/stock/buscar-por-codigo/${codigo}`),
 
+  // Buscar productos por nombre (para seleccionar producto destino)
+  buscarProductos: (termino) =>
+    api.get(`/stock/buscar?termino=${encodeURIComponent(termino)}`),
+
+  // Agregar stock a producto existente por código de barras
+  agregarStockPorCodigo: (codigo, cantidad, precioCosto) =>
+    api.post(`/stock/agregar-stock/${codigo}`, { cantidad, precioCosto }),
+
   // Generar código de barras para un producto
   generarCodigoBarras: (nombre) =>
     api.post("/stock/generar-codigo", { nombre }),
@@ -430,6 +448,10 @@ export const stockService = {
 
   // Eliminar producto
   eliminar: (id) => api.delete(`/stock/${id}`),
+
+  // Asociar código alternativo a producto existente
+  asociarCodigoAlternativo: (nombreProducto, codigo, cantidad = 0) =>
+    api.post("/stock/asociar-codigo", { nombreProducto, codigo, cantidad }),
 };
 
 // ============== EMPLEADOS ==============

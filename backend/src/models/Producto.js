@@ -64,6 +64,23 @@ const Producto = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    // Campos para productos a granel
+    esGranel: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: "es_granel",
+    },
+    unidadMedida: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: "unidad", // "g", "kg", "unidad"
+      field: "unidad_medida",
+    },
+    precioUnidad: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: "precio_unidad", // Precio por kg para productos a granel
+    },
     activo: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,

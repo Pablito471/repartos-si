@@ -1,4 +1,4 @@
-const { Producto, Usuario, Movimiento } = require("../models");
+const { Producto, Usuario, Movimiento, CodigoAlternativo } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
 
@@ -372,14 +372,39 @@ exports.buscarPorCodigo = async (req, res, next) => {
       throw new AppError("Se requiere depositoId", 400);
     }
 
-    // Buscar producto por código exacto o similar
-    const producto = await Producto.findOne({
+    // 1. Buscar producto por código principal
+    let producto = await Producto.findOne({
       where: {
         depositoId,
         activo: true,
         [Op.or]: [{ codigo: codigo }, { codigo: { [Op.iLike]: codigo } }],
       },
     });
+
+    // 2. Si no lo encuentra, buscar en códigos alternativos
+    let esCodigoAlternativo = false;
+    if (!producto) {
+      const codigoAlt = await CodigoAlternativo.findOne({
+        where: {
+          depositoId,
+          activo: true,
+          [Op.or]: [{ codigo: codigo }, { codigo: { [Op.iLike]: codigo } }],
+        },
+        include: [
+          {
+            model: Producto,
+            as: "producto",
+            where: { activo: true },
+          },
+        ],
+      });
+
+      if (codigoAlt && codigoAlt.producto) {
+        producto = codigoAlt.producto;
+        esCodigoAlternativo = true;
+      }
+    }
+
     if (!producto) {
       return res.status(404).json({
         success: false,
@@ -401,6 +426,10 @@ exports.buscarPorCodigo = async (req, res, next) => {
         stockMaximo: producto.stockMaximo,
         ubicacion: producto.ubicacion,
         imagen: producto.imagen,
+        esGranel: producto.esGranel,
+        unidadMedida: producto.unidadMedida,
+        precioUnidad: producto.precioUnidad ? parseFloat(producto.precioUnidad) : null,
+        esCodigoAlternativo,
       },
     });
   } catch (error) {
@@ -500,6 +529,211 @@ exports.registrarMovimientoStock = async (req, res, next) => {
         motivo,
         stockActual: nuevoStock,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/productos/:id/codigos-alternativos - Agregar código alternativo a producto
+exports.agregarCodigoAlternativo = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { codigo, agregarStock, cantidad } = req.body;
+
+    // Solo depósitos pueden usar este endpoint
+    if (
+      req.usuario.tipoUsuario !== "deposito" &&
+      req.usuario.tipoUsuario !== "admin"
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const producto = await Producto.findByPk(id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const depositoId = producto.depositoId;
+
+    // Verificar que el código no exista ya (ni como producto ni como código alternativo)
+    const productoExistente = await Producto.findOne({
+      where: {
+        depositoId,
+        codigo: codigo,
+        activo: true,
+      },
+    });
+
+    if (productoExistente) {
+      throw new AppError(
+        `El código "${codigo}" ya existe como producto principal: ${productoExistente.nombre}`,
+        400,
+      );
+    }
+
+    const codigoAltExistente = await CodigoAlternativo.findOne({
+      where: {
+        depositoId,
+        codigo: codigo,
+        activo: true,
+      },
+    });
+
+    if (codigoAltExistente) {
+      throw new AppError(
+        `El código "${codigo}" ya está asociado a otro producto`,
+        400,
+      );
+    }
+
+    // Crear código alternativo
+    const nuevoCodigoAlt = await CodigoAlternativo.create({
+      productoId: producto.id,
+      codigo: codigo,
+      depositoId: depositoId,
+    });
+
+    // Si se pidió agregar stock, hacerlo
+    let stockAgregado = 0;
+    if (agregarStock && cantidad && parseInt(cantidad) > 0) {
+      const cantidadNum = parseInt(cantidad);
+      const stockAnterior = producto.stock;
+      const nuevoStock = stockAnterior + cantidadNum;
+      await producto.update({ stock: nuevoStock });
+      stockAgregado = cantidadNum;
+
+      // Registrar movimiento contable
+      const costoProducto = producto.costo || producto.precio || 0;
+      if (costoProducto > 0) {
+        const montoCompra = costoProducto * cantidadNum;
+        await Movimiento.create({
+          usuarioId: depositoId,
+          tipo: "egreso",
+          concepto: `Compra: ${cantidadNum}x ${producto.nombre} (código alt: ${codigo})`,
+          monto: montoCompra,
+          categoria: "compras",
+          notas: "Entrada por código alternativo",
+        });
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Código alternativo "${codigo}" asociado a ${producto.nombre}${stockAgregado > 0 ? ` (+${stockAgregado} unidades)` : ""}`,
+      data: {
+        codigoAlternativo: nuevoCodigoAlt,
+        producto: {
+          id: producto.id,
+          nombre: producto.nombre,
+          codigo: producto.codigo,
+          stock: producto.stock,
+        },
+        stockAgregado,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/productos/:id/codigos-alternativos - Obtener códigos alternativos de un producto
+exports.getCodigosAlternativos = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Solo depósitos pueden usar este endpoint
+    if (
+      req.usuario.tipoUsuario !== "deposito" &&
+      req.usuario.tipoUsuario !== "admin"
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const producto = await Producto.findByPk(id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const codigosAlternativos = await CodigoAlternativo.findAll({
+      where: {
+        productoId: id,
+        activo: true,
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json({
+      success: true,
+      data: codigosAlternativos,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/productos/:id/codigos-alternativos/:codigoId - Eliminar código alternativo
+exports.eliminarCodigoAlternativo = async (req, res, next) => {
+  try {
+    const { id, codigoId } = req.params;
+
+    // Solo depósitos pueden usar este endpoint
+    if (
+      req.usuario.tipoUsuario !== "deposito" &&
+      req.usuario.tipoUsuario !== "admin"
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const producto = await Producto.findByPk(id);
+
+    if (!producto) {
+      throw new AppError("Producto no encontrado", 404);
+    }
+
+    // Verificar permisos
+    if (
+      req.usuario.tipoUsuario !== "admin" &&
+      producto.depositoId !== req.usuario.id
+    ) {
+      throw new AppError("No autorizado", 403);
+    }
+
+    const codigoAlt = await CodigoAlternativo.findOne({
+      where: {
+        id: codigoId,
+        productoId: id,
+      },
+    });
+
+    if (!codigoAlt) {
+      throw new AppError("Código alternativo no encontrado", 404);
+    }
+
+    // Soft delete
+    await codigoAlt.update({ activo: false });
+
+    res.json({
+      success: true,
+      message: `Código alternativo "${codigoAlt.codigo}" eliminado`,
     });
   } catch (error) {
     next(error);

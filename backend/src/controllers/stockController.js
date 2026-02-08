@@ -5,6 +5,8 @@ const {
   PedidoProducto,
   Movimiento,
   Producto,
+  CodigoAlternativo,
+  CodigoAlternativoCliente,
 } = require("../models");
 const { AppError } = require("../middleware/errorHandler");
 const { Op } = require("sequelize");
@@ -238,6 +240,9 @@ exports.agregarProducto = async (req, res, next) => {
       codigoBarras,
       categoria,
       imagen,
+      esGranel,
+      unidadMedida,
+      precioUnidad,
     } = req.body;
     if (!nombre || !cantidad) {
       throw new AppError("Nombre y cantidad son requeridos", 400);
@@ -278,13 +283,16 @@ exports.agregarProducto = async (req, res, next) => {
     const stockItem = await StockCliente.create({
       clienteId: req.usuario.id,
       nombre: nombreMayusculas,
-      cantidad: parseInt(cantidad),
+      cantidad: parseFloat(cantidad),
       precioCosto: costoParsed,
       precioVenta: ventaParsed,
       precio: ventaParsed, // Mantener para compatibilidad
       codigoBarras: codigoBarras || null,
       categoria: categoria || "General",
       imagen: imagen || null,
+      esGranel: esGranel || false,
+      unidadMedida: unidadMedida || "unidad",
+      precioUnidad: precioUnidad ? parseFloat(precioUnidad) : null,
     });
 
     // Registrar movimiento contable de egreso (compra) si tiene precio de costo y se indica
@@ -612,18 +620,21 @@ exports.descontarPorCodigo = async (req, res, next) => {
 exports.buscarPorCodigo = async (req, res, next) => {
   try {
     const { codigo } = req.params;
+    // Normalizar código de barras (trim y mayúsculas)
+    const codigoNormalizado = codigo.trim().toUpperCase();
 
     let stockItem = null;
+    let esCodigoAlternativo = false;
 
-    // Primero buscar por código de barras personalizado
+    // 1. Primero buscar por código de barras personalizado en StockCliente
     stockItem = await StockCliente.findOne({
       where: {
         clienteId: req.usuario.id,
-        codigoBarras: codigo,
+        codigoBarras: codigoNormalizado,
       },
     });
 
-    // Si no encontró, intentar con formato STK000001 (código interno)
+    // 2. Si no encontró, intentar con formato STK000001 (código interno)
     if (!stockItem) {
       const match = codigo.match(/^STK0*(\d+)$/);
       if (match) {
@@ -634,6 +645,62 @@ exports.buscarPorCodigo = async (req, res, next) => {
             clienteId: req.usuario.id,
           },
         });
+      }
+    }
+
+    // 3. Buscar en códigos alternativos del cliente (CodigoAlternativoCliente)
+    if (!stockItem) {
+      const codigoAltCliente = await CodigoAlternativoCliente.findOne({
+        where: {
+          clienteId: req.usuario.id,
+          codigo: codigoNormalizado,
+          activo: true,
+        },
+      });
+
+      if (codigoAltCliente) {
+        // Buscar por nombre del producto
+        stockItem = await StockCliente.findOne({
+          where: {
+            clienteId: req.usuario.id,
+            nombre: codigoAltCliente.nombreProducto,
+          },
+        });
+
+        if (stockItem) {
+          esCodigoAlternativo = true;
+        }
+      }
+    }
+
+    // 4. Si no encontró, buscar en códigos alternativos de depósitos (para productos recibidos)
+    if (!stockItem) {
+      const codigoAlt = await CodigoAlternativo.findOne({
+        where: {
+          codigo: codigoNormalizado,
+          activo: true,
+        },
+        include: [
+          {
+            model: Producto,
+            as: "producto",
+            where: { activo: true },
+          },
+        ],
+      });
+
+      if (codigoAlt && codigoAlt.producto) {
+        // Buscar si el cliente tiene este producto en su stock (por nombre)
+        stockItem = await StockCliente.findOne({
+          where: {
+            clienteId: req.usuario.id,
+            nombre: codigoAlt.producto.nombre,
+          },
+        });
+
+        if (stockItem) {
+          esCodigoAlternativo = true;
+        }
       }
     }
 
@@ -664,7 +731,60 @@ exports.buscarPorCodigo = async (req, res, next) => {
         costo: parseFloat(stockItem.precioCosto) || 0,
         cantidadDisponible: totalDisponible,
         categoria: stockItem.categoria || "General",
+        esCodigoAlternativo,
+        esGranel: stockItem.esGranel,
+        unidadMedida: stockItem.unidadMedida,
+        precioUnidad: stockItem.precioUnidad ? parseFloat(stockItem.precioUnidad) : null,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/stock/buscar?termino=xxx - Buscar productos por nombre
+exports.buscarProductos = async (req, res, next) => {
+  try {
+    const { termino } = req.query;
+
+    if (!termino || termino.trim().length < 2) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    // Buscar productos que coincidan con el término
+    const stock = await StockCliente.findAll({
+      where: {
+        clienteId: req.usuario.id,
+        nombre: {
+          [Op.iLike]: `%${termino}%`,
+        },
+      },
+      order: [["nombre", "ASC"]],
+    });
+
+    // Agrupar por nombre para evitar duplicados
+    const productosUnicos = {};
+    stock.forEach((item) => {
+      if (!productosUnicos[item.nombre]) {
+        productosUnicos[item.nombre] = {
+          id: item.id,
+          nombre: item.nombre,
+          cantidad: 0,
+          precio: parseFloat(item.precio) || 0,
+          costo: parseFloat(item.precioCosto) || 0,
+          categoria: item.categoria || "General",
+          codigoBarras: item.codigoBarras || null,
+        };
+      }
+      productosUnicos[item.nombre].cantidad += item.cantidad;
+    });
+
+    res.json({
+      success: true,
+      data: Object.values(productosUnicos),
     });
   } catch (error) {
     next(error);
@@ -784,6 +904,184 @@ exports.generarCodigoBarras = async (req, res, next) => {
         nombre: stockItem.nombre,
         esNuevo: true,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/stock/agregar-stock/:codigo - Agregar stock a producto existente por código de barras
+exports.agregarStockPorCodigo = async (req, res, next) => {
+  try {
+    const { codigo } = req.params;
+    const { cantidad, precioCosto } = req.body;
+
+    if (!cantidad || parseInt(cantidad) < 1) {
+      throw new AppError("La cantidad debe ser al menos 1", 400);
+    }
+
+    // Normalizar código de barras (trim y mayúsculas)
+    const codigoNormalizado = codigo.trim().toUpperCase();
+
+    // Buscar producto por código de barras
+    const stockItem = await StockCliente.findOne({
+      where: {
+        clienteId: req.usuario.id,
+        codigoBarras: codigoNormalizado,
+      },
+    });
+
+    if (!stockItem) {
+      throw new AppError(`No se encontró producto con código: ${codigo}`, 404);
+    }
+
+    // Agregar nueva entrada de stock (acumular al existente)
+    const nuevaCantidad = stockItem.cantidad + parseInt(cantidad);
+    const nuevoPrecioCosto = precioCosto
+      ? parseFloat(precioCosto)
+      : stockItem.precioCosto;
+
+    // Actualizar el item de stock
+    await stockItem.update({
+      cantidad: nuevaCantidad,
+      precioCosto: nuevoPrecioCosto,
+    });
+
+    // Registrar movimiento contable de egreso (compra) si tiene precio de costo
+    if (precioCosto && parseFloat(precioCosto) > 0) {
+      const montoCompra = parseFloat(precioCosto) * parseInt(cantidad);
+      await Movimiento.create({
+        usuarioId: req.usuario.id,
+        tipo: "egreso",
+        concepto: `Agregar stock: ${cantidad}x ${stockItem.nombre}`,
+        monto: montoCompra,
+        categoria: "compras",
+        notas: `Agregado por código ${codigo}`,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Agregadas ${cantidad} unidades a "${stockItem.nombre}". Total: ${nuevaCantidad}`,
+      data: {
+        nombre: stockItem.nombre,
+        codigoBarras: codigo,
+        cantidadAnterior: stockItem.cantidad,
+        cantidadAgregada: parseInt(cantidad),
+        cantidadTotal: nuevaCantidad,
+        precioCosto: nuevoPrecioCosto,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/stock/asociar-codigo - Asociar un código alternativo a un producto del stock
+exports.asociarCodigoAlternativo = async (req, res, next) => {
+  try {
+    const { nombreProducto, codigo, cantidad } = req.body;
+
+    if (!nombreProducto || !codigo) {
+      throw new AppError("Nombre del producto y código son requeridos", 400);
+    }
+
+    const codigoNormalizado = codigo.trim().toUpperCase();
+
+    // Verificar que el producto exista en el stock del cliente
+    const stockItem = await StockCliente.findOne({
+      where: {
+        clienteId: req.usuario.id,
+        nombre: nombreProducto,
+      },
+    });
+
+    if (!stockItem) {
+      throw new AppError(`No tienes "${nombreProducto}" en tu stock`, 404);
+    }
+
+    // Verificar que el código no exista ya
+    const existeEnStock = await StockCliente.findOne({
+      where: {
+        clienteId: req.usuario.id,
+        codigoBarras: codigoNormalizado,
+      },
+    });
+
+    if (existeEnStock) {
+      throw new AppError(
+        `El código "${codigoNormalizado}" ya existe como código principal de "${existeEnStock.nombre}"`,
+        400
+      );
+    }
+
+    const existeAlternativo = await CodigoAlternativoCliente.findOne({
+      where: {
+        clienteId: req.usuario.id,
+        codigo: codigoNormalizado,
+        activo: true,
+      },
+    });
+
+    if (existeAlternativo) {
+      throw new AppError(
+        `El código "${codigoNormalizado}" ya está asociado a "${existeAlternativo.nombreProducto}"`,
+        400
+      );
+    }
+
+    // Crear código alternativo
+    await CodigoAlternativoCliente.create({
+      clienteId: req.usuario.id,
+      nombreProducto: nombreProducto,
+      codigo: codigoNormalizado,
+    });
+
+    // Si se especificó cantidad, agregar stock
+    let stockAgregado = 0;
+    if (cantidad && parseInt(cantidad) > 0) {
+      const cantidadNum = parseInt(cantidad);
+      const stockAnterior = stockItem.cantidad;
+      const nuevoStock = stockAnterior + cantidadNum;
+      await stockItem.update({ cantidad: nuevoStock });
+      stockAgregado = cantidadNum;
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Código "${codigoNormalizado}" asociado a "${nombreProducto}"${stockAgregado > 0 ? ` (+${stockAgregado} unidades)` : ""}`,
+      data: {
+        codigo: codigoNormalizado,
+        nombreProducto: nombreProducto,
+        stockAgregado,
+        stockTotal: stockItem.cantidad + stockAgregado,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/stock/sincronizar-tablas - Sincronizar tabla de códigos alternativos cliente (solo desarrollo)
+exports.sincronizarTablas = async (req, res, next) => {
+  try {
+    const { sequelize } = require("../models");
+
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS codigos_alternativos_cliente (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        cliente_id UUID NOT NULL REFERENCES usuarios(id),
+        nombre_producto VARCHAR(255) NOT NULL,
+        codigo VARCHAR(255) NOT NULL,
+        activo BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.json({
+      success: true,
+      message: "Tabla codigos_alternativos_cliente creada o verificada",
     });
   } catch (error) {
     next(error);

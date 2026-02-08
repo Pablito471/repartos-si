@@ -15,15 +15,15 @@ const sequelizeOptions = {
     timestamps: true,
     underscored: true,
   },
-  // Configuración SSL para producción (requerido por Neon, Supabase, etc.)
+  // Configuración SSL para producción o cuando se usa una URL externa (Neon, Supabase, etc.)
   dialectOptions:
-    process.env.NODE_ENV === "production"
+    process.env.NODE_ENV === "production" || process.env.DATABASE_URL
       ? {
-          ssl: {
-            require: true,
-            rejectUnauthorized: false,
-          },
-        }
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      }
       : {},
 };
 

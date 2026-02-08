@@ -22,7 +22,7 @@ const StockCliente = sequelize.define(
       allowNull: false,
     },
     cantidad: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(10, 3),
       allowNull: false,
       defaultValue: 0,
     },
@@ -66,6 +66,23 @@ const StockCliente = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
       defaultValue: "General",
+    },
+    // Campos para productos a granel
+    esGranel: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: "es_granel",
+    },
+    unidadMedida: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: "unidad",
+      field: "unidad_medida",
+    },
+    precioUnidad: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: "precio_unidad",
     },
     imagen: {
       type: DataTypes.TEXT,

@@ -1,5 +1,6 @@
 import ClienteLayout from "@/components/layouts/ClienteLayout";
 import { useAuth } from "@/context/AuthContext";
+import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { stockService } from "@/services/api";
 import { showToast, showConfirmAlert, showSuccessAlert } from "@/utils/alerts";
@@ -11,6 +12,7 @@ import {
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
 import { createWorker } from "tesseract.js";
+import Swal from "sweetalert2";
 
 export default function EscanerStock() {
   const { usuario, esMovil, modoEscaner, setModoEscaner } = useAuth();
@@ -39,11 +41,39 @@ export default function EscanerStock() {
   const [nuevoProducto, setNuevoProducto] = useState({
     nombre: "",
     cantidad: 1,
-    precioCosto: "",
     precioVenta: "",
+    precioCosto: "",
     categoria: "General",
+    ubicacion: "",
     imagen: "",
+    esGranel: false,
+    unidadMedida: "unidad",
   });
+
+  // Estados para agregar stock a producto existente
+  const [modoAgregarStock, setModoAgregarStock] = useState(false);
+  const [cantidadAgregarStock, setCantidadAgregarStock] = useState(1);
+  const [precioCostoAgregar, setPrecioCostoAgregar] = useState("");
+
+  // Estados para buscar producto y agregar stock a ese producto
+  const [modoBuscarProducto, setModoBuscarProducto] = useState(false);
+  const [terminoBusqueda, setTerminoBusqueda] = useState("");
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [buscandoProductos, setBuscandoProductos] = useState(false);
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+  const [codigosEscaneadosStock, setCodigosEscaneadosStock] = useState([]);
+  const [cantidadTemporal, setCantidadTemporal] = useState(1);
+  const [codigoTemporal, setCodigoTemporal] = useState(null);
+  const [mostrarModalCantidad, setMostrarModalCantidad] = useState(false);
+
+  // Estados para modo asociar código alternativo
+  const [modoAsociar, setModoAsociar] = useState(false);
+  const [codigoParaAsociar, setCodigoParaAsociar] = useState("");
+  const [busquedaAsociar, setBusquedaAsociar] = useState("");
+  const [productosParaAsociar, setProductosParaAsociar] = useState([]);
+  const [productoParaAsociar, setProductoParaAsociar] = useState(null);
+  const [cantidadAsociar, setCantidadAsociar] = useState(1);
+  const [buscandoParaAsociar, setBuscandoParaAsociar] = useState(false);
 
   // Categorías del usuario
   const [categorias, setCategorias] = useState(["General"]);
@@ -111,7 +141,7 @@ export default function EscanerStock() {
           setTimeout(resolve, 1000); // Timeout de seguridad
         });
       }
-    } catch (err) {}
+    } catch (err) { }
   }, []);
 
   // Función para reproducir sonido de escaneo fuerte (PIP)
@@ -146,7 +176,7 @@ export default function EscanerStock() {
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.15);
       return;
-    } catch (e) {}
+    } catch (e) { }
 
     // Método 2: Audio HTML5 precargado
     if (beepAudioRef.current) {
@@ -156,7 +186,7 @@ export default function EscanerStock() {
         audio.volume = 1.0;
         await audio.play();
         return;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Método 3: Nuevo elemento Audio
@@ -164,7 +194,7 @@ export default function EscanerStock() {
       const audio = new Audio("/beep.wav");
       audio.volume = 1.0;
       await audio.play();
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Detectar cambios de orientación
@@ -271,7 +301,342 @@ export default function EscanerStock() {
       setLinternaActiva(false);
       setLinternaDisponible(false);
     }
-  }, [escaneando]);
+  }, [escaneando, linternaActiva]);
+
+  // Buscar producto por código
+  const buscarProducto = useCallback(
+    async (codigo) => {
+      // Si estamos en modo agregar stock múltiple y hay un código temporal, agregarlo
+      if (productoSeleccionado && codigoTemporal) {
+        // Verificar si ya fue agregado
+        const yaEscaneado = codigosEscaneadosStock.find(
+          (item) => item.codigo === codigoTemporal,
+        );
+        if (yaEscaneado) {
+          showToast("warning", "Código ya agregado");
+          setCodigoTemporal(null);
+          // Reanudar escáner
+          if (!modoManual && html5QrcodeScannerRef.current) {
+            try {
+              html5QrcodeScannerRef.current.resume();
+            } catch (e) { }
+          }
+          return;
+        }
+
+        // Agregar código con cantidad a la lista
+        setCodigosEscaneadosStock((prev) => [
+          ...prev,
+          { codigo: codigoTemporal, cantidad: cantidadTemporal },
+        ]);
+        showToast(
+          "success",
+          `${cantidadTemporal}x ${codigoTemporal} agregado(s)`,
+        );
+
+        // Limpiar y reanudar escáner
+        setCodigoTemporal(null);
+        setCantidadTemporal(1);
+        if (!modoManual && html5QrcodeScannerRef.current) {
+          try {
+            html5QrcodeScannerRef.current.resume();
+          } catch (e) {
+            setEscaneando(false);
+            setTimeout(() => setEscaneando(true), 100);
+          }
+        }
+        return;
+      }
+
+      // Si estamos en modo agregar stock múltiple, pausar y preguntar cantidad
+      if (productoSeleccionado) {
+        // Pausar escáner
+        if (html5QrcodeScannerRef.current) {
+          html5QrcodeScannerRef.current.pause(true);
+        }
+
+        // Preguntar cantidad
+        const cantidad = await showConfirmAlert(
+          "Cantidad a agregar",
+          `Código: ${codigo}\n\n¿Cuántas unidades quieres agregar al stock de "${productoSeleccionado.nombre}"?`,
+          "1",
+          "Más opciones",
+        );
+
+        // Mostrar modal para elegir cantidad
+        setCodigoTemporal(codigo);
+        setCantidadTemporal(1);
+        setMostrarModalCantidad(true);
+        return;
+      }
+
+      try {
+        // Pausar escáner mientras procesamos
+        if (html5QrcodeScannerRef.current) {
+          html5QrcodeScannerRef.current.pause(true);
+        }
+
+        const response = await stockService.buscarPorCodigo(codigo);
+        if (response.success && response.data) {
+          const producto = response.data;
+
+          // Si estamos en modo consulta, mostrar info sin agregar al carrito
+          if (modoConsulta) {
+            setProductoConsultado(producto);
+            showToast("success", `${producto.nombre} encontrado`);
+            // Detener escáner mientras se muestra la consulta
+            if (html5QrcodeScannerRef.current) {
+              try {
+                await html5QrcodeScannerRef.current.stop();
+              } catch (e) { }
+            }
+            return;
+          }
+
+          // Agregar automáticamente al carrito
+          let cantidadAgregar = 1;
+
+          // Si es producto a granel, pedir cantidad
+          if (producto.esGranel) {
+            // Pausar escáner
+            if (html5QrcodeScannerRef.current) {
+              html5QrcodeScannerRef.current.pause(true);
+            }
+
+            const { value: cantidadIngresada } = await Swal.fire({
+              title: producto.nombre,
+              text: `Ingrese cantidad en ${producto.unidadMedida === "kg" ? "Kilos" : producto.unidadMedida}`,
+              input: "number",
+              inputValue: 1,
+              inputAttributes: {
+                min: "0.001",
+                step: "0.001",
+              },
+              showCancelButton: true,
+              confirmButtonText: "Agregar a venta",
+              cancelButtonText: "Cancelar",
+              confirmButtonColor: "#f97316", // Orange
+            });
+
+            if (!cantidadIngresada) {
+              // Si cancela, reanudar
+              if (!modoManual && html5QrcodeScannerRef.current) {
+                try {
+                  html5QrcodeScannerRef.current.resume();
+                } catch (e) {
+                  setEscaneando(false);
+                  setTimeout(() => setEscaneando(true), 100);
+                }
+              }
+              return;
+            }
+
+            cantidadAgregar = parseFloat(cantidadIngresada);
+          }
+
+          const enCarrito = carritoVentas.find(
+            (item) => item.codigo === producto.codigo,
+          );
+          const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+
+          if (cantidadEnCarrito + cantidadAgregar > producto.cantidadDisponible) {
+            showToast(
+              "error",
+              `Stock insuficiente. Disponible: ${producto.cantidadDisponible}, ya en carrito: ${cantidadEnCarrito}`,
+            );
+          } else if (enCarrito) {
+            // Actualizar cantidad si ya existe
+            setCarritoVentas((prev) =>
+              prev.map((item) =>
+                item.codigo === producto.codigo
+                  ? { ...item, cantidad: item.cantidad + cantidadAgregar }
+                  : item,
+              ),
+            );
+            showToast(
+              "success",
+              `+${cantidadAgregar} ${producto.nombre} (Total: ${cantidadEnCarrito + cantidadAgregar})`,
+            );
+          } else {
+            // Agregar nuevo item
+            setCarritoVentas((prev) => [
+              ...prev,
+              {
+                id: producto.id,
+                codigo: producto.codigo,
+                nombre: producto.nombre,
+                precio: producto.precio,
+                cantidad: cantidadAgregar,
+                stockDisponible: producto.cantidadDisponible,
+                esGranel: producto.esGranel,
+                unidadMedida: producto.unidadMedida,
+              },
+            ]);
+            showToast(
+              "success",
+              `${producto.nombre} agregado (+${cantidadAgregar})`,
+            );
+          }
+
+          setModoAgregar(false);
+
+          // Reiniciar escáner para seguir escaneando
+          if (!modoManual && html5QrcodeScannerRef.current) {
+            try {
+              html5QrcodeScannerRef.current.resume();
+            } catch (e) {
+              // Si falla resume, reiniciar completamente
+              setEscaneando(false);
+              setTimeout(() => setEscaneando(true), 100);
+            }
+          }
+        } else {
+          // Respuesta sin datos - producto no encontrado
+          throw new Error("Producto no encontrado");
+        }
+      } catch (error) {
+        // No se encontró en stock - mostrar opciones
+        const { value: opcion } = await Swal.fire({
+          title: "Producto no encontrado",
+          html: `<p>El código "${codigo}" no está en tu stock.</p><p>¿Qué deseas hacer?</p>`,
+          icon: "question",
+          showCancelButton: true,
+          showDenyButton: true,
+          confirmButtonText: "🆕 Crear nuevo",
+          denyButtonText: "🔗 Asociar a existente",
+          cancelButtonText: "Cancelar",
+          confirmButtonColor: "#10B981",
+          denyButtonColor: "#3B82F6",
+        });
+
+        if (opcion === true) {
+          // Opción: Crear nuevo producto
+          if (html5QrcodeScannerRef.current) {
+            try {
+              await html5QrcodeScannerRef.current.stop();
+            } catch (e) { }
+          }
+          setModoAgregar(true);
+          setCodigoEscaneado(codigo);
+          setNuevoProducto({
+            nombre: "",
+            cantidad: 1,
+            precioCosto: "",
+            precioVenta: "",
+            categoria: "General",
+          });
+        } else if (opcion === false) {
+          // Opción: Asociar a producto existente (denyButton)
+          if (html5QrcodeScannerRef.current) {
+            try {
+              await html5QrcodeScannerRef.current.stop();
+            } catch (e) { }
+          }
+          setModoAsociar(true);
+          setCodigoParaAsociar(codigo);
+          setBusquedaAsociar("");
+          setProductosParaAsociar([]);
+          setProductoParaAsociar(null);
+          setCantidadAsociar(1);
+        } else {
+          // Opción: Cancelar - reanudar escáner
+          if (html5QrcodeScannerRef.current) {
+            setTimeout(() => {
+              try {
+                html5QrcodeScannerRef.current?.resume();
+              } catch (e) { }
+            }, 500);
+          }
+        }
+      }
+    },
+    [
+      carritoVentas,
+      modoConsulta,
+      modoManual,
+      productoSeleccionado,
+      codigosEscaneadosStock,
+    ],
+  );
+
+  // Buscar productos para asociar código alternativo
+  const buscarProductosParaAsociar = useCallback(async (termino) => {
+    setBusquedaAsociar(termino);
+    if (termino.trim().length < 2) {
+      setProductosParaAsociar([]);
+      return;
+    }
+
+    setBuscandoParaAsociar(true);
+    try {
+      const response = await stockService.buscarProductos(termino);
+      if (response.success) {
+        setProductosParaAsociar(response.data || []);
+      }
+    } catch (error) {
+      console.error("Error al buscar productos:", error);
+      setProductosParaAsociar([]);
+    } finally {
+      setBuscandoParaAsociar(false);
+    }
+  }, []);
+
+  // Confirmar asociación de código alternativo
+  const confirmarAsociacion = useCallback(async () => {
+    if (!productoParaAsociar || !codigoParaAsociar) {
+      showToast("warning", "Selecciona un producto primero");
+      return;
+    }
+
+    setProcesando(true);
+    try {
+      const response = await stockService.asociarCodigoAlternativo(
+        productoParaAsociar.nombre,
+        codigoParaAsociar,
+        cantidadAsociar
+      );
+
+      if (response.success) {
+        await showSuccessAlert(
+          "¡Código asociado!",
+          `El código "${codigoParaAsociar}" ahora está asociado a "${productoParaAsociar.nombre}"${cantidadAsociar > 0 ? ` (+${cantidadAsociar} unidades)` : ""}`
+        );
+
+        // Limpiar y reiniciar escáner
+        setModoAsociar(false);
+        setCodigoParaAsociar("");
+        setBusquedaAsociar("");
+        setProductosParaAsociar([]);
+        setProductoParaAsociar(null);
+        setCantidadAsociar(1);
+
+        if (!modoManual) {
+          setEscaneando(false);
+          setTimeout(() => setEscaneando(true), 100);
+        }
+      }
+    } catch (error) {
+      const mensaje = error.response?.data?.message || error.message || "Error al asociar código";
+      showToast("error", mensaje);
+    } finally {
+      setProcesando(false);
+    }
+  }, [productoParaAsociar, codigoParaAsociar, cantidadAsociar, modoManual]);
+
+  // Cancelar modo asociar
+  const cancelarAsociar = useCallback(() => {
+    setModoAsociar(false);
+    setCodigoParaAsociar("");
+    setBusquedaAsociar("");
+    setProductosParaAsociar([]);
+    setProductoParaAsociar(null);
+    setCantidadAsociar(1);
+
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => setEscaneando(true), 100);
+    }
+  }, [modoManual]);
 
   // Efecto para inicializar el escáner cuando el elemento DOM existe
   useEffect(() => {
@@ -438,7 +803,13 @@ export default function EscanerStock() {
 
       return () => clearTimeout(timer);
     }
-  }, [escaneando, modoManual, isLandscape]);
+  }, [
+    escaneando,
+    modoManual,
+    isLandscape,
+    reproducirSonidoEscaneo,
+    buscarProducto,
+  ]);
 
   // Función para cambiar zoom
   const cambiarZoom = async (nuevoZoom) => {
@@ -449,7 +820,7 @@ export default function EscanerStock() {
         await track.applyConstraints({ advanced: [{ zoom: nuevoZoom }] });
         setZoomLevel(nuevoZoom);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Función para encender/apagar la linterna
@@ -584,7 +955,7 @@ export default function EscanerStock() {
       } else {
         setOcrStatus("Buscando números...");
       }
-    } catch (err) {}
+    } catch (err) { }
   }, [productoEscaneado, reproducirSonidoEscaneo]);
 
   // Activar/desactivar OCR
@@ -642,125 +1013,6 @@ export default function EscanerStock() {
     setErrorCamara(null);
   }, []);
 
-  // Buscar producto por código
-  const buscarProducto = async (codigo) => {
-    try {
-      // Pausar escáner mientras procesamos
-      if (html5QrcodeScannerRef.current) {
-        html5QrcodeScannerRef.current.pause(true);
-      }
-
-      const response = await stockService.buscarPorCodigo(codigo);
-      if (response.success && response.data) {
-        const producto = response.data;
-
-        // Si estamos en modo consulta, mostrar info sin agregar al carrito
-        if (modoConsulta) {
-          setProductoConsultado(producto);
-          showToast("success", `${producto.nombre} encontrado`);
-          // Detener escáner mientras se muestra la consulta
-          if (html5QrcodeScannerRef.current) {
-            try {
-              await html5QrcodeScannerRef.current.stop();
-            } catch (e) {}
-          }
-          return;
-        }
-
-        // Agregar automáticamente al carrito
-        const enCarrito = carritoVentas.find(
-          (item) => item.codigo === producto.codigo,
-        );
-        const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
-
-        if (cantidadEnCarrito + 1 > producto.cantidadDisponible) {
-          showToast(
-            "error",
-            `Stock insuficiente. Disponible: ${producto.cantidadDisponible}, ya en carrito: ${cantidadEnCarrito}`,
-          );
-        } else if (enCarrito) {
-          // Actualizar cantidad si ya existe
-          setCarritoVentas((prev) =>
-            prev.map((item) =>
-              item.codigo === producto.codigo
-                ? { ...item, cantidad: item.cantidad + 1 }
-                : item,
-            ),
-          );
-          showToast(
-            "success",
-            `+1 ${producto.nombre} (Total: ${cantidadEnCarrito + 1})`,
-          );
-        } else {
-          // Agregar nuevo item
-          setCarritoVentas((prev) => [
-            ...prev,
-            {
-              id: producto.id,
-              codigo: producto.codigo,
-              nombre: producto.nombre,
-              precio: producto.precio,
-              cantidad: 1,
-              stockDisponible: producto.cantidadDisponible,
-            },
-          ]);
-          showToast("success", `${producto.nombre} agregado al carrito`);
-        }
-
-        setModoAgregar(false);
-
-        // Reiniciar escáner para seguir escaneando
-        if (!modoManual && html5QrcodeScannerRef.current) {
-          try {
-            html5QrcodeScannerRef.current.resume();
-          } catch (e) {
-            // Si falla resume, reiniciar completamente
-            setEscaneando(false);
-            setTimeout(() => setEscaneando(true), 100);
-          }
-        }
-      } else {
-        // Respuesta sin datos - producto no encontrado
-        throw new Error("Producto no encontrado");
-      }
-    } catch (error) {
-      // No se encontró en stock - preguntar si quiere agregar
-      const quiereAgregar = await showConfirmAlert(
-        "Producto no encontrado",
-        `El código "${codigo}" no está en tu stock. ¿Deseas agregar un nuevo producto?`,
-        "Sí, agregar",
-        "Cancelar",
-      );
-
-      if (quiereAgregar) {
-        // Detener escáner al agregar producto
-        if (html5QrcodeScannerRef.current) {
-          try {
-            await html5QrcodeScannerRef.current.stop();
-          } catch (e) {}
-        }
-        setModoAgregar(true);
-        setCodigoEscaneado(codigo);
-        setNuevoProducto({
-          nombre: "",
-          cantidad: 1,
-          precioCosto: "",
-          precioVenta: "",
-          categoria: "General",
-        });
-      } else {
-        // Reanudar escáner si cancela
-        if (html5QrcodeScannerRef.current) {
-          setTimeout(() => {
-            try {
-              html5QrcodeScannerRef.current?.resume();
-            } catch (e) {}
-          }, 500);
-        }
-      }
-    }
-  };
-
   // Agregar producto al stock
   const agregarProducto = async () => {
     if (!nuevoProducto.nombre.trim()) {
@@ -792,7 +1044,13 @@ export default function EscanerStock() {
         precioVenta: parseFloat(nuevoProducto.precioVenta),
         codigoBarras: codigoEscaneado || null,
         categoria: nuevoProducto.categoria,
+        ubicacion: nuevoProducto.ubicacion || null,
         imagen: nuevoProducto.imagen || null,
+        esGranel: nuevoProducto.esGranel,
+        unidadMedida: nuevoProducto.unidadMedida,
+        precioUnidad: nuevoProducto.esGranel
+          ? parseFloat(nuevoProducto.precioVenta)
+          : null,
         registrarCompra: nuevoProducto.precioCosto ? true : false,
       };
       const response = await stockService.agregarProducto(datosProducto);
@@ -886,6 +1144,146 @@ export default function EscanerStock() {
     // Inicializar audio (requiere interacción del usuario en móviles)
     await inicializarAudio();
     await buscarProducto(codigoManual.trim().toUpperCase());
+  };
+
+  // Buscar productos por término (para seleccionar producto destino)
+  const buscarProductosPorTermino = async (termino) => {
+    setTerminoBusqueda(termino);
+    if (termino.trim().length < 2) {
+      setResultadosBusqueda([]);
+      return;
+    }
+
+    setBuscandoProductos(true);
+    try {
+      const response = await stockService.buscarProductos(termino);
+      if (response.success) {
+        setResultadosBusqueda(response.data || []);
+      }
+    } catch (error) {
+      console.error("Error al buscar productos:", error);
+      setResultadosBusqueda([]);
+    } finally {
+      setBuscandoProductos(false);
+    }
+  };
+
+  // Seleccionar producto para agregar stock
+  const seleccionarProductoParaStock = async (producto) => {
+    setProductoSeleccionado(producto);
+    setCodigosEscaneadosStock([]);
+    setModoBuscarProducto(false);
+    setTerminoBusqueda("");
+    setResultadosBusqueda([]);
+
+    // Detener escáner actual si está activo
+    if (html5QrcodeScannerRef.current) {
+      try {
+        await html5QrcodeScannerRef.current.stop();
+      } catch (e) { }
+    }
+
+    showToast(
+      "success",
+      `Producto seleccionado: ${producto.nombre}. Ahora escanea los códigos de barras para agregar al stock.`,
+    );
+
+    // Reiniciar escáner para empezar a escanear códigos
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
+    }
+  };
+
+  // Cancelar modo buscar producto
+  const cancelarModoBuscarProducto = () => {
+    setModoBuscarProducto(false);
+    setTerminoBusqueda("");
+    setResultadosBusqueda([]);
+    setBuscandoProductos(false);
+  };
+
+  // Cancelar modo agregar stock múltiple
+  const cancelarAgregarStockMultiple = () => {
+    setProductoSeleccionado(null);
+    setCodigosEscaneadosStock([]);
+
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
+    }
+  };
+
+  // Finalizar agregar stock múltiple
+  const finalizarAgregarStockMultiple = async () => {
+    if (codigosEscaneadosStock.length === 0) {
+      showToast("warning", "No has escaneado ningún código");
+      return;
+    }
+
+    const totalUnidades = codigosEscaneadosStock.reduce(
+      (sum, item) => sum + item.cantidad,
+      0,
+    );
+
+    const confirmado = await showConfirmAlert(
+      "Confirmar agregar stock",
+      `¿Agregar ${codigosEscaneadosStock.length} código(s) con ${totalUnidades} unidades al stock de "${productoSeleccionado.nombre}"?\n\nStock actual: ${productoSeleccionado.cantidad}\nSe agregarán: ${totalUnidades} unidades`,
+      "Sí, agregar",
+      "Cancelar",
+    );
+
+    if (!confirmado) return;
+
+    setProcesando(true);
+    let exitosos = 0;
+    let fallidos = 0;
+
+    for (const item of codigosEscaneadosStock) {
+      try {
+        const response = await stockService.agregarStockPorCodigo(
+          productoSeleccionado.codigoBarras || productoSeleccionado.codigo,
+          item.cantidad,
+          null,
+        );
+        if (response.success) {
+          exitosos++;
+        } else {
+          fallidos++;
+        }
+      } catch (error) {
+        console.error(`Error al agregar código ${item.codigo}:`, error);
+        fallidos++;
+      }
+    }
+
+    // Emitir evento para actualizar stock
+    window.dispatchEvent(new CustomEvent("stock:producto_actualizado"));
+
+    setProcesando(false);
+
+    if (fallidos === 0) {
+      await showSuccessAlert(
+        "¡Stock agregado!",
+        `${exitosos} código(s) agregados al stock de ${productoSeleccionado.nombre}`,
+      );
+    } else {
+      showToast("warning", `${exitosos} agregados, ${fallidos} fallaron`);
+    }
+
+    setProductoSeleccionado(null);
+    setCodigosEscaneadosStock([]);
+
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
+    }
   };
 
   // Descontar del stock
@@ -1159,6 +1557,9 @@ export default function EscanerStock() {
     setProductoEscaneado(null);
     setCantidad(1);
     setCodigoManual("");
+    setModoAgregarStock(false);
+    setCantidadAgregarStock(1);
+    setPrecioCostoAgregar("");
 
     // El escáner fue detenido, reiniciar si no estamos en modo manual
     if (!modoManual) {
@@ -1167,6 +1568,71 @@ export default function EscanerStock() {
       setTimeout(() => {
         setEscaneando(true);
       }, 100);
+    }
+  };
+
+  // Agregar stock a producto existente
+  const agregarStockExistente = async () => {
+    if (!productoEscaneado) return;
+
+    if (cantidadAgregarStock < 1) {
+      showToast("warning", "La cantidad debe ser al menos 1");
+      return;
+    }
+
+    setProcesando(true);
+    try {
+      const response = await stockService.agregarStockPorCodigo(
+        productoEscaneado.codigo,
+        cantidadAgregarStock,
+        precioCostoAgregar || null,
+      );
+
+      if (response.success) {
+        // Emitir evento para que otras páginas actualicen
+        window.dispatchEvent(
+          new CustomEvent("stock:producto_actualizado", {
+            detail: { producto: response.data },
+          }),
+        );
+
+        // Emitir evento para contabilidad si hay costo
+        if (precioCostoAgregar) {
+          window.dispatchEvent(
+            new CustomEvent("contabilidad:movimiento_creado"),
+          );
+        }
+
+        await showSuccessAlert(
+          "¡Stock agregado!",
+          `${cantidadAgregarStock}x ${productoEscaneado.nombre}
+Nuevo stock: ${response.data.cantidadTotal}`,
+        );
+
+        // Limpiar y reiniciar
+        setModoAgregarStock(false);
+        setCantidadAgregarStock(1);
+        setPrecioCostoAgregar("");
+        setProductoEscaneado(null);
+        setCantidad(1);
+
+        // Reiniciar escáner si no estamos en modo manual
+        if (!modoManual) {
+          setEscaneando(false);
+          setTimeout(() => {
+            setEscaneando(true);
+          }, 100);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error al agregar stock:", error);
+      const mensaje =
+        error.response?.data?.message ||
+        error.message ||
+        "Error al agregar stock";
+      showToast("error", mensaje);
+    } finally {
+      setProcesando(false);
     }
   };
 
@@ -1229,31 +1695,52 @@ export default function EscanerStock() {
         </div>
 
         {/* Botón de consulta de precios */}
-        {!productoEscaneado && !modoAgregar && !productoConsultado && (
-          <button
-            onClick={() => {
-              setModoConsulta(!modoConsulta);
-              if (!modoConsulta) {
-                showToast("info", "Escanea un producto para ver sus precios");
-              }
-            }}
-            className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-              modoConsulta
+        {!productoEscaneado &&
+          !modoAgregar &&
+          !productoConsultado &&
+          !productoSeleccionado && (
+            <button
+              onClick={() => {
+                setModoConsulta(!modoConsulta);
+                if (!modoConsulta) {
+                  showToast("info", "Escanea un producto para ver sus precios");
+                }
+              }}
+              className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${modoConsulta
                 ? "bg-purple-600 text-white shadow-lg shadow-purple-200"
                 : "bg-purple-50 text-purple-700 border-2 border-purple-200 hover:bg-purple-100"
-            }`}
-          >
-            🔍 {modoConsulta ? "Modo Consulta ACTIVO" : "Consultar Precios"}
-            {modoConsulta && (
-              <span className="text-xs bg-white/20 px-2 py-1 rounded">
-                Toca aquí para desactivar
+                }`}
+            >
+              🔍 {modoConsulta ? "Modo Consulta ACTIVO" : "Consultar Precios"}
+              {modoConsulta && (
+                <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                  Toca aquí para desactivar
+                </span>
+              )}
+            </button>
+          )}
+
+        {/* Botón para buscar producto y agregar stock */}
+        {!productoEscaneado &&
+          !modoAgregar &&
+          !productoConsultado &&
+          !productoSeleccionado && (
+            <button
+              onClick={() => {
+                setModoBuscarProducto(true);
+                showToast("info", "Busca un producto para agregarle stock");
+              }}
+              className="w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 bg-amber-50 text-amber-700 border-2 border-amber-200 hover:bg-amber-100"
+            >
+              📦 Agregar Stock a Producto Existente
+              <span className="text-xs bg-amber-200 px-2 py-1 rounded">
+                Nuevo
               </span>
-            )}
-          </button>
-        )}
+            </button>
+          )}
 
         {/* Selector de modo - oculto cuando hay producto o modo agregar */}
-        {!productoEscaneado && !modoAgregar && !productoConsultado && (
+        {!productoEscaneado && !modoAgregar && !modoAsociar && !productoConsultado && (
           <div className="card">
             <div className="flex gap-2">
               <button
@@ -1261,11 +1748,10 @@ export default function EscanerStock() {
                   setModoManual(false);
                   if (!escaneando) iniciarEscaner();
                 }}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                  !modoManual
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${!modoManual
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
               >
                 📷 Cámara
               </button>
@@ -1274,13 +1760,132 @@ export default function EscanerStock() {
                   setModoManual(true);
                   detenerEscaner();
                 }}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                  modoManual
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${modoManual
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
               >
                 ⌨️ Manual
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal para asociar código a producto existente */}
+        {modoAsociar && (
+          <div className="card border-2 border-blue-500 bg-gradient-to-br from-blue-50 to-white dark:from-blue-900/20 dark:to-gray-800">
+            <div className="text-center mb-4">
+              <span className="text-4xl mb-2 block">🔗</span>
+              <h3 className="text-lg font-bold text-blue-800 dark:text-blue-300">
+                Asociar Código Alternativo
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Código: <span className="font-mono font-bold">{codigoParaAsociar}</span>
+              </p>
+            </div>
+
+            {/* Búsqueda de productos */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Buscar producto en tu stock:
+              </label>
+              <input
+                type="text"
+                value={busquedaAsociar}
+                onChange={(e) => buscarProductosParaAsociar(e.target.value)}
+                placeholder="Escribe el nombre del producto..."
+                className="input-field w-full"
+                autoFocus
+              />
+            </div>
+
+            {/* Lista de productos encontrados */}
+            {buscandoParaAsociar && (
+              <div className="text-center py-4 text-gray-500">
+                <span className="animate-spin inline-block mr-2">⏳</span>
+                Buscando...
+              </div>
+            )}
+
+            {!buscandoParaAsociar && productosParaAsociar.length > 0 && (
+              <div className="max-h-48 overflow-y-auto space-y-2 mb-4">
+                {productosParaAsociar.map((prod) => (
+                  <button
+                    key={prod.id || prod.nombre}
+                    onClick={() => setProductoParaAsociar(prod)}
+                    className={`w-full p-3 rounded-lg text-left transition-colors ${productoParaAsociar?.nombre === prod.nombre
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                  >
+                    <div className="font-medium">{prod.nombre}</div>
+                    <div className="text-xs opacity-75">
+                      Stock: {prod.cantidad} | ${formatNumber(prod.precio)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!buscandoParaAsociar && busquedaAsociar.length >= 2 && productosParaAsociar.length === 0 && (
+              <div className="text-center py-4 text-gray-500">
+                No se encontraron productos
+              </div>
+            )}
+
+            {/* Producto seleccionado */}
+            {productoParaAsociar && (
+              <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg mb-4">
+                <p className="font-bold text-green-800 dark:text-green-300">
+                  ✓ {productoParaAsociar.nombre}
+                </p>
+
+                {/* Cantidad a agregar */}
+                <div className="mt-3">
+                  <label className="block text-sm text-green-700 dark:text-green-300 mb-1">
+                    ¿Cuántas unidades agregar al stock?
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCantidadAsociar(Math.max(0, cantidadAsociar - 1))}
+                      className="btn-secondary px-3 py-1"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={cantidadAsociar}
+                      onChange={(e) => setCantidadAsociar(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="input-field w-20 text-center"
+                      min="0"
+                    />
+                    <button
+                      onClick={() => setCantidadAsociar(cantidadAsociar + 1)}
+                      className="btn-secondary px-3 py-1"
+                    >
+                      +
+                    </button>
+                    <span className="text-sm text-gray-500">(opcional)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botones de acción */}
+            <div className="flex gap-3">
+              <button
+                onClick={cancelarAsociar}
+                className="flex-1 btn-secondary"
+                disabled={procesando}
+              >
+                ❌ Cancelar
+              </button>
+              <button
+                onClick={confirmarAsociacion}
+                className="flex-1 btn-primary bg-blue-600 hover:bg-blue-700"
+                disabled={!productoParaAsociar || procesando}
+              >
+                {procesando ? "⏳ Procesando..." : "✓ Confirmar asociación"}
               </button>
             </div>
           </div>
@@ -1290,6 +1895,7 @@ export default function EscanerStock() {
         {!modoManual &&
           !productoEscaneado &&
           !modoAgregar &&
+          !modoAsociar &&
           !productoConsultado && (
             <div className="card">
               {errorCamara ? (
@@ -1459,11 +2065,10 @@ export default function EscanerStock() {
                         </div>
                         <button
                           onClick={toggleLinterna}
-                          className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                            linternaActiva
-                              ? "bg-yellow-500 text-white shadow-lg shadow-yellow-300"
-                              : "bg-white border-2 border-yellow-400 text-yellow-700 hover:bg-yellow-100"
-                          }`}
+                          className={`px-4 py-2 rounded-lg font-bold transition-all ${linternaActiva
+                            ? "bg-yellow-500 text-white shadow-lg shadow-yellow-300"
+                            : "bg-white border-2 border-yellow-400 text-yellow-700 hover:bg-yellow-100"
+                            }`}
                         >
                           {linternaActiva ? "💡 Encendida" : "Encender"}
                         </button>
@@ -1484,22 +2089,20 @@ export default function EscanerStock() {
                       </div>
                       <button
                         onClick={toggleOCR}
-                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                          ocrActivo
-                            ? "bg-purple-600 text-white animate-pulse"
-                            : "bg-white border-2 border-purple-400 text-purple-700 hover:bg-purple-100"
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-bold transition-all ${ocrActivo
+                          ? "bg-purple-600 text-white animate-pulse"
+                          : "bg-white border-2 border-purple-400 text-purple-700 hover:bg-purple-100"
+                          }`}
                       >
                         {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
                       </button>
                     </div>
                     {ocrStatus && (
                       <div
-                        className={`text-center py-2 px-3 rounded-lg mt-2 ${
-                          ocrStatus.includes("Encontrado")
-                            ? "bg-green-100 text-green-700"
-                            : "bg-purple-100 text-purple-700"
-                        }`}
+                        className={`text-center py-2 px-3 rounded-lg mt-2 ${ocrStatus.includes("Encontrado")
+                          ? "bg-green-100 text-green-700"
+                          : "bg-purple-100 text-purple-700"
+                          }`}
                       >
                         <span className="text-sm font-medium">{ocrStatus}</span>
                       </div>
@@ -1546,6 +2149,7 @@ export default function EscanerStock() {
         {modoManual &&
           !productoEscaneado &&
           !modoAgregar &&
+          !modoAsociar &&
           !productoConsultado && (
             <div className="card">
               <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
@@ -1641,12 +2245,11 @@ export default function EscanerStock() {
                       </p>
                     </div>
                     <p
-                      className={`text-2xl font-bold ${
-                        productoConsultado.precio - productoConsultado.costo >=
+                      className={`text-2xl font-bold ${productoConsultado.precio - productoConsultado.costo >=
                         0
-                          ? "text-blue-600 dark:text-blue-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-red-600 dark:text-red-400"
+                        }`}
                     >
                       $
                       {formatNumber(
@@ -1861,40 +2464,164 @@ export default function EscanerStock() {
               </p>
             </div>
 
-            {/* Botones de acción */}
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-3">
+            {/* Botones de acción - Modo VENTA (por defecto) */}
+            {!modoAgregarStock ? (
+              <div className="flex flex-col gap-2">
+                {/* Botón para cambiar a modo AGREGAR STOCK */}
                 <button
-                  onClick={cancelarEscaneo}
-                  disabled={procesando}
-                  className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                  onClick={() => {
+                    setModoAgregarStock(true);
+                    setCantidadAgregarStock(1);
+                    setPrecioCostoAgregar("");
+                  }}
+                  className="w-full py-3 px-4 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-semibold flex items-center justify-center gap-2"
                 >
-                  ❌ Cancelar
+                  📦 Agregar más stock (+)
                 </button>
-                <button
-                  onClick={agregarAlCarrito}
-                  disabled={procesando}
-                  className="flex-1 py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  🛒 Agregar al carrito
-                </button>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelarEscaneo}
+                    disabled={procesando}
+                    className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                  >
+                    ❌ Cancelar
+                  </button>
+                  <button
+                    onClick={agregarAlCarrito}
+                    disabled={procesando}
+                    className="flex-1 py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    🛒 Agregar al carrito
+                  </button>
+                </div>
+                {carritoVentas.length === 0 && (
+                  <button
+                    onClick={descontarProducto}
+                    disabled={procesando}
+                    className="w-full py-3 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {procesando ? (
+                      <>
+                        <span className="animate-spin">⏳</span> Procesando...
+                      </>
+                    ) : (
+                      <>&#10003; Vender directamente</>
+                    )}
+                  </button>
+                )}
               </div>
-              {carritoVentas.length === 0 && (
-                <button
-                  onClick={descontarProducto}
-                  disabled={procesando}
-                  className="w-full py-3 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {procesando ? (
-                    <>
-                      <span className="animate-spin">⏳</span> Procesando...
-                    </>
-                  ) : (
-                    <>✓ Vender directamente</>
-                  )}
-                </button>
-              )}
-            </div>
+            ) : (
+              /* Modo AGREGAR STOCK */
+              <div className="flex flex-col gap-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <h4 className="font-bold text-amber-800 mb-2">
+                    📦 Agregar Stock
+                  </h4>
+                  <p className="text-sm text-amber-700">
+                    Estás agregando más unidades a:{" "}
+                    <strong>{productoEscaneado.nombre}</strong>
+                  </p>
+                  <p className="text-sm text-amber-600 mt-1">
+                    Stock actual: {productoEscaneado.cantidadDisponible}{" "}
+                    unidades
+                  </p>
+                </div>
+
+                {/* Selector de cantidad a agregar */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cantidad a agregar
+                  </label>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() =>
+                        setCantidadAgregarStock(
+                          Math.max(1, cantidadAgregarStock - 1),
+                        )
+                      }
+                      className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 text-xl font-bold hover:bg-amber-200 transition-colors"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      value={cantidadAgregarStock}
+                      onChange={(e) =>
+                        setCantidadAgregarStock(
+                          Math.max(1, parseInt(e.target.value) || 1),
+                        )
+                      }
+                      className="w-20 text-center text-2xl font-bold border-2 border-amber-300 rounded-lg py-2"
+                    />
+                    <button
+                      onClick={() =>
+                        setCantidadAgregarStock(cantidadAgregarStock + 1)
+                      }
+                      className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 text-xl font-bold hover:bg-amber-200 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Precio de costo (opcional) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Precio de costo (opcional)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="$0.00"
+                    value={precioCostoAgregar}
+                    onChange={(e) => setPrecioCostoAgregar(e.target.value)}
+                    className="w-full text-center border-2 border-gray-200 rounded-lg py-2 px-3"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Se registrará como egreso en contabilidad
+                  </p>
+                </div>
+
+                {/* Resumen */}
+                <div className="bg-amber-100 rounded-xl p-4 text-center">
+                  <p className="text-sm text-amber-800">Nuevo stock</p>
+                  <p className="text-3xl font-bold text-amber-700">
+                    {productoEscaneado.cantidadDisponible +
+                      cantidadAgregarStock}{" "}
+                    unidades
+                  </p>
+                </div>
+
+                {/* Botones */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setModoAgregarStock(false);
+                      setCantidadAgregarStock(1);
+                      setPrecioCostoAgregar("");
+                    }}
+                    disabled={procesando}
+                    className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                  >
+                    ❌ Cancelar
+                  </button>
+                  <button
+                    onClick={agregarStockExistente}
+                    disabled={procesando}
+                    className="flex-1 py-3 px-4 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {procesando ? (
+                      <>
+                        <span className="animate-spin">⏳</span> Procesando...
+                      </>
+                    ) : (
+                      <>&#10133; Agregar Stock</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2127,6 +2854,54 @@ export default function EscanerStock() {
                 )}
               </div>
 
+              {/* Configuración Granel */}
+              <div>
+                <label className="flex items-center space-x-3 p-3 border rounded-lg bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={nuevoProducto.esGranel}
+                    onChange={(e) =>
+                      setNuevoProducto((prev) => ({
+                        ...prev,
+                        esGranel: e.target.checked,
+                        unidadMedida: e.target.checked ? "kg" : "unidad",
+                      }))
+                    }
+                    className="w-5 h-5 text-orange-600 rounded focus:ring-orange-500"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-800">
+                      ⚖️ Venta a granel (por peso)
+                    </span>
+                    <p className="text-xs text-gray-500">
+                      Activa esta opción para productos que se venden por kilo
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {nuevoProducto.esGranel && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unidad de Medida
+                  </label>
+                  <select
+                    value={nuevoProducto.unidadMedida}
+                    onChange={(e) =>
+                      setNuevoProducto((prev) => ({
+                        ...prev,
+                        unidadMedida: e.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                  >
+                    <option value="kg">Kilogramos (kg)</option>
+                    <option value="g">Gramos (g)</option>
+                    <option value="L">Litros (L)</option>
+                  </select>
+                </div>
+              )}
+
               {/* Nombre del producto */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2266,10 +3041,12 @@ export default function EscanerStock() {
                 />
                 {nuevoProducto.imagen && (
                   <div className="mt-2 flex justify-center">
-                    <img
+                    <Image
                       src={nuevoProducto.imagen}
                       alt="Preview"
-                      className="h-20 w-20 object-cover rounded-lg border"
+                      width={80}
+                      height={80}
+                      className="object-cover rounded-lg border"
                       onError={(e) => (e.target.style.display = "none")}
                     />
                   </div>
@@ -2299,6 +3076,352 @@ export default function EscanerStock() {
                   <>➕ Agregar al Stock</>
                 )}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Formulario para buscar producto y agregar stock */}
+        {modoBuscarProducto && (
+          <div className="card border-2 border-amber-400">
+            <div className="text-center mb-4">
+              <span className="text-4xl mb-2 block">📦</span>
+              <h3 className="text-lg font-bold text-gray-800">
+                Buscar Producto para Agregar Stock
+              </h3>
+              <p className="text-sm text-gray-500">
+                Busca un producto y luego escanea códigos para agregar al stock
+              </p>
+            </div>
+
+            {/* Campo de búsqueda */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                🔍 Buscar por nombre
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ej: Coca Cola, Leche..."
+                  value={terminoBusqueda}
+                  onChange={(e) => buscarProductosPorTermino(e.target.value)}
+                  className="input-field flex-1"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Resultados de búsqueda */}
+            {buscandoProductos ? (
+              <div className="text-center py-4">
+                <span className="animate-spin text-2xl">⏳</span>
+                <p className="text-sm text-gray-500 mt-2">Buscando...</p>
+              </div>
+            ) : resultadosBusqueda.length > 0 ? (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {resultadosBusqueda.map((producto) => (
+                  <button
+                    key={producto.id}
+                    onClick={() => seleccionarProductoParaStock(producto)}
+                    className="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors text-left"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-gray-800">
+                          {producto.nombre}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Stock actual: {producto.cantidad} | Precio: $
+                          {formatNumber(producto.precio)}
+                        </p>
+                      </div>
+                      <span className="text-lg">➡️</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : terminoBusqueda.length >= 2 ? (
+              <p className="text-center text-gray-500 py-4">
+                No se encontraron productos
+              </p>
+            ) : null}
+
+            {/* Botón cancelar */}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={cancelarModoBuscarProducto}
+                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modo agregar stock múltiple - producto seleccionado */}
+        {productoSeleccionado && (
+          <div className="card border-2 border-green-500">
+            <div className="text-center mb-4">
+              <span className="text-4xl mb-2 block">📦</span>
+              <h3 className="text-lg font-bold text-green-800">
+                Agregando al Stock
+              </h3>
+            </div>
+
+            {/* Producto destino */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-green-700 font-medium">
+                Producto destino:
+              </p>
+              <p className="text-xl font-bold text-gray-800">
+                {productoSeleccionado.nombre}
+              </p>
+              <p className="text-sm text-gray-500">
+                Stock actual: {productoSeleccionado.cantidad} unidades
+              </p>
+            </div>
+
+            {/* Códigos escaneados */}
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Códigos escaneados: {codigosEscaneadosStock.length}
+              </p>
+              {codigosEscaneadosStock.length > 0 ? (
+                <div className="bg-gray-100 rounded-lg p-3 max-h-40 overflow-y-auto">
+                  <div className="flex flex-wrap gap-2">
+                    {codigosEscaneadosStock.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center bg-white border border-gray-300 rounded px-2 py-1"
+                      >
+                        <span className="text-sm font-mono truncate max-w-[150px]">
+                          {item.codigo}
+                        </span>
+                        <span className="text-sm font-bold text-green-600">
+                          x{item.cantidad}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                  Escanea los códigos de barras de los productos que deseas
+                  agregar
+                </p>
+              )}
+            </div>
+
+            {/* Selector de cantidad para código temporal */}
+            {codigoTemporal && (
+              <div className="bg-amber-100 border-2 border-amber-400 rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-amber-800 mb-2">
+                  Código: {codigoTemporal}
+                </p>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cantidad a agregar
+                </label>
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={() =>
+                      setCantidadTemporal(Math.max(1, cantidadTemporal - 1))
+                    }
+                    className="w-10 h-10 rounded-full bg-amber-200 text-amber-800 text-xl font-bold hover:bg-amber-300 transition-colors"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={cantidadTemporal}
+                    onChange={(e) =>
+                      setCantidadTemporal(
+                        Math.max(1, parseInt(e.target.value) || 1),
+                      )
+                    }
+                    className="w-20 text-center text-2xl font-bold border-2 border-amber-400 rounded-lg py-2"
+                  />
+                  <button
+                    onClick={() => setCantidadTemporal(cantidadTemporal + 1)}
+                    className="w-10 h-10 rounded-full bg-amber-200 text-amber-800 text-xl font-bold hover:bg-amber-300 transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Resumen */}
+            <div className="bg-green-100 rounded-xl p-4 text-center mb-4">
+              <p className="text-sm text-green-800">Stock futuro estimado</p>
+              <p className="text-3xl font-bold text-green-700">
+                {productoSeleccionado.cantidad +
+                  codigosEscaneadosStock.reduce(
+                    (sum, item) => sum + item.cantidad,
+                    0,
+                  )}{" "}
+                unidades
+              </p>
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-3">
+              <button
+                onClick={cancelarAgregarStockMultiple}
+                disabled={procesando}
+                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                ❌ Cancelar
+              </button>
+              <button
+                onClick={finalizarAgregarStockMultiple}
+                disabled={procesando || codigosEscaneadosStock.length === 0}
+                className="flex-1 py-3 px-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {procesando ? (
+                  <>
+                    <span className="animate-spin">⏳</span> Procesando...
+                  </>
+                ) : (
+                  <>✅ Finalizar ({codigosEscaneadosStock.length})</>
+                )}
+              </button>
+            </div>
+
+            {/* Reiniciar escáner */}
+            <div className="mt-4">
+              <p className="text-sm text-gray-500 text-center mb-2">
+                💡 El escáner está activo. Sigue escaneando códigos.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Modal para elegir cantidad */}
+        {mostrarModalCantidad && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+              <div className="text-center mb-6">
+                <span className="text-4xl mb-2 block">📦</span>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                  Elegir Cantidad
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  Producto: {productoSeleccionado?.nombre}
+                </p>
+              </div>
+
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                  Código escaneado:
+                </p>
+                <p className="text-lg font-mono font-bold text-gray-800 dark:text-white">
+                  {codigoTemporal}
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">
+                  ¿Cuántas unidades quieres agregar?
+                </label>
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={() =>
+                      setCantidadTemporal(Math.max(1, cantidadTemporal - 1))
+                    }
+                    className="w-14 h-14 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-2xl font-bold hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={cantidadTemporal}
+                    onChange={(e) =>
+                      setCantidadTemporal(
+                        Math.max(1, parseInt(e.target.value) || 1),
+                      )
+                    }
+                    className="w-28 text-center text-3xl font-bold border-2 border-primary rounded-xl py-3"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => setCantidadTemporal(cantidadTemporal + 1)}
+                    className="w-14 h-14 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-2xl font-bold hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-3">
+                  Se agregarán{" "}
+                  <strong className="text-primary">{cantidadTemporal}</strong>{" "}
+                  unidades
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setMostrarModalCantidad(false);
+                    setCodigoTemporal(null);
+                    setCantidadTemporal(1);
+                    // Reanudar escáner
+                    if (!modoManual && html5QrcodeScannerRef.current) {
+                      try {
+                        html5QrcodeScannerRef.current.resume();
+                      } catch (e) {
+                        setEscaneando(false);
+                        setTimeout(() => setEscaneando(true), 100);
+                      }
+                    }
+                  }}
+                  className="flex-1 py-4 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    const yaEscaneado = codigosEscaneadosStock.find(
+                      (item) => item.codigo === codigoTemporal,
+                    );
+                    if (yaEscaneado) {
+                      showToast("warning", "Código ya agregado");
+                      setMostrarModalCantidad(false);
+                      setCodigoTemporal(null);
+                      setCantidadTemporal(1);
+                      // Reanudar escáner
+                      if (!modoManual && html5QrcodeScannerRef.current) {
+                        try {
+                          html5QrcodeScannerRef.current.resume();
+                        } catch (e) { }
+                      }
+                      return;
+                    }
+                    setCodigosEscaneadosStock((prev) => [
+                      ...prev,
+                      { codigo: codigoTemporal, cantidad: cantidadTemporal },
+                    ]);
+                    showToast(
+                      "success",
+                      `${cantidadTemporal}x ${codigoTemporal} agregado(s)`,
+                    );
+                    setMostrarModalCantidad(false);
+                    setCodigoTemporal(null);
+                    setCantidadTemporal(1);
+                    // Reanudar escáner
+                    if (!modoManual && html5QrcodeScannerRef.current) {
+                      try {
+                        html5QrcodeScannerRef.current.resume();
+                      } catch (e) {
+                        setEscaneando(false);
+                        setTimeout(() => setEscaneando(true), 100);
+                      }
+                    }
+                  }}
+                  className="flex-1 py-4 px-4 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors font-bold text-lg"
+                >
+                  ✅ Agregar
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2347,6 +3470,12 @@ export default function EscanerStock() {
             <li>Apunta la cámara al código de barras del producto</li>
             <li>Selecciona la cantidad a vender</li>
             <li>Confirma la venta para descontar del stock</li>
+            <li className="mt-2">
+              <strong>¿Agregar stock a producto existente?</strong>
+              <br />
+              Usa el botón &quot;📦 Agregar Stock a Producto Existente&quot;
+              para buscar un producto y luego escanear códigos para agregar.
+            </li>
           </ol>
         </div>
       </div>

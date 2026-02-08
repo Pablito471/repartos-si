@@ -14,6 +14,7 @@ const movimientosRoutes = require("./movimientos");
 const stockRoutes = require("./stock");
 const pusherRoutes = require("./pusher");
 const empleadosRoutes = require("./empleados");
+const consolidacionRoutes = require("./consolidacion");
 
 router.use("/auth", authRoutes);
 router.use("/usuarios", usuariosRoutes);
@@ -28,6 +29,7 @@ router.use("/movimientos", movimientosRoutes);
 router.use("/stock", stockRoutes);
 router.use("/pusher", pusherRoutes);
 router.use("/empleados", empleadosRoutes);
+router.use("/consolidacion", consolidacionRoutes);
 
 // Ruta de health check
 router.get("/health", (req, res) => {

@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useDeposito } from "@/context/DepositoContext";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { productosService } from "@/services/api";
+import Swal from "sweetalert2";
 import { showToast, showConfirmAlert, showSuccessAlert } from "@/utils/alerts";
 import { formatNumber } from "@/utils/formatters";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
@@ -52,6 +53,14 @@ export default function EscanerDeposito() {
     ubicacion: "",
     imagen: "",
   });
+
+  // Estados para modo asociar código a producto existente
+  const [modoAsociar, setModoAsociar] = useState(false);
+  const [busquedaProducto, setBusquedaProducto] = useState("");
+  const [productosEncontrados, setProductosEncontrados] = useState([]);
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+  const [cantidadAsociar, setCantidadAsociar] = useState(1);
+  const [buscandoProductos, setBuscandoProductos] = useState(false);
 
   // Orientación del dispositivo
   const [isLandscape, setIsLandscape] = useState(false);
@@ -114,7 +123,7 @@ export default function EscanerDeposito() {
           setTimeout(resolve, 1000); // Timeout de seguridad
         });
       }
-    } catch (err) {}
+    } catch (err) { }
   }, []);
 
   // Función para reproducir sonido de escaneo fuerte (PIP)
@@ -149,7 +158,7 @@ export default function EscanerDeposito() {
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.15);
       return;
-    } catch (e) {}
+    } catch (e) { }
 
     // Método 2: Audio HTML5 precargado
     if (beepAudioRef.current) {
@@ -159,7 +168,7 @@ export default function EscanerDeposito() {
         audio.volume = 1.0;
         await audio.play();
         return;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Método 3: Nuevo elemento Audio
@@ -167,7 +176,7 @@ export default function EscanerDeposito() {
       const audio = new Audio("/beep.wav");
       audio.volume = 1.0;
       await audio.play();
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Detectar cambios de orientación
@@ -270,7 +279,7 @@ export default function EscanerDeposito() {
         if (html5QrcodeScannerRef.current) {
           try {
             await html5QrcodeScannerRef.current.stop();
-          } catch (e) {}
+          } catch (e) { }
         }
 
         const isDesktop =
@@ -337,7 +346,7 @@ export default function EscanerDeposito() {
               }
               await buscarProducto(decodedText);
             },
-            (errorMessage) => {},
+            (errorMessage) => { },
           );
 
           // Configurar zoom y enfoque
@@ -406,7 +415,7 @@ export default function EscanerDeposito() {
         await track.applyConstraints({ advanced: [{ zoom: nuevoZoom }] });
         setZoomLevel(nuevoZoom);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Función para encender/apagar linterna
@@ -421,7 +430,7 @@ export default function EscanerDeposito() {
         });
         setLinternaActiva(nuevoEstado);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Inicializar worker de OCR
@@ -524,7 +533,7 @@ export default function EscanerDeposito() {
       } else {
         setOcrStatus("Buscando números...");
       }
-    } catch (err) {}
+    } catch (err) { }
   }, [productoEscaneado, reproducirSonidoEscaneo]);
 
   // Activar/desactivar OCR
@@ -573,13 +582,13 @@ export default function EscanerDeposito() {
           const track = videoElement.srcObject.getVideoTracks()[0];
           await track.applyConstraints({ advanced: [{ torch: false }] });
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (html5QrcodeScannerRef.current) {
       try {
         await html5QrcodeScannerRef.current.stop();
-      } catch (e) {}
+      } catch (e) { }
       html5QrcodeScannerRef.current = null;
     }
     setEscaneando(false);
@@ -608,19 +617,59 @@ export default function EscanerDeposito() {
           if (html5QrcodeScannerRef.current) {
             try {
               await html5QrcodeScannerRef.current.stop();
-            } catch (e) {}
+            } catch (e) { }
           }
           return;
         }
 
         // Si es modo SALIDA, agregar automáticamente al carrito
         if (tipoMovimiento === "salida") {
+          let cantidadAgregar = 1;
+
+          // Si es producto a granel, pedir cantidad
+          if (producto.esGranel) {
+            // Pausar escáner para que el usuario pueda interactuar con el modal
+            if (html5QrcodeScannerRef.current) {
+              html5QrcodeScannerRef.current.pause(true);
+            }
+
+            const { value: cantidadIngresada } = await Swal.fire({
+              title: producto.nombre,
+              text: `Ingrese cantidad en ${producto.unidadMedida === "kg" ? "Kilos" : producto.unidadMedida}`,
+              input: "number",
+              inputValue: 1,
+              inputAttributes: {
+                min: "0.001",
+                step: "0.001",
+              },
+              showCancelButton: true,
+              confirmButtonText: "Agregar al carrito",
+              cancelButtonText: "Cancelar",
+              confirmButtonColor: "#f97316", // Orange
+            });
+
+            if (!cantidadIngresada) {
+              // Si cancela, reanudar escáner y salir
+              if (html5QrcodeScannerRef.current) {
+                try {
+                  html5QrcodeScannerRef.current.resume();
+                } catch (e) {
+                  setEscaneando(false);
+                  setTimeout(() => setEscaneando(true), 100);
+                }
+              }
+              return;
+            }
+
+            cantidadAgregar = parseFloat(cantidadIngresada);
+          }
+
           const enCarrito = carritoSalidas.find(
             (item) => item.codigo === producto.codigo,
           );
           const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
 
-          if (cantidadEnCarrito + 1 > producto.stock) {
+          if (cantidadEnCarrito + cantidadAgregar > producto.stock) {
             showToast(
               "error",
               `Stock insuficiente. Disponible: ${producto.stock}, ya en carrito: ${cantidadEnCarrito}`,
@@ -630,13 +679,13 @@ export default function EscanerDeposito() {
             setCarritoSalidas((prev) =>
               prev.map((item) =>
                 item.codigo === producto.codigo
-                  ? { ...item, cantidad: item.cantidad + 1 }
+                  ? { ...item, cantidad: item.cantidad + cantidadAgregar }
                   : item,
               ),
             );
             showToast(
               "success",
-              `+1 ${producto.nombre} (Total: ${cantidadEnCarrito + 1})`,
+              `+${cantidadAgregar} ${producto.nombre} (Total: ${cantidadEnCarrito + cantidadAgregar})`,
             );
           } else {
             // Agregar nuevo item
@@ -647,12 +696,17 @@ export default function EscanerDeposito() {
                 codigo: producto.codigo,
                 nombre: producto.nombre,
                 precio: producto.precio,
-                cantidad: 1,
+                cantidad: cantidadAgregar,
                 stockDisponible: producto.stock,
                 motivo: "Venta por escáner",
+                esGranel: producto.esGranel,
+                unidadMedida: producto.unidadMedida,
               },
             ]);
-            showToast("success", `${producto.nombre} agregado al carrito`);
+            showToast(
+              "success",
+              `${producto.nombre} agregado (+${cantidadAgregar})`,
+            );
           }
 
           setModoAgregar(false);
@@ -676,7 +730,7 @@ export default function EscanerDeposito() {
           if (html5QrcodeScannerRef.current) {
             try {
               await html5QrcodeScannerRef.current.stop();
-            } catch (e) {}
+            } catch (e) { }
           }
           showToast("success", `Producto encontrado: ${producto.nombre}`);
         }
@@ -684,19 +738,29 @@ export default function EscanerDeposito() {
         throw new Error("Producto no encontrado");
       }
     } catch (error) {
-      const quiereAgregar = await showConfirmAlert(
-        "Producto no encontrado",
-        `El código "${codigo}" no está en tu inventario. ¿Deseas agregar un nuevo producto?`,
-        "Sí, agregar",
-        "Cancelar",
-      );
+      // Detener escáner
+      if (html5QrcodeScannerRef.current) {
+        try {
+          await html5QrcodeScannerRef.current.stop();
+        } catch (e) { }
+      }
 
-      if (quiereAgregar) {
-        if (html5QrcodeScannerRef.current) {
-          try {
-            await html5QrcodeScannerRef.current.stop();
-          } catch (e) {}
-        }
+      // Mostrar opciones: Crear nuevo, Asociar a existente, Cancelar
+      const { value: opcion } = await Swal.fire({
+        title: "Producto no encontrado",
+        html: `<p>El código <strong>"${codigo}"</strong> no está en tu inventario.</p><p>¿Qué deseas hacer?</p>`,
+        icon: "question",
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: "🆕 Crear nuevo",
+        denyButtonText: "🔗 Asociar a existente",
+        cancelButtonText: "Cancelar",
+        confirmButtonColor: "#10B981",
+        denyButtonColor: "#3B82F6",
+      });
+
+      if (opcion === true) {
+        // Crear nuevo producto
         setModoAgregar(true);
         setCodigoEscaneado(codigo);
         setNuevoProducto({
@@ -707,14 +771,28 @@ export default function EscanerDeposito() {
           categoria: "General",
           ubicacion: "",
         });
-      } else {
-        if (html5QrcodeScannerRef.current) {
-          setTimeout(() => {
-            try {
-              html5QrcodeScannerRef.current?.resume();
-            } catch (e) {}
-          }, 500);
+      } else if (opcion === false) {
+        // Asociar a producto existente
+        setModoAsociar(true);
+        setCodigoEscaneado(codigo);
+        setBusquedaProducto("");
+        setProductosEncontrados([]);
+        setProductoSeleccionado(null);
+        setCantidadAsociar(1);
+        // Cargar todos los productos para mostrar
+        try {
+          const response = await productosService.getAll({ activo: true });
+          const productos = response.data || response;
+          setProductosEncontrados(Array.isArray(productos) ? productos : []);
+        } catch (e) {
+          showToast("error", "Error al cargar productos");
         }
+      } else {
+        // Cancelar - reiniciar escáner
+        setEscaneando(false);
+        setTimeout(() => {
+          setEscaneando(true);
+        }, 100);
       }
     }
   };
@@ -750,7 +828,7 @@ export default function EscanerDeposito() {
         // Recargar inventario del contexto
         try {
           await recargarInventario();
-        } catch (e) {}
+        } catch (e) { }
 
         await showSuccessAlert(
           "¡Producto agregado!",
@@ -809,6 +887,94 @@ export default function EscanerDeposito() {
     }
   };
 
+  // Cancelar modo asociar
+  const cancelarAsociar = () => {
+    setModoAsociar(false);
+    setCodigoEscaneado("");
+    setBusquedaProducto("");
+    setProductosEncontrados([]);
+    setProductoSeleccionado(null);
+    setCantidadAsociar(1);
+
+    if (!modoManual) {
+      setEscaneando(false);
+      setTimeout(() => {
+        setEscaneando(true);
+      }, 100);
+    }
+  };
+
+  // Buscar productos para asociar
+  const buscarProductosParaAsociar = async (termino) => {
+    setBusquedaProducto(termino);
+    if (!termino.trim()) {
+      // Mostrar todos los productos
+      try {
+        setBuscandoProductos(true);
+        const response = await productosService.getAll({ activo: true });
+        const productos = response.data || response;
+        setProductosEncontrados(Array.isArray(productos) ? productos : []);
+      } catch (e) {
+        showToast("error", "Error al cargar productos");
+      } finally {
+        setBuscandoProductos(false);
+      }
+      return;
+    }
+
+    // Filtrar productos localmente
+    const terminoLower = termino.toLowerCase();
+    const productosFiltrados = productosEncontrados.filter(
+      (p) =>
+        p.nombre?.toLowerCase().includes(terminoLower) ||
+        p.codigo?.toLowerCase().includes(terminoLower) ||
+        p.categoria?.toLowerCase().includes(terminoLower)
+    );
+    setProductosEncontrados(productosFiltrados.length > 0 ? productosFiltrados : productosEncontrados);
+  };
+
+  // Confirmar asociación de código
+  const confirmarAsociacion = async () => {
+    if (!productoSeleccionado) {
+      showToast("warning", "Selecciona un producto");
+      return;
+    }
+
+    if (cantidadAsociar < 1) {
+      showToast("warning", "La cantidad debe ser al menos 1");
+      return;
+    }
+
+    setProcesando(true);
+    try {
+      const response = await productosService.agregarCodigoAlternativo(
+        productoSeleccionado.id,
+        codigoEscaneado,
+        true, // agregarStock
+        cantidadAsociar
+      );
+
+      // Recargar inventario
+      try {
+        await recargarInventario();
+      } catch (e) { }
+
+      await showSuccessAlert(
+        "¡Código asociado!",
+        `El código "${codigoEscaneado}" fue asociado a ${productoSeleccionado.nombre}.\n+${cantidadAsociar} unidades agregadas.`
+      );
+
+      // Limpiar y volver al escáner
+      cancelarAsociar();
+    } catch (error) {
+      const mensaje =
+        error.response?.data?.message || error.message || "Error al asociar código";
+      showToast("error", mensaje);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   // Buscar código manual
   const buscarCodigoManual = async () => {
     if (!codigoManual.trim()) {
@@ -860,7 +1026,7 @@ export default function EscanerDeposito() {
         // Recargar inventario del contexto
         try {
           await recargarInventario();
-        } catch (e) {}
+        } catch (e) { }
 
         // Emitir evento para actualizar contabilidad
         window.dispatchEvent(new CustomEvent("contabilidad:movimiento_creado"));
@@ -1037,7 +1203,7 @@ export default function EscanerDeposito() {
           item.cantidad,
           "salida",
           item.motivo ||
-            `Venta - ${datosPago.metodoPago === "efectivo" ? "Efectivo" : "Transferencia"}`,
+          `Venta - ${datosPago.metodoPago === "efectivo" ? "Efectivo" : "Transferencia"}`,
         );
 
         if (response.data.success) {
@@ -1059,7 +1225,7 @@ export default function EscanerDeposito() {
     // Recargar inventario
     try {
       await recargarInventario();
-    } catch (e) {}
+    } catch (e) { }
 
     // Emitir evento para actualizar contabilidad
     if (exitosas > 0) {
@@ -1124,7 +1290,7 @@ export default function EscanerDeposito() {
       if (html5QrcodeScannerRef.current) {
         try {
           html5QrcodeScannerRef.current.clear();
-        } catch (e) {}
+        } catch (e) { }
       }
     };
   }, []);
@@ -1162,7 +1328,7 @@ export default function EscanerDeposito() {
         </div>
 
         {/* Botón de consulta de precios */}
-        {!productoEscaneado && !modoAgregar && !productoConsultado && (
+        {!productoEscaneado && !modoAgregar && !modoAsociar && !productoConsultado && (
           <button
             onClick={() => {
               setModoConsulta(!modoConsulta);
@@ -1170,11 +1336,10 @@ export default function EscanerDeposito() {
                 showToast("info", "Escanea un producto para ver sus precios");
               }
             }}
-            className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-              modoConsulta
-                ? "bg-purple-600 text-white shadow-lg shadow-purple-200 dark:shadow-purple-900"
-                : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/50"
-            }`}
+            className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${modoConsulta
+              ? "bg-purple-600 text-white shadow-lg shadow-purple-200 dark:shadow-purple-900"
+              : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+              }`}
           >
             🔍 {modoConsulta ? "Modo Consulta ACTIVO" : "Consultar Precios"}
             {modoConsulta && (
@@ -1194,11 +1359,10 @@ export default function EscanerDeposito() {
                   setModoManual(false);
                   if (!escaneando) iniciarEscaner();
                 }}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                  !modoManual
-                    ? "bg-orange-500 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-                }`}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${!modoManual
+                  ? "bg-orange-500 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                  }`}
               >
                 📷 Cámara
               </button>
@@ -1207,11 +1371,10 @@ export default function EscanerDeposito() {
                   setModoManual(true);
                   detenerEscaner();
                 }}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                  modoManual
-                    ? "bg-orange-500 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-                }`}
+                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${modoManual
+                  ? "bg-orange-500 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                  }`}
               >
                 ⌨️ Manual
               </button>
@@ -1350,11 +1513,10 @@ export default function EscanerDeposito() {
                         </div>
                         <button
                           onClick={toggleLinterna}
-                          className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                            linternaActiva
-                              ? "bg-yellow-500 text-white shadow-lg shadow-yellow-500/50"
-                              : "bg-white dark:bg-gray-800 border-2 border-yellow-400 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100"
-                          }`}
+                          className={`px-4 py-2 rounded-lg font-bold transition-all ${linternaActiva
+                            ? "bg-yellow-500 text-white shadow-lg shadow-yellow-500/50"
+                            : "bg-white dark:bg-gray-800 border-2 border-yellow-400 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100"
+                            }`}
                         >
                           {linternaActiva ? "💡 Encendida" : "🔦 Encender"}
                         </button>
@@ -1375,22 +1537,20 @@ export default function EscanerDeposito() {
                       </div>
                       <button
                         onClick={toggleOCR}
-                        className={`px-4 py-2 rounded-lg font-bold transition-all ${
-                          ocrActivo
-                            ? "bg-purple-600 text-white animate-pulse"
-                            : "bg-white dark:bg-gray-800 border-2 border-purple-400 text-purple-700 dark:text-purple-300 hover:bg-purple-100"
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-bold transition-all ${ocrActivo
+                          ? "bg-purple-600 text-white animate-pulse"
+                          : "bg-white dark:bg-gray-800 border-2 border-purple-400 text-purple-700 dark:text-purple-300 hover:bg-purple-100"
+                          }`}
                       >
                         {ocrActivo ? "⏹️ Detener" : "▶️ Activar"}
                       </button>
                     </div>
                     {ocrStatus && (
                       <div
-                        className={`text-center py-2 px-3 rounded-lg mt-2 ${
-                          ocrStatus.includes("Encontrado")
-                            ? "bg-green-100 text-green-700"
-                            : "bg-purple-100 text-purple-700"
-                        }`}
+                        className={`text-center py-2 px-3 rounded-lg mt-2 ${ocrStatus.includes("Encontrado")
+                          ? "bg-green-100 text-green-700"
+                          : "bg-purple-100 text-purple-700"
+                          }`}
                       >
                         <span className="text-sm font-medium">{ocrStatus}</span>
                       </div>
@@ -1508,13 +1668,12 @@ export default function EscanerDeposito() {
                         </p>
                       </div>
                       <p
-                        className={`text-2xl font-bold ${
-                          productoConsultado.precio -
-                            productoConsultado.costo >=
+                        className={`text-2xl font-bold ${productoConsultado.precio -
+                          productoConsultado.costo >=
                           0
-                            ? "text-blue-600 dark:text-blue-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-red-600 dark:text-red-400"
+                          }`}
                       >
                         $
                         {formatNumber(
@@ -1524,11 +1683,11 @@ export default function EscanerDeposito() {
                           (
                           {productoConsultado.costo > 0
                             ? (
-                                ((productoConsultado.precio -
-                                  productoConsultado.costo) /
-                                  productoConsultado.costo) *
-                                100
-                              ).toFixed(0)
+                              ((productoConsultado.precio -
+                                productoConsultado.costo) /
+                                productoConsultado.costo) *
+                              100
+                            ).toFixed(0)
                             : 0}
                           %)
                         </span>
@@ -1648,18 +1807,17 @@ export default function EscanerDeposito() {
                         Ganancia por unidad:
                       </span>
                       <span
-                        className={`text-xl font-bold ${
-                          parseFloat(precioVenta) -
-                            parseFloat(productoEscaneado.costo) >=
+                        className={`text-xl font-bold ${parseFloat(precioVenta) -
+                          parseFloat(productoEscaneado.costo) >=
                           0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
+                          ? "text-green-600"
+                          : "text-red-600"
+                          }`}
                       >
                         $
                         {formatNumber(
                           parseFloat(precioVenta) -
-                            parseFloat(productoEscaneado.costo),
+                          parseFloat(productoEscaneado.costo),
                         )}
                       </span>
                     </div>
@@ -1668,13 +1826,12 @@ export default function EscanerDeposito() {
                         Margen:
                       </span>
                       <span
-                        className={`text-sm font-bold ${
-                          parseFloat(precioVenta) -
-                            parseFloat(productoEscaneado.costo) >=
+                        className={`text-sm font-bold ${parseFloat(precioVenta) -
+                          parseFloat(productoEscaneado.costo) >=
                           0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
+                          ? "text-green-600"
+                          : "text-red-600"
+                          }`}
                       >
                         {(
                           ((parseFloat(precioVenta) -
@@ -1692,19 +1849,18 @@ export default function EscanerDeposito() {
                           Ganancia total ({cantidad} unidades):
                         </span>
                         <span
-                          className={`text-lg font-bold ${
-                            parseFloat(precioVenta) -
-                              parseFloat(productoEscaneado.costo) >=
+                          className={`text-lg font-bold ${parseFloat(precioVenta) -
+                            parseFloat(productoEscaneado.costo) >=
                             0
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
+                            ? "text-green-600"
+                            : "text-red-600"
+                            }`}
                         >
                           $
                           {formatNumber(
                             (parseFloat(precioVenta) -
                               parseFloat(productoEscaneado.costo)) *
-                              cantidad,
+                            cantidad,
                           )}
                         </span>
                       </div>
@@ -1729,21 +1885,19 @@ export default function EscanerDeposito() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setTipoMovimiento("entrada")}
-                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                    tipoMovimiento === "entrada"
-                      ? "bg-green-500 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-                  }`}
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${tipoMovimiento === "entrada"
+                    ? "bg-green-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                    }`}
                 >
                   📥 Entrada
                 </button>
                 <button
                   onClick={() => setTipoMovimiento("salida")}
-                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                    tipoMovimiento === "salida"
-                      ? "bg-red-500 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-                  }`}
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${tipoMovimiento === "salida"
+                    ? "bg-red-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                    }`}
                 >
                   📤 Salida
                 </button>
@@ -1809,21 +1963,19 @@ export default function EscanerDeposito() {
 
             {/* Resumen */}
             <div
-              className={`rounded-xl p-4 mb-4 text-center ${
-                tipoMovimiento === "entrada"
-                  ? "bg-green-100 dark:bg-green-900/30"
-                  : "bg-red-100 dark:bg-red-900/30"
-              }`}
+              className={`rounded-xl p-4 mb-4 text-center ${tipoMovimiento === "entrada"
+                ? "bg-green-100 dark:bg-green-900/30"
+                : "bg-red-100 dark:bg-red-900/30"
+                }`}
             >
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Stock después del movimiento
               </p>
               <p
-                className={`text-3xl font-bold ${
-                  tipoMovimiento === "entrada"
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
+                className={`text-3xl font-bold ${tipoMovimiento === "entrada"
+                  ? "text-green-600"
+                  : "text-red-600"
+                  }`}
               >
                 {tipoMovimiento === "entrada"
                   ? productoEscaneado.stock + cantidad
@@ -2195,6 +2347,155 @@ export default function EscanerDeposito() {
           </div>
         )}
 
+        {/* Modal para asociar código a producto existente */}
+        {modoAsociar && (
+          <div className="card border-2 border-blue-400">
+            <div className="text-center mb-4">
+              <span className="text-4xl mb-2 block">🔗</span>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+                Asociar Código a Producto Existente
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Código: <span className="font-mono font-bold">{codigoEscaneado}</span>
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Buscador de productos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  🔍 Buscar producto
+                </label>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, código o categoría..."
+                  value={busquedaProducto}
+                  onChange={(e) => buscarProductosParaAsociar(e.target.value)}
+                  className="input-field w-full"
+                />
+              </div>
+
+              {/* Lista de productos */}
+              <div className="max-h-60 overflow-y-auto border rounded-lg">
+                {buscandoProductos ? (
+                  <div className="p-4 text-center text-gray-500">
+                    <span className="animate-spin inline-block">⏳</span> Cargando...
+                  </div>
+                ) : productosEncontrados.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No hay productos para mostrar
+                  </div>
+                ) : (
+                  productosEncontrados
+                    .filter((p) => {
+                      if (!busquedaProducto.trim()) return true;
+                      const termino = busquedaProducto.toLowerCase();
+                      return (
+                        p.nombre?.toLowerCase().includes(termino) ||
+                        p.codigo?.toLowerCase().includes(termino) ||
+                        p.categoria?.toLowerCase().includes(termino)
+                      );
+                    })
+                    .slice(0, 50)
+                    .map((producto) => (
+                      <div
+                        key={producto.id}
+                        onClick={() => setProductoSeleccionado(producto)}
+                        className={`p-3 border-b cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 ${productoSeleccionado?.id === producto.id
+                          ? "bg-blue-100 dark:bg-blue-900/50 border-l-4 border-l-blue-500"
+                          : ""
+                          }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-semibold text-gray-800 dark:text-white">
+                              {producto.nombre}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {producto.codigo} | Stock: {producto.stock}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-green-600">
+                              ${formatNumber(producto.precio)}
+                            </div>
+                            {productoSeleccionado?.id === producto.id && (
+                              <span className="text-blue-500">✓ Seleccionado</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {/* Producto seleccionado y cantidad */}
+              {productoSeleccionado && (
+                <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4">
+                  <div className="text-center mb-3">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Producto seleccionado:
+                    </span>
+                    <div className="font-bold text-lg text-blue-600">
+                      {productoSeleccionado.nombre}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      📦 Cantidad a agregar
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setCantidadAsociar(Math.max(1, cantidadAsociar - 1))}
+                        className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 font-bold text-xl"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={cantidadAsociar}
+                        onChange={(e) => setCantidadAsociar(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="input-field text-center text-2xl font-bold w-24"
+                      />
+                      <button
+                        onClick={() => setCantidadAsociar(cantidadAsociar + 1)}
+                        className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 font-bold text-xl"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={cancelarAsociar}
+                disabled={procesando}
+                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+              >
+                ❌ Cancelar
+              </button>
+              <button
+                onClick={confirmarAsociacion}
+                disabled={procesando || !productoSeleccionado}
+                className="flex-1 py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {procesando ? (
+                  <>
+                    <span className="animate-spin">⏳</span> Procesando...
+                  </>
+                ) : (
+                  <>🔗 Asociar y Agregar Stock</>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Historial de movimientos */}
         {historialMovimientos.length > 0 && (
           <div className="card">
@@ -2217,11 +2518,10 @@ export default function EscanerDeposito() {
                   </div>
                   <div className="text-right">
                     <p
-                      className={`font-bold ${
-                        mov.tipo === "entrada"
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
+                      className={`font-bold ${mov.tipo === "entrada"
+                        ? "text-green-600"
+                        : "text-red-600"
+                        }`}
                     >
                       {mov.tipo === "entrada" ? "+" : "-"}
                       {mov.cantidad}

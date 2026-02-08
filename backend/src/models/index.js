@@ -11,6 +11,9 @@ const UsuarioRelacion = require("./UsuarioRelacion");
 const Mensaje = require("./Mensaje");
 const Conversacion = require("./Conversacion");
 const Movimiento = require("./Movimiento");
+const ProductoRelacion = require("./ProductoRelacion");
+const CodigoAlternativo = require("./CodigoAlternativo");
+const CodigoAlternativoCliente = require("./CodigoAlternativoCliente");
 
 // ============ RELACIONES ============
 
@@ -221,6 +224,56 @@ Pedido.hasMany(Movimiento, {
   as: "movimientos",
 });
 
+// Producto -> ProductoRelacion (producto principal)
+Producto.hasMany(ProductoRelacion, {
+  foreignKey: "productoPrincipalId",
+  as: "relacionesPrincipales",
+});
+ProductoRelacion.belongsTo(Producto, {
+  foreignKey: "productoPrincipalId",
+  as: "productoPrincipal",
+});
+
+// Producto -> ProductoRelacion (producto relacionado)
+Producto.hasMany(ProductoRelacion, {
+  foreignKey: "productoRelacionadoId",
+  as: "relacionesRelacionadas",
+});
+ProductoRelacion.belongsTo(Producto, {
+  foreignKey: "productoRelacionadoId",
+  as: "productoRelacionado",
+});
+
+// Usuario (Depósito) -> ProductoRelacion
+Usuario.hasMany(ProductoRelacion, {
+  foreignKey: "depositoId",
+  as: "relacionesProductos",
+});
+ProductoRelacion.belongsTo(Usuario, {
+  foreignKey: "depositoId",
+  as: "deposito",
+});
+
+// Producto -> CodigoAlternativo (códigos de barras alternativos)
+Producto.hasMany(CodigoAlternativo, {
+  foreignKey: "productoId",
+  as: "codigosAlternativos",
+});
+CodigoAlternativo.belongsTo(Producto, {
+  foreignKey: "productoId",
+  as: "producto",
+});
+
+// Usuario (Depósito) -> CodigoAlternativo
+Usuario.hasMany(CodigoAlternativo, {
+  foreignKey: "depositoId",
+  as: "codigosAlternativosDeposito",
+});
+CodigoAlternativo.belongsTo(Usuario, {
+  foreignKey: "depositoId",
+  as: "deposito",
+});
+
 module.exports = {
   sequelize,
   Usuario,
@@ -235,4 +288,8 @@ module.exports = {
   Mensaje,
   Conversacion,
   Movimiento,
+  ProductoRelacion,
+  CodigoAlternativo,
+  CodigoAlternativoCliente,
 };
+
