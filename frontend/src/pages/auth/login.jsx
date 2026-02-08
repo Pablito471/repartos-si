@@ -91,7 +91,7 @@ export default function Login() {
           <Logo size="lg" className="sm:hidden" />
           <Logo size="xl" className="hidden sm:inline-flex" />
           <p className="text-sm sm:text-base text-white/80 dark:text-neutral-400 mt-2 sm:mt-3">
-            Sistema de Gestión de Repartos
+            Sistema de Negocios y Repartos
           </p>
         </div>
 
