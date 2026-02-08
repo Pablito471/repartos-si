@@ -113,11 +113,10 @@ function VideollamadaUI({
           {/* Toggle micrófono */}
           <button
             onClick={onToggleMicrofono}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-              microfonoActivo
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${microfonoActivo
                 ? "bg-neutral-700 hover:bg-neutral-600 text-white"
                 : "bg-red-500 hover:bg-red-600 text-white"
-            }`}
+              }`}
           >
             {microfonoActivo ? (
               <Icons.Microphone className="w-6 h-6" />
@@ -129,11 +128,10 @@ function VideollamadaUI({
           {/* Toggle video */}
           <button
             onClick={onToggleVideo}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-              videoActivo
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${videoActivo
                 ? "bg-neutral-700 hover:bg-neutral-600 text-white"
                 : "bg-red-500 hover:bg-red-600 text-white"
-            }`}
+              }`}
           >
             <Icons.Video className="w-6 h-6" />
           </button>
@@ -321,9 +319,9 @@ export default function ChatWidget() {
 
       {/* Ventana de chat */}
       {abierto && (
-        <div className="fixed bottom-20 right-4 z-50 w-80 sm:w-96 h-[500px] bg-white dark:bg-neutral-800 rounded-lg shadow-2xl flex flex-col overflow-hidden border border-neutral-200 dark:border-neutral-700">
+        <div className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:right-4 z-50 w-full h-[100dvh] sm:w-96 sm:h-[500px] bg-white dark:bg-neutral-800 sm:rounded-lg shadow-2xl flex flex-col overflow-hidden sm:border border-neutral-200 dark:border-neutral-700 transition-all duration-300">
           {/* Header */}
-          <div className="bg-primary-600 text-white px-4 py-3 flex items-center gap-3">
+          <div className="bg-primary-600 text-white px-4 py-3 flex items-center gap-3 shrink-0">
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
               <Icons.Support className="w-5 h-5" />
             </div>
@@ -359,47 +357,44 @@ export default function ChatWidget() {
           </div>
 
           {/* Mensajes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-neutral-50 dark:bg-neutral-900">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-neutral-50 dark:bg-neutral-900 scroll-smooth">
             {cargando ? (
               <div className="flex justify-center items-center h-full">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
               </div>
             ) : mensajes.length === 0 ? (
-              <div className="text-center text-neutral-500 dark:text-neutral-400 py-8">
-                <Icons.Chat className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>¡Hola! ¿En qué podemos ayudarte?</p>
-                <p className="text-sm mt-1">Escribe tu mensaje abajo</p>
+              <div className="text-center text-neutral-500 dark:text-neutral-400 py-8 flex flex-col items-center justify-center h-full">
+                <Icons.Chat className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium">¡Hola!</p>
+                <p className="">¿En qué podemos ayudarte?</p>
               </div>
             ) : (
               mensajes.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex ${
-                    msg.remitenteId === usuario.id
+                  className={`flex ${msg.remitenteId === usuario.id
                       ? "justify-end"
                       : "justify-start"
-                  }`}
+                    }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                      msg.remitenteId === usuario.id
-                        ? "bg-primary-600 text-white"
-                        : "bg-white dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 shadow"
-                    }`}
+                    className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.remitenteId === usuario.id
+                        ? "bg-primary-600 text-white rounded-tr-none"
+                        : "bg-white dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 shadow-sm rounded-tl-none border border-neutral-100 dark:border-neutral-600"
+                      }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">
+                    <p className="whitespace-pre-wrap break-words">
                       {msg.contenido}
                     </p>
                     <div
-                      className={`text-[10px] mt-1 flex items-center gap-1 ${
-                        msg.remitenteId === usuario.id
+                      className={`text-[10px] mt-1 flex items-center gap-1 ${msg.remitenteId === usuario.id
                           ? "text-primary-200 justify-end"
                           : "text-neutral-400"
-                      }`}
+                        }`}
                     >
                       <span>{formatHora(msg.createdAt)}</span>
                       {msg.remitenteId === usuario.id && (
-                        <span className={msg.leido ? "text-sky-400" : ""}>
+                        <span className={msg.leido ? "text-sky-300" : ""}>
                           {msg.leido ? "✓✓" : msg.entregado ? "✓✓" : "✓"}
                         </span>
                       )}
@@ -412,7 +407,7 @@ export default function ChatWidget() {
             {/* Indicador de escribiendo */}
             {escribiendo && escribiendo.usuarioId !== usuario.id && (
               <div className="flex justify-start">
-                <div className="bg-white dark:bg-neutral-700 rounded-lg px-3 py-2 shadow">
+                <div className="bg-white dark:bg-neutral-700 rounded-2xl rounded-tl-none px-4 py-3 shadow border border-neutral-100 dark:border-neutral-600">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce"></span>
                     <span className="w-2 h-2 bg-neutral-400 rounded-full animate-bounce delay-100"></span>
@@ -428,27 +423,27 @@ export default function ChatWidget() {
           {/* Input */}
           <form
             onSubmit={handleEnviar}
-            className="p-3 bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700"
+            className="p-3 bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 shrink-0 pb-safe"
           >
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <input
                 ref={inputRef}
                 type="text"
                 value={mensaje}
                 onChange={handleInputChange}
                 placeholder="Escribe un mensaje..."
-                className="flex-1 px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded-full bg-neutral-50 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex-1 px-4 py-3 text-sm border border-neutral-300 dark:border-neutral-600 rounded-full bg-neutral-50 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-shadow"
                 disabled={!conectado || enviando}
               />
               <button
                 type="submit"
                 disabled={!mensaje.trim() || !conectado || enviando}
-                className="w-10 h-10 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-600 text-white rounded-full flex items-center justify-center transition-colors"
+                className="w-11 h-11 bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-600 text-white rounded-full flex items-center justify-center transition-all transform active:scale-95 shadow-md"
               >
                 {enviando ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                 ) : (
-                  <Icons.Send className="w-5 h-5" />
+                  <Icons.Send className="w-5 h-5 ml-0.5" />
                 )}
               </button>
             </div>

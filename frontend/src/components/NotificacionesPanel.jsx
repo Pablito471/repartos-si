@@ -135,7 +135,7 @@ export default function NotificacionesPanel({ className = "" }) {
       </button>
 
       {abierto && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-[420px] bg-white dark:bg-neutral-800 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden z-50">
+        <div className="absolute right-[-60px] sm:right-0 top-full mt-2 w-[90vw] sm:w-[420px] bg-white dark:bg-neutral-800 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden z-50">
           {/* Header */}
           <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-gradient-to-r from-primary-500 to-primary-600">
             <div className="flex items-center justify-between">
